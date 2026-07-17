@@ -13,6 +13,7 @@ dependencies:
   # ── Autenticación Nativa Oficial (Pub.dev) ──────────────────────────────────
   google_sign_in: ^6.2.1          # Inicio de sesión nativo con cuenta Google (Android/iOS)
   sign_in_with_apple: ^6.1.1      # Inicio de sesión nativo con Apple ID (Soporta FaceID/TouchID en iOS)
+  passkeys: ^2.22.0                # Autenticación FIDO2 / WebAuthn nativa con Secure Enclave / StrongBox
 
   # ── Almacenamiento Seguro (Keychain / Keystore) ─────────────────────────────
   flutter_secure_storage: ^9.2.2  # Almacenamiento cifrado en hardware para JWT (AES / Keychain)
@@ -22,6 +23,9 @@ dependencies:
 
   # ── Gestión de Estado (Riverpod) ────────────────────────────────────────────
   flutter_riverpod: ^2.5.1        # Gestión de estado reactiva, segura ante tipos y modular
+
+  # ── Realtime de vigencia de membresía ───────────────────────────────────────
+  supabase_flutter: ^2.8.0        # Canales PostgreSQL Realtime para desbloqueo instantáneo tras pago en mostrador
 
   # ── Utilidades e Interfaz Gráfica ───────────────────────────────────────────
   dartz: ^0.10.1                  # Programación funcional (Either<Failure, Success>) para Clean Arch
@@ -33,8 +37,10 @@ dependencies:
   url_launcher: ^6.3.0            # Lanzamiento de portal de pagos Stripe y checkout en navegador
   toastification: ^2.3.0          # Toasts dinámicos y fluidos estilo nativo iOS / Dynamic Island
   flutter_local_notifications: ^18.0.1 # Programación y canales nativos de notificación Android/iOS
+  path_provider: ^2.1.5           # Almacenamiento temporal de imágenes para attachments nativos
   firebase_core: ^3.8.0           # Núcleo de Firebase para inicialización nativa en app
   firebase_messaging: ^15.1.6     # Recepción de notificaciones push remotes FCM / APNs
+  watch_connectivity: ^0.2.9
 
 dev_dependencies:
   flutter_test:

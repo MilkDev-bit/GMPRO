@@ -49,7 +49,6 @@ class InteractiveAnatomyMap extends StatefulWidget {
 
 class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
     with TickerProviderStateMixin {
-  late final PageController _pageController;
   late final AnimationController _highlightController;
   late final AnimationController _viewFlipController;
   late final Animation<double> _highlightAnim;
@@ -75,15 +74,11 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex.clamp(0, widget.exercises.length - 1);
-    _pageController = PageController(
-      initialPage: _currentIndex,
-      viewportFraction: 0.85,
-    );
 
     // Animación de pulso muscular (0 → 1 → 0.6 → 0.6, loop)
     _highlightController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1400),
     );
     _highlightAnim = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 30),
@@ -106,8 +101,15 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
   }
 
   @override
+  void didUpdateWidget(InteractiveAnatomyMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex) {
+      _onExerciseChanged(widget.initialIndex.clamp(0, widget.exercises.length - 1));
+    }
+  }
+
+  @override
   void dispose() {
-    _pageController.dispose();
     _highlightController.dispose();
     _viewFlipController.dispose();
     super.dispose();
@@ -140,97 +142,101 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
 
     return SizedBox(
       height: widget.height,
-      child: Stack(
-        children: [
-          // ── FONDO BOKEH GLASSMORPHISM ─────────────────────────────────────
-          _buildGlassBackground(primaryKeys),
+      child: RepaintBoundary(
+        child: Stack(
+          children: [
+            // ── FONDO BOKEH GLASSMORPHISM (Aislado en su capa de pintado) ───
+            _buildGlassBackground(primaryKeys),
 
-          // ── CUERPO ANATÓMICO SVG (CustomPainter) ─────────────────────────
-          Center(
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_highlightAnim, _viewFlipAnim]),
-              builder: (context, _) {
-                return Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateY(math.pi * _viewFlipAnim.value),
-                  child: CustomPaint(
-                    size: const Size(160, 320),
-                    painter: AnatomyBodyPainter(
-                      region: _activeView,
-                      primaryMuscles: primaryKeys,
-                      secondaryMuscles: secondaryKeys,
-                      highlightOpacity: _highlightAnim.value,
+            // ── CUERPO ANATÓMICO SVG (CustomPainter en RepaintBoundary) ─────
+            Center(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_highlightAnim, _viewFlipAnim]),
+                builder: (context, _) {
+                  return Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateY(math.pi * _viewFlipAnim.value),
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        size: const Size(160, 320),
+                        painter: AnatomyBodyPainter(
+                          region: _activeView,
+                          primaryMuscles: primaryKeys,
+                          secondaryMuscles: secondaryKeys,
+                          highlightOpacity: _highlightAnim.value,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // ── CHIPS DE MÚSCULOS (PRIMARIOS arriba, SECUNDARIOS abajo) ──────
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 8,
+              child: _MuscleChipsRow(
+                primaryKeys: primaryKeys,
+                secondaryKeys: secondaryKeys,
+              ),
+            ),
+
+            // ── TOGGLE DE VISTA (Frontal / Posterior) ────────────────────────
+            Positioned(
+              top: 12,
+              right: 12,
+              child: _ViewToggleButton(
+                activeView: _activeView,
+                onToggle: () {
+                  final next = _activeView == BodyRegion.anterior
+                      ? BodyRegion.posterior
+                      : BodyRegion.anterior;
+                  _viewFlipController.forward().then((_) {
+                    setState(() => _activeView = next);
+                    _viewFlipController.reset();
+                  });
+                },
+              ),
+            ),
+
+            // ── HEADER: NOMBRE DEL EJERCICIO ──────────────────────────────────
+            Positioned(
+              top: 12,
+              left: 12,
+              right: 72,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'EJERCICIO ${_currentIndex + 1}/${widget.exercises.length}',
+                    style: GoogleFonts.outfit(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textMuted,
+                      letterSpacing: 1.5,
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-
-          // ── CHIPS DE MÚSCULOS (PRIMARIOS arriba, SECUNDARIOS abajo) ──────
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 8,
-            child: _MuscleChipsRow(
-              primaryKeys: primaryKeys,
-              secondaryKeys: secondaryKeys,
-            ),
-          ),
-
-          // ── TOGGLE DE VISTA (Frontal / Posterior) ────────────────────────
-          Positioned(
-            top: 12,
-            right: 12,
-            child: _ViewToggleButton(
-              activeView: _activeView,
-              onToggle: () {
-                final next = _activeView == BodyRegion.anterior
-                    ? BodyRegion.posterior
-                    : BodyRegion.anterior;
-                _viewFlipController.forward().then((_) {
-                  setState(() => _activeView = next);
-                  _viewFlipController.reset();
-                });
-              },
-            ),
-          ),
-
-          // ── HEADER: NOMBRE DEL EJERCICIO ──────────────────────────────────
-          Positioned(
-            top: 12,
-            left: 12,
-            right: 72,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'EJERCICIO ${_currentIndex + 1}/${widget.exercises.length}',
-                  style: GoogleFonts.outfit(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMuted,
-                    letterSpacing: 1.5,
+                  const SizedBox(height: 3),
+                  Text(
+                    exercise.nombre,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  exercise.nombre,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -243,23 +249,25 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
       if (m != null) glowColor = m.color;
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 600),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF12101F),
-                Color.lerp(const Color(0xFF0A0914), glowColor, 0.06)!,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 600),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF12101F),
+                  Color.lerp(const Color(0xFF0A0914), glowColor, 0.06)!,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.07), width: 1),
+              borderRadius: BorderRadius.circular(28),
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.07), width: 1),
-            borderRadius: BorderRadius.circular(28),
           ),
         ),
       ),
@@ -282,6 +290,29 @@ class AnatomyBodyPainter extends CustomPainter {
   final List<String> primaryMuscles;
   final List<String> secondaryMuscles;
   final double highlightOpacity;
+
+  // ── CACHÉS ESTÁTICAS DE GEOMETRÍA ──────────────────────────────────────────
+  // El CustomPaint se dibuja SIEMPRE en un canvas de tamaño const (160×320), por
+  // lo que la silueta, los paths musculares y el layout de las etiquetas son
+  // INVARIANTES entre frames. Antes se reconstruían en CADA paint() (60–120 fps),
+  // asignando decenas de Path/Paint/TextPainter por frame. Se memoizan una vez.
+  static final Map<BodyRegion, Path> _silhouetteCache = {};
+  static final Map<String, Path> _muscleRegionCache = {};
+  static final Map<String, TextPainter> _labelCache = {};
+
+  // Paints reutilizables (se mutan por dibujo; el pintado es de un solo hilo).
+  static final Paint _silhouetteFill = Paint()
+    ..color = const Color(0x401A1730)
+    ..style = PaintingStyle.fill;
+  static final Paint _silhouetteStroke = Paint()
+    ..color = const Color(0x0FFFFFFF) // blanco ~6% de opacidad
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
+  static final Paint _muscleFill = Paint()..style = PaintingStyle.fill;
+  static final Paint _muscleGlow = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5;
+  static final Paint _labelBg = Paint()..style = PaintingStyle.fill;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -315,16 +346,15 @@ class AnatomyBodyPainter extends CustomPainter {
 
   /// Silueta simplificada del cuerpo humano (frontal o posterior).
   /// Los paths están normalizados para un canvas de 160×320px.
+  /// Memoizada por región: se construye una sola vez, no por frame.
   void _drawBodySilhouette(Canvas canvas, Size size, double sx, double sy) {
-    final paint = Paint()
-      ..color = const Color(0x401A1730)
-      ..style = PaintingStyle.fill;
+    final path = _silhouetteCache[region] ??= _computeSilhouettePath(sx, sy);
+    canvas.drawPath(path, _silhouetteFill);
+    canvas.drawPath(path, _silhouetteStroke);
+  }
 
-    final strokePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.06)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
+  /// Construye (una vez) el Path de la silueta según la región activa.
+  Path _computeSilhouettePath(double sx, double sy) {
     final path = Path();
 
     if (region == BodyRegion.anterior) {
@@ -471,8 +501,7 @@ class AnatomyBodyPainter extends CustomPainter {
         ..close();
     }
 
-    canvas.drawPath(path, paint);
-    canvas.drawPath(path, strokePaint);
+    return path;
   }
 
   /// Dibuja la región coloreada de un músculo específico con glow neón.
@@ -487,22 +516,22 @@ class AnatomyBodyPainter extends CustomPainter {
   ) {
     if (opacity <= 0) return;
 
-    final path = _getMuscleRegionPath(muscleKey, sx, sy);
-    if (path == null) return;
+    // Path memoizado por clave (geometría fija en canvas const). null → sin dibujo.
+    final path = _muscleRegionCache.putIfAbsent(
+      muscleKey,
+      () => _computeMuscleRegionPath(muscleKey, sx, sy) ?? Path(),
+    );
+    if (path.getBounds().isEmpty) return;
 
-    // Relleno sólido translúcido
-    final fillPaint = Paint()
-      ..color = color.withValues(alpha: opacity * 0.6)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(path, fillPaint);
+    // Relleno sólido translúcido (Paint reutilizable, solo se muta el color).
+    _muscleFill.color = color.withValues(alpha: opacity * 0.6);
+    canvas.drawPath(path, _muscleFill);
 
-    // Borde brillante (neon glow effect)
-    final glowPaint = Paint()
+    // Borde brillante (neon glow effect) — Paint reutilizable.
+    _muscleGlow
       ..color = color.withValues(alpha: opacity * 0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3.0 * opacity);
-    canvas.drawPath(path, glowPaint);
+    canvas.drawPath(path, _muscleGlow);
   }
 
   /// Dibuja una etiqueta flotante con el nombre del músculo primario.
@@ -517,41 +546,50 @@ class AnatomyBodyPainter extends CustomPainter {
     final center = _getMuscleCenterOffset(muscleKey, sx, sy);
     if (center == null) return;
 
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: descriptor.label.split(' ').first, // Solo la primera palabra
-        style: TextStyle(
-          fontSize: 8.5,
-          fontWeight: FontWeight.w700,
-          color: descriptor.color.withValues(alpha: highlightOpacity * 0.95),
-          letterSpacing: 0.3,
+    // TextPainter memoizado: el layout (glifos) es fijo; solo la opacidad anima.
+    // Antes se creaba + .layout() en CADA frame por cada músculo primario (caro).
+    final textPainter = _labelCache.putIfAbsent(muscleKey, () {
+      return TextPainter(
+        text: TextSpan(
+          text: descriptor.label.split(' ').first, // Solo la primera palabra
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: FontWeight.w700,
+            color: descriptor.color, // color base; la opacidad se aplica al pintar
+            letterSpacing: 0.3,
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: 70 * sx);
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: 70 * sx);
+    });
+
+    final labelAlpha = (highlightOpacity * 0.95).clamp(0.0, 1.0);
+    if (labelAlpha <= 0) return;
 
     final bgRect = Rect.fromCenter(
       center: center,
       width: textPainter.width + 8,
       height: textPainter.height + 4,
     );
+    final textOffset = center - Offset(textPainter.width / 2, textPainter.height / 2);
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bgRect, const Radius.circular(4)),
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.55)
-        ..style = PaintingStyle.fill,
-    );
+    _labelBg.color = const Color(0x8C000000); // negro @ 55% (la opacidad de fundido va en la capa)
 
-    textPainter.paint(
-      canvas,
-      center - Offset(textPainter.width / 2, textPainter.height / 2),
-    );
+    if (labelAlpha >= 0.99) {
+      canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(4)), _labelBg);
+      textPainter.paint(canvas, textOffset);
+    } else {
+      // Fundido de la etiqueta completa vía capa de opacidad (sin re-layout).
+      canvas.saveLayer(bgRect.inflate(6), Paint()..color = Color.fromRGBO(0, 0, 0, labelAlpha));
+      canvas.drawRRect(RRect.fromRectAndRadius(bgRect, const Radius.circular(4)), _labelBg);
+      textPainter.paint(canvas, textOffset);
+      canvas.restore();
+    }
   }
 
-  /// Retorna el Path de un músculo en el canvas normalizado.
-  /// Los paths se corresponden 1:1 con los svgPathId del catálogo.
-  Path? _getMuscleRegionPath(String key, double sx, double sy) {
+  /// Construye (una vez, luego memoizado) el Path de un músculo en el canvas
+  /// normalizado. Los paths se corresponden 1:1 con los svgPathId del catálogo.
+  Path? _computeMuscleRegionPath(String key, double sx, double sy) {
     final p = Path();
     switch (key) {
       // ── PECTORALES ──────────────────────────────────────────────────────
@@ -897,7 +935,7 @@ class _ViewToggleButton extends StatelessWidget {
             Icon(
               activeView == BodyRegion.anterior
                   ? Icons.person_outlined
-                  : Icons.person_outlined,
+                  : Icons.flip_camera_android_outlined,
               color: AppColors.neonCyan,
               size: 14,
             ),

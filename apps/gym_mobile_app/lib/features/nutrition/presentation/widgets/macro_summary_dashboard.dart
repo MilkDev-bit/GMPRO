@@ -56,10 +56,15 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                const Color(0xFF231D42).withValues(alpha: 0.88),
-                const Color(0xFF100E22).withValues(alpha: 0.96),
-              ],
+              colors: AppColors.isDark(context)
+                  ? [
+                      const Color(0xFF231D42).withValues(alpha: 0.88),
+                      const Color(0xFF100E22).withValues(alpha: 0.96),
+                    ]
+                  : [
+                      AppColors.lightSurface.withValues(alpha: 0.90),
+                      AppColors.lightSurfaceElevated.withValues(alpha: 0.96),
+                    ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -91,7 +96,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                         style: GoogleFonts.outfit(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.neonCyan,
+                          color: AppColors.accentCyanOf(context), // WCAG: texto seguro en claro/oscuro
                           letterSpacing: 2.2,
                         ),
                       ),
@@ -110,7 +115,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                                 style: GoogleFonts.outfit(
                                   fontSize: 38,
                                   fontWeight: FontWeight.w900,
-                                  color: Colors.white,
+                                  color: AppColors.textPrimaryOf(context),
                                   height: 1.0,
                                 ),
                               );
@@ -122,7 +127,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textMuted,
+                              color: AppColors.textMutedOf(context),
                             ),
                           ),
                         ],
@@ -150,14 +155,14 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.bolt_rounded, color: AppColors.neonPurple, size: 16),
+                            Icon(Icons.bolt_rounded, color: AppColors.accentPurpleOf(context), size: 16),
                             const SizedBox(width: 4),
                             Text(
                               '${(value * 100).round()}%',
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
-                                color: AppColors.neonPurple,
+                                color: AppColors.accentPurpleOf(context),
                               ),
                             ),
                           ],
@@ -192,7 +197,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                       borderRadius: BorderRadius.circular(10),
                       child: LinearProgressIndicator(
                         value: value,
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        backgroundColor: AppColors.glassColorOf(context, alpha: 0.08),
                         valueColor: AlwaysStoppedAnimation<Color>(
                           calConsumidas > calMeta ? AppColors.neonPink : AppColors.neonCyan,
                         ),
@@ -201,17 +206,10 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                   );
                 },
               ),
-              const SizedBox(height: 26),
-
-              // ── DESGLOSE DE MACRONUTRIENTES CON RETRASO ESCALONADO ─────────
+              const SizedBox(height: 12),
               Text(
-                'DESGLOSE ANIMADO DE MACROS',
-                style: GoogleFonts.outfit(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textMuted,
-                  letterSpacing: 2.0,
-                ),
+                'Porcentaje completado respecto al objetivo del día de hoy.',
+                style: AppTypography.captionOf(context).copyWith(color: AppColors.textMutedOf(context)),
               ),
               const SizedBox(height: 14),
               Row(
@@ -222,7 +220,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                       current: plan.proteinasConsumidas,
                       target: plan.proteinasMetaG.toDouble(),
                       unit: 'g',
-                      color: const Color(0xFF00E676), // Neon Green
+                      color: AppColors.accentEmeraldOf(context), // WCAG-safe en claro
                       delayMs: 100,
                     ),
                   ),
@@ -233,7 +231,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                       current: plan.carbohidratosConsumidas,
                       target: plan.carbohidratosMetaG.toDouble(),
                       unit: 'g',
-                      color: AppColors.neonCyan,
+                      color: AppColors.accentCyanOf(context),
                       delayMs: 250,
                     ),
                   ),
@@ -244,14 +242,14 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                       current: plan.grasasConsumidas,
                       target: plan.grasasMetaG.toDouble(),
                       unit: 'g',
-                      color: AppColors.neonPink,
+                      color: AppColors.accentPinkOf(context),
                       delayMs: 400,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+              Divider(color: AppColors.glassBorderOf(context), height: 1),
               const SizedBox(height: 18),
 
               // ── SECCIÓN HIDRATACIÓN CON ROLLING COUNTER & PULSE ────────────
@@ -281,7 +279,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                                 ]
                               : [],
                         ),
-                        child: const Icon(Icons.water_drop_rounded, color: AppColors.info, size: 22),
+                        child: Icon(Icons.water_drop_rounded, color: AppColors.infoOf(context), size: 22),
                       ),
                       const SizedBox(width: 14),
                       Column(
@@ -292,7 +290,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                             style: GoogleFonts.outfit(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.textMuted,
+                              color: AppColors.textMutedOf(context),
                               letterSpacing: 1.6,
                             ),
                           ),
@@ -309,7 +307,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                                     style: GoogleFonts.outfit(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w900,
-                                      color: AppColors.info,
+                                      color: AppColors.infoOf(context),
                                     ),
                                   );
                                 },
@@ -319,7 +317,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                                 style: GoogleFonts.outfit(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                                  color: AppColors.textPrimaryOf(context),
                                 ),
                               ),
                             ],
@@ -428,7 +426,7 @@ class _MacroBarAnimatedState extends State<_MacroBarAnimated> {
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
-                  color: Colors.white,
+                  color: AppColors.textPrimaryOf(context),
                 ),
               );
             },
@@ -454,7 +452,7 @@ class _MacroBarAnimatedState extends State<_MacroBarAnimated> {
                 builder: (context, value, child) {
                   return LinearProgressIndicator(
                     value: value,
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    backgroundColor: AppColors.glassColorOf(context, alpha: 0.08),
                     valueColor: AlwaysStoppedAnimation<Color>(widget.color),
                   );
                 },
@@ -502,6 +500,8 @@ class _WaterQuickButtonElasticState extends State<_WaterQuickButtonElastic>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      // opaque: toda el área (incluido el padding) responde al toque.
+      behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _controller.forward(),
       onTapUp: (_) {
         _controller.reverse();
@@ -511,32 +511,37 @@ class _WaterQuickButtonElasticState extends State<_WaterQuickButtonElastic>
       child: AnimatedBuilder(
         animation: _scale,
         builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.info.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.info.withValues(alpha: 0.5)),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.info.withValues(alpha: 0.25),
-                blurRadius: 8,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.add_rounded, color: AppColors.info, size: 14),
-              Text(
-                widget.label,
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.info,
+        // Hitbox mínima de 44x44 px lógicos (Apple HIG) para evitar toques erróneos.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.info.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.info.withValues(alpha: 0.5)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.info.withValues(alpha: 0.25),
+                  blurRadius: 8,
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_rounded, color: AppColors.infoOf(context), size: 14),
+                Text(
+                  widget.label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.infoOf(context),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -274,10 +274,66 @@ async function consumeTicketAtomically(codigoTicket, redisClient = null) {
   }
 }
 
+/**
+ * Reclama de forma ATÓMICA el nonce de un QR dinámico (consumo de un solo uso).
+ *
+ * FIX DE CONCURRENCIA (Replay / doble entrada):
+ *   El control anterior (isNonceAlreadyUsed + recordAccess en pasos separados) NO
+ *   era atómico: dos escaneos simultáneos del mismo QR pasaban ambos la verificación.
+ *   Aquí se reclama el nonce en DOS capas, ambas atómicas:
+ *     1. Redis  → SET qr:nonce:{nonce} NX PX <ttl>  (rechazo instantáneo del 2.º scan).
+ *     2. DB     → INSERT en qr_nonces_consumidos (PK = nonce). Fuente de verdad
+ *        durable: una violación de unicidad (23505) = replay, incluso sin Redis.
+ *   Fail-closed: ante un error de DB no esperado se lanza (el caller NO concede acceso).
+ *
+ * @param {string} nonce
+ * @param {string} usuarioId
+ * @param {import('ioredis').Redis|null} redisClient
+ * @param {object} [opts]
+ * @param {number} [opts.claimTtlMs=40000] - Vida del lock Redis (TTL QR 30s + holgura).
+ * @param {string} [opts.turnstileId]
+ * @returns {Promise<{ claimed: boolean, isConcurrencyHit: boolean, layer: string|null }>}
+ */
+async function claimQrNonceAtomically(nonce, usuarioId, redisClient = null, opts = {}) {
+  const { claimTtlMs = 40_000, turnstileId = null } = opts;
+
+  // ── 1. Fast-path atómico en Redis ─────────────────────────────────────────
+  if (redisClient) {
+    try {
+      const acquired = await redisClient.set(`qr:nonce:${nonce}`, usuarioId, 'PX', claimTtlMs, 'NX');
+      if (!acquired) {
+        return { claimed: false, isConcurrencyHit: true, layer: 'redis' };
+      }
+    } catch (redisErr) {
+      // Redis caído: NO concedemos por Redis; la capa DB es la autoridad.
+      logger.warn('Fallo reclamando nonce en Redis, usando capa DB durable', { error: redisErr.message });
+    }
+  }
+
+  // ── 2. Reclamo durable en DB (autoridad, independiente de Redis) ──────────
+  const db = getSupabaseClient();
+  const { error } = await db
+    .from('qr_nonces_consumidos')
+    .insert({ nonce, usuario_id: usuarioId, turnstile_id: turnstileId });
+
+  if (error) {
+    // 23505 = unique_violation → el nonce ya fue consumido (replay atrapado).
+    if (error.code === '23505') {
+      return { claimed: false, isConcurrencyHit: true, layer: 'db' };
+    }
+    // Cualquier otro error → fail-closed (no conceder ante incertidumbre).
+    logger.error('Error reclamando nonce QR en DB', { error: error.message, code: error.code });
+    throw error;
+  }
+
+  return { claimed: true, isConcurrencyHit: false, layer: null };
+}
+
 module.exports = {
   isNonceAlreadyUsed,
   recordAccess,
   createTicketRecord,
   findTicketByCode,
   consumeTicketAtomically,
+  claimQrNonceAtomically,
 };

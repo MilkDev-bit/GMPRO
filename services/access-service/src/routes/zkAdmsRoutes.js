@@ -10,6 +10,7 @@ const express = require('express');
 const { body, validationResult }   = require('express-validator');
 const zkAdmsController             = require('../controllers/zkAdmsController');
 const { requireTurnstileApiKey }   = require('../middlewares/turnstileAuth');
+const { requireAdmsDeviceAuth }    = require('../middlewares/admsDeviceAuth');
 
 const router = express.Router();
 
@@ -28,18 +29,20 @@ function validate(req, res, next) {
 const textBodyParser = express.text({ type: '*/*', limit: '2mb' });
 
 // ── 1. RUTAS ADMS ICLOCK (CONSULTADAS POR LA TERMINAL SPEEDFACE-V5L) ─────────
-// Las terminales hacen peticiones con query params como ?SN=... y opcionalmente body string
-router.get('/getrequest', zkAdmsController.handleGetRequest);
-router.post('/getrequest', textBodyParser, zkAdmsController.handleGetRequest);
+// Las terminales hacen peticiones con query params como ?SN=... y opcionalmente body string.
+// requireAdmsDeviceAuth valida allowlist de SN + clave de push ANTES de tocar la cola
+// de comandos (que contiene plantillas biométricas) o el historial de accesos.
+router.get('/getrequest', requireAdmsDeviceAuth, zkAdmsController.handleGetRequest);
+router.post('/getrequest', requireAdmsDeviceAuth, textBodyParser, zkAdmsController.handleGetRequest);
 
-router.post('/devicecmd', textBodyParser, zkAdmsController.handleDeviceCmd);
-router.get('/devicecmd', zkAdmsController.handleDeviceCmd);
+router.post('/devicecmd', requireAdmsDeviceAuth, textBodyParser, zkAdmsController.handleDeviceCmd);
+router.get('/devicecmd', requireAdmsDeviceAuth, zkAdmsController.handleDeviceCmd);
 
-router.post('/c/cdata', textBodyParser, zkAdmsController.handleCData);
-router.post('/cdata', textBodyParser, zkAdmsController.handleCData);
+router.post('/c/cdata', requireAdmsDeviceAuth, textBodyParser, zkAdmsController.handleCData);
+router.post('/cdata', requireAdmsDeviceAuth, textBodyParser, zkAdmsController.handleCData);
 
-router.get('/registry', zkAdmsController.handleRegistry);
-router.post('/registry', textBodyParser, zkAdmsController.handleRegistry);
+router.get('/registry', requireAdmsDeviceAuth, zkAdmsController.handleRegistry);
+router.post('/registry', requireAdmsDeviceAuth, textBodyParser, zkAdmsController.handleRegistry);
 
 // ── 2. RUTAS M2M DE GESTIÓN (PARA PAYMENT-SERVICE Y PANEL ADMIN) ─────────────
 router.post(

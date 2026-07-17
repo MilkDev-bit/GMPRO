@@ -15,7 +15,7 @@ import '../theme/app_colors.dart';
 import '../../features/home/presentation/screens/home_dashboard_screen.dart';
 import '../../features/nutrition/presentation/screens/nutrition_main_screen.dart';
 import '../../features/qr_access/presentation/screens/qr_access_screen.dart';
-import '../../features/subscription/presentation/screens/subscription_screen.dart';
+import '../../features/subscription/presentation/screens/settings_and_billing_screen.dart';
 import '../../features/workout/presentation/screens/workout_main_screen.dart';
 import 'nav_destination.dart';
 import 'shell_nav_provider.dart';
@@ -42,7 +42,7 @@ class _AppShellState extends ConsumerState<AppShell>
     QrAccessScreen(),
     NutritionMainScreen(),
     WorkoutMainScreen(),
-    SubscriptionScreen(),
+    SettingsAndBillingScreen(),
   ];
 
   @override
@@ -133,10 +133,10 @@ class CustomGlassBottomBar extends ConsumerWidget {
         child: Container(
           height: 72,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.42),
+            color: AppColors.glassColorOf(context, alpha: 0.45),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.11),
+              color: AppColors.glassBorderOf(context),
               width: 1.2,
             ),
             boxShadow: [
@@ -263,17 +263,16 @@ class _GlassNavItemState extends State<_GlassNavItem>
                     size: 24,
                     color: widget.isSelected
                         ? accentColor
-                        : AppColors.textMuted.withValues(alpha: 0.8),
+                        : AppColors.textMutedOf(context).withValues(alpha: 0.8),
                   ),
                 ),
               ),
-              const SizedBox(height: 3),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 220),
                 style: GoogleFonts.outfit(
                   fontSize: 10,
                   fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w400,
-                  color: widget.isSelected ? accentColor : AppColors.textMuted,
+                  color: widget.isSelected ? accentColor : AppColors.textMutedOf(context),
                 ),
                 child: Text(widget.destination.label),
               ),
@@ -308,9 +307,9 @@ class _GlassSidebar extends ConsumerWidget {
             curve: Curves.easeInOut,
             width: isWideTablet ? 220 : 72,
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.48),
-              border: const Border(
-                right: BorderSide(color: Color(0x15FFFFFF), width: 1),
+              color: AppColors.glassColorOf(context, alpha: 0.48),
+              border: Border(
+                right: BorderSide(color: AppColors.glassBorderOf(context), width: 1),
               ),
             ),
             child: SafeArea(
@@ -331,7 +330,7 @@ class _GlassSidebar extends ConsumerWidget {
                               style: GoogleFonts.outfit(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                                color: AppColors.textPrimaryOf(context),
                                 letterSpacing: 1,
                               ),
                             ),
@@ -417,7 +416,7 @@ class _SidebarNavItem extends StatelessWidget {
             Icon(
               isSelected ? destination.iconSelected : destination.icon,
               size: 22,
-              color: isSelected ? accentColor : AppColors.textMuted,
+              color: isSelected ? accentColor : AppColors.textMutedOf(context),
             ),
             if (showLabel) ...[
               const SizedBox(width: 14),
@@ -426,7 +425,7 @@ class _SidebarNavItem extends StatelessWidget {
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                  color: isSelected ? AppColors.textPrimaryOf(context) : AppColors.textSecondaryOf(context),
                 ),
               ),
             ],
@@ -452,7 +451,7 @@ class _GlassDrawer extends ConsumerWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
           child: Container(
-            color: const Color(0xD0080612),
+            color: AppColors.surfaceOf(context).withValues(alpha: 0.92),
             child: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,7 +477,7 @@ class _GlassDrawer extends ConsumerWidget {
                           style: GoogleFonts.outfit(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: AppColors.textPrimaryOf(context),
                             letterSpacing: 1,
                           ),
                         ),
@@ -486,7 +485,7 @@ class _GlassDrawer extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Divider(color: Color(0x18FFFFFF), height: 1),
+                  Divider(color: AppColors.glassBorderOf(context), height: 1),
                   const SizedBox(height: 16),
                   ...NavDestination.all.asMap().entries.map((entry) {
                     final i = entry.key;
@@ -515,6 +514,7 @@ class _GlassDrawer extends ConsumerWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // PANTALLA PLACEHOLDER PARA SECCIONES AÚN NO IMPLEMENTADAS
 // ─────────────────────────────────────────────────────────────────────────────
+// ignore: unused_element
 class _PlaceholderScreen extends StatelessWidget {
   const _PlaceholderScreen({required this.label, required this.icon});
   final String label;
@@ -523,7 +523,7 @@ class _PlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundOf(context),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -535,7 +535,7 @@ class _PlaceholderScreen extends StatelessWidget {
               style: GoogleFonts.outfit(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textSecondary,
+                color: AppColors.textSecondaryOf(context),
               ),
             ),
             const SizedBox(height: 8),
@@ -543,7 +543,7 @@ class _PlaceholderScreen extends StatelessWidget {
               'Próximamente en GymPro AI',
               style: GoogleFonts.inter(
                 fontSize: 14,
-                color: AppColors.textMuted,
+                color: AppColors.textMutedOf(context),
               ),
             ),
           ],

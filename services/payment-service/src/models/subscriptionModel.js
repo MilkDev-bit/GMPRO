@@ -369,11 +369,58 @@ async function getHistoryByUserId(usuarioId, limit = 10) {
   return data || [];
 }
 
+/**
+ * Reclama ATÓMICAMENTE un evento de webhook de Stripe para procesarlo una sola vez.
+ *
+ * FIX DE IDEMPOTENCIA (race at-least-once):
+ *   Inserta el event_id en el ledger webhook_events_procesados (PK = event_id).
+ *   • Éxito           → { claimed: true }  (este proceso es el dueño; procede a procesar).
+ *   • Violación 23505 → { claimed: false } (otra entrega ya lo reclamó → duplicado seguro).
+ *   • Otro error      → lanza (fail-closed: sin garantía de idempotencia NO se procesa;
+ *                        el caller responde 5xx y Stripe reintenta más tarde).
+ *
+ * @param {string} eventId
+ * @param {string} tipo
+ * @returns {Promise<{ claimed: boolean }>}
+ */
+async function claimWebhookEvent(eventId, tipo) {
+  const db = getSupabaseClient();
+  const { error } = await db
+    .from('webhook_events_procesados')
+    .insert({ event_id: eventId, tipo });
+
+  if (error) {
+    if (error.code === '23505') return { claimed: false };
+    logger.error('Error reclamando evento de webhook (idempotencia)', {
+      eventId, code: error.code, error: error.message,
+    });
+    throw error;
+  }
+  return { claimed: true };
+}
+
+/**
+ * Libera un evento previamente reclamado (p. ej. si el handler falló) para que el
+ * reintento automático de Stripe pueda reprocesarlo. No lanza.
+ *
+ * @param {string} eventId
+ */
+async function releaseWebhookEvent(eventId) {
+  try {
+    const db = getSupabaseClient();
+    await db.from('webhook_events_procesados').delete().eq('event_id', eventId);
+  } catch (err) {
+    logger.warn('No se pudo liberar el claim de webhook para reintento', { eventId, error: err.message });
+  }
+}
+
 module.exports = {
   findActiveByUserId,
   findByStripeSubscriptionId,
   findByStripeCustomerId,
   isEventAlreadyProcessed,
+  claimWebhookEvent,
+  releaseWebhookEvent,
   create,
   activateAfterPayment,
   cancelSubscription,

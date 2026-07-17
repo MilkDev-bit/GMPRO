@@ -6,7 +6,8 @@
 
 'use strict';
 
-const supabase = require('../config/supabase');
+const { getSupabaseClient } = require('../config/database');
+const { sanitizeLikeQuery, sanitizeBarcode } = require('../utils/postgrestSanitizer');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('fitness-service:foodController');
@@ -111,15 +112,22 @@ const FALLBACK_OPEN_FOOD_FACTS = [
  */
 async function searchFoods(req, res, next) {
   try {
-    const query = req.query.q || '';
-    logger.info('Buscando alimentos en Open Food Facts catalog', { query });
+    // ── Saneamiento anti-inyección PostgREST ────────────────────────────────
+    // El término se neutraliza antes de interpolarse en la expresión .or().
+    const safeQuery = sanitizeLikeQuery(req.query.q || '');
+    logger.info('Buscando alimentos en Open Food Facts catalog', { query: safeQuery });
+
+    if (!safeQuery) {
+      return res.status(200).json({ success: true, data: [], error: null });
+    }
 
     let results = [];
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('catalogo_alimentos')
         .select('*')
-        .or(`nombre.ilike.%${query}%,marca.ilike.%${query}%`)
+        .or(`nombre.ilike.%${safeQuery}%,marca.ilike.%${safeQuery}%`)
         .limit(30);
 
       if (!error && data && data.length > 0) {
@@ -130,7 +138,7 @@ async function searchFoods(req, res, next) {
     }
 
     if (results.length === 0) {
-      const qLower = query.toLowerCase();
+      const qLower = safeQuery.toLowerCase();
       results = FALLBACK_OPEN_FOOD_FACTS.filter(
         (item) =>
           item.nombre.toLowerCase().includes(qLower) ||
@@ -155,16 +163,21 @@ async function searchFoods(req, res, next) {
  */
 async function getFoodByBarcode(req, res, next) {
   try {
-    const { code } = req.params;
+    const code = sanitizeBarcode(req.params.code);
     logger.info('Buscando alimento por código de barras', { code });
+
+    if (!code) {
+      return res.status(400).json({ success: false, data: null, error: 'Código de barras inválido.' });
+    }
 
     let food = null;
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('catalogo_alimentos')
         .select('*')
         .eq('codigo_barras', code)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         food = data;
@@ -198,4 +211,5 @@ async function getFoodByBarcode(req, res, next) {
 module.exports = {
   searchFoods,
   getFoodByBarcode,
+  FALLBACK_OPEN_FOOD_FACTS,
 };

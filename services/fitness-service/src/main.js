@@ -120,7 +120,7 @@ async function bootstrap() {
 
   // ── Ruta interna M2M (ai-service consulta datos del usuario) ──────────────
   // El ai-service necesita datos de fitness para construir el contexto del prompt
-  app.use('/api/v1/internal/user-context',
+  app.use('/api/v1/internal',
     m2mAuth,
     require('./routes/internalRoutes')
   );

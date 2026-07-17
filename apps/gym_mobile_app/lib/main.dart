@@ -32,13 +32,11 @@ void main() async {
   // Inicializar canales nativos de notificación local y listeners en primer plano
   await NotificationServiceImpl.instance.initialize();
 
-  // Configurar barra de estado superior translúcida con íconos claros (orientación libre — el Shell es adaptativo)
+  // Configurar barra de estado superior y navegación translúcida (el tema dinámico gobierna el brillo)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0A0914),
-      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
     ),
   );
 
@@ -74,7 +72,9 @@ class _GymProAppState extends ConsumerState<GymProApp> {
         title: 'GymPro Mobile',
         debugShowCheckedModeBanner: false,
         navigatorKey: ToastService.navigatorKey,
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system, // ➔ Detecta y cambia en tiempo real según el OS
         // AuthRouter: Si autenticado → AppShell con navegación premium de cristal;
         // Si anónimo → LoginScreen con animación de entrada
         home: AnimatedSwitcher(

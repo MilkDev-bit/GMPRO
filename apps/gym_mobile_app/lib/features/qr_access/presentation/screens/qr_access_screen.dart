@@ -19,7 +19,7 @@ class QrAccessScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subAsync = ref.watch(subscriptionProvider);
-    final qrAsync = ref.watch(qrAccessProvider);
+    final qrState = ref.watch(qrAccessProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -144,32 +144,7 @@ class QrAccessScreen extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            child: qrAsync.when(
-                              loading: () => const _QrLoadingState(),
-                              error: (e, _) => const _QrErrorState(),
-                              data: (qrData) {
-                                if (qrData == null) return const _QrLoadingState();
-                                return Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // QR Widget — usa el QrImageView del provider existente
-                                    const SizedBox(
-                                      width: 200,
-                                      height: 200,
-                                      child: Placeholder(), // El DynamicAccessQrCard ya maneja esto
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Text(
-                                      'Válido por 30 segundos',
-                                      style: AppTypography.caption.copyWith(
-                                        color: AppColors.success,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                            child: _buildQrContent(qrState),
                           ),
                         ),
                       ),
@@ -190,6 +165,37 @@ class QrAccessScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildQrContent(QrAccessState qrState) {
+    switch (qrState.status) {
+      case QrStatus.initial:
+      case QrStatus.loading:
+        return const _QrLoadingState();
+      case QrStatus.error:
+      case QrStatus.paymentRequired:
+        return const _QrErrorState();
+      case QrStatus.active:
+        if (qrState.qrToken == null) return const _QrLoadingState();
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 200,
+              height: 200,
+              child: Placeholder(), // El DynamicAccessQrCard ya maneja esto
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Válido por ${qrState.secondsRemaining} segundos',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.success,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        );
+    }
   }
 }
 

@@ -1,7 +1,6 @@
 /// @file lib/features/nutrition/presentation/screens/nutrition_plan_screen.dart
 /// @description Pantalla principal de nutrición y macros alimentada por Open Food Facts.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';

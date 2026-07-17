@@ -15,6 +15,9 @@
 
 'use strict';
 
+const bcrypt  = require('bcrypt');
+const crypto  = require('crypto');
+const env     = require('../config/environment');
 const { getSupabaseClient } = require('../config/database');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
@@ -27,6 +30,7 @@ const SAFE_COLUMNS = [
   'peso_kg', 'nivel_actividad', 'historial_clinico', 'contacto_emergencia',
   'email_verificado', 'activo', 'rol', 'ultimo_login',
   'intentos_fallidos', 'bloqueado_hasta', 'creado_en', 'actualizado_en',
+  'pin_terminal',  // PIN numérico asignado a la terminal biométrica ZKTeco
 ].join(', ');
 
 // Columnas para autenticación (incluye el hash para comparar)
@@ -359,6 +363,59 @@ async function softDelete(id) {
   logger.info('Usuario eliminado (soft delete)', { userId: id });
 }
 
+/**
+ * Obtiene el pin_terminal de un usuario para la integración con ZKTeco ADMS.
+ * Solo retorna el UUID, nombre y pin_terminal (campos mínimos para el sync).
+ *
+ * @param {string} usuarioId - UUID del usuario
+ * @returns {Promise<{id: string, nombre: string, pin_terminal: number|null}|null>}
+ */
+async function findPinTerminalByUserId(usuarioId) {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from('usuarios')
+    .select('id, nombre, apellido_paterno, pin_terminal')
+    .eq('id', usuarioId)
+    .is('eliminado_en', null)
+    .limit(1)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return data;
+}
+
+/**
+ * Asigna un pin_terminal único a un usuario si aún no tiene uno.
+ * Invoca la función SQL assign_pin_terminal() que usa una secuencia
+ * interna para garantizar unicidad sin condiciones de carrera.
+ *
+ * @param {string} usuarioId - UUID del usuario
+ * @returns {Promise<number>} PIN asignado o existente
+ */
+async function assignPinTerminal(usuarioId) {
+  const db = getSupabaseClient();
+
+  // Llamar a la función SQL segura que maneja la secuencia atómicamente
+  const { data, error } = await db.rpc('assign_pin_terminal', {
+    p_usuario_id: usuarioId,
+  });
+
+  if (error) {
+    logger.error('Error asignando pin_terminal al usuario', {
+      usuarioId, error: error.message,
+    });
+    throw error;
+  }
+
+  logger.info('pin_terminal asignado a usuario via ZKTeco sync', {
+    usuarioId, pin: data,
+  });
+  return data;
+}
+
 module.exports = {
   findByEmailForAuth,
   findById,
@@ -370,4 +427,6 @@ module.exports = {
   updatePassword,
   updateProfile,
   softDelete,
+  findPinTerminalByUserId,
+  assignPinTerminal,
 };

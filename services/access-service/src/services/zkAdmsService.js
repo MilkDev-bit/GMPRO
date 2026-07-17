@@ -10,6 +10,7 @@
 'use strict';
 
 const crypto                  = require('crypto');
+const { createClient }        = require('@supabase/supabase-js');
 const { getSupabaseClient }   = require('../config/database');
 const accessModel             = require('../models/accessModel');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
@@ -21,12 +22,88 @@ const REDIS_QUEUE_PREFIX = 'zk:adms:commands:';
 // TTL para comandos pendientes en Redis (7 días antes de expirar si la terminal se apaga)
 const COMMAND_TTL_SECONDS = 604_800;
 
+// Cache en memoria de pin_terminal → UUID (se invalida cada 10 min para no sobrecargar DB)
+// ACOTADO para evitar fuga de memoria en el contenedor de Railway: al superar el
+// límite se evict-a la entrada más antigua (Map preserva orden de inserción).
+const PIN_CACHE = new Map();
+const PIN_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
+const PIN_CACHE_MAX    = 5000;           // Tope duro de entradas simultáneas
+
+// Cliente separado para leer el schema auth_service_db (solo para resolver PINs de ATTLOG)
+let _authDbClient = null;
+function getAuthDbClient() {
+  if (_authDbClient) return _authDbClient;
+  const supabaseUrl     = process.env.SUPABASE_URL;
+  const supabaseKey     = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    logger.warn('SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no configurados: resolución de PIN no disponible');
+    return null;
+  }
+  _authDbClient = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db:   { schema: 'auth_service_db' },
+    global: { headers: { 'x-app-name': 'gympro-access-service-pin-resolver' } },
+  });
+  return _authDbClient;
+}
+
+/**
+ * Resuelve un pin_terminal numérico al UUID del usuario en Supabase.
+ * Utiliza caché en memoria con TTL para evitar consultas repetidas en ráfagas de ATTLOG.
+ *
+ * @param {string|number} pin
+ * @returns {Promise<string|null>} UUID del usuario o null si no se encuentra
+ */
+async function resolvePinToUserId(pin) {
+  const pinKey = String(pin);
+
+  // Verificar caché
+  const cached = PIN_CACHE.get(pinKey);
+  if (cached && (Date.now() - cached.ts) < PIN_CACHE_TTL_MS) {
+    return cached.userId;
+  }
+  // Entrada expirada: eliminarla para no acumular basura.
+  if (cached) PIN_CACHE.delete(pinKey);
+
+  const db = getAuthDbClient();
+  if (!db) return null;
+
+  try {
+    const { data, error } = await db
+      .from('usuarios')
+      .select('id')
+      .eq('pin_terminal', parseInt(pinKey, 10))
+      .is('eliminado_en', null)
+      .limit(1)
+      .single();
+
+    if (error || !data) return null;
+
+    // Guardar en caché con eviction del más antiguo si se alcanzó el tope.
+    if (PIN_CACHE.size >= PIN_CACHE_MAX) {
+      const oldestKey = PIN_CACHE.keys().next().value;
+      if (oldestKey !== undefined) PIN_CACHE.delete(oldestKey);
+    }
+    PIN_CACHE.set(pinKey, { userId: data.id, ts: Date.now() });
+    return data.id;
+  } catch (err) {
+    logger.error(`Error resolviendo PIN ${pinKey} a UUID: ${err.message}`);
+    return null;
+  }
+}
+
 /**
  * Genera un ID numérico secuencial/único para comandos ZKTeco (rango 1 - 2^31).
  * Las terminales SpeedFace-V5L esperan un identificador numérico en el formato C:<ID>:DATA...
  */
+// Contador monotónico sembrado aleatoriamente: garantiza IDs ÚNICOS dentro del
+// proceso (el esquema anterior timestamp+random podía colisionar y marcar como
+// 'completed' un comando distinto en processCommandResult). Rango ZKTeco: 1..2^31-1.
+let _cmdCounter = crypto.randomInt(1, 1_000_000);
 function generateCommandId() {
-  return Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 9000 + 1000);
+  _cmdCounter += 1;
+  if (_cmdCounter >= 2_147_483_647) _cmdCounter = 1;
+  return _cmdCounter;
 }
 
 /**
@@ -72,7 +149,7 @@ async function enqueueSyncUser({
   // Type=9 es el identificador de Plantilla Biométrica de Rostro (SpeedFace / ZKPalm / Visible Light)
   let bioCommandId = null;
   if (biometricTemplateBase64) {
-    bioCommandId = generateCommandId() + 1;
+    bioCommandId = generateCommandId();
     const cmdBioData = `C:${bioCommandId}:DATA UPDATE BIODATA Pin=${pinStr}\tNo=0\tIndex=0\tType=9\tDuress=0\tTmp=${biometricTemplateBase64}`;
 
     await _pushCommandToQueue(serialNumber, bioCommandId, cmdBioData, {
@@ -116,7 +193,7 @@ async function enqueueDeleteUser({
   }, redisClient);
 
   // 2. Borramos al usuario de la tabla USERINFO para inactivación total física
-  const deleteUserCmdId = generateCommandId() + 1;
+  const deleteUserCmdId = generateCommandId();
   const cmdDeleteUser = `C:${deleteUserCmdId}:DATA DELETE USERINFO PIN=${pinStr}`;
 
   await _pushCommandToQueue(serialNumber, deleteUserCmdId, cmdDeleteUser, {
@@ -267,13 +344,23 @@ async function processAttLogPush(serialNumber, rawAttLogBody, redisClient = null
       const metodoAcceso = verifyType === 15 ? 'face_biometric' : verifyType === 4 ? 'rfid_card' : 'zk_terminal';
 
       try {
+        // Resolver pin_terminal → UUID real del usuario (con caché para alto volumen)
+        const resolvedUserId = await resolvePinToUserId(pin);
+        const finalUserId    = resolvedUserId || `zk_pin_${pin}_unresolved`;
+
         await accessModel.recordAccess({
-          usuarioId:       `pin_terminal_${pin}`, // O resolver a UUID consultando mapeo en DB
+          usuarioId:       finalUserId,
           tokenCodigo:     `ZK-${serialNumber}-${pin}-${Date.now()}`,
           metodoAcceso:    metodoAcceso,
           accesoConcedido: true,
           razonRechazo:    null,
         }, redisClient);
+
+        if (resolvedUserId) {
+          logger.debug(`ATTLOG resuelto: PIN ${pin} → UUID ${resolvedUserId}`, { serialNumber });
+        } else {
+          logger.warn(`ATTLOG: PIN ${pin} sin mapeo de usuario en auth_service_db, guardado como zk_pin_${pin}_unresolved`);
+        }
 
         processedCount++;
       } catch (err) {

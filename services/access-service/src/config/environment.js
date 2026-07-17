@@ -70,4 +70,10 @@ module.exports = {
   REDIS_URL:                  process.env.REDIS_URL || null,
   CORS_ALLOWED_ORIGINS:       process.env.CORS_ALLOWED_ORIGINS || '',
   QR_TTL_SECONDS:             parseInt(process.env.QR_TTL_SECONDS || '30', 10),
+  // ── Autenticación de terminales ZKTeco ADMS (/iclock/*) ────────────────────
+  // ZK_ALLOWED_SERIALS: lista separada por comas de números de serie autorizados.
+  // ZK_PUSH_KEY: clave compartida que la terminal envía (header x-adms-key o ?key=).
+  // Ambas DEBEN configurarse en producción para cerrar los endpoints de biometría.
+  ZK_ALLOWED_SERIALS:         process.env.ZK_ALLOWED_SERIALS || '',
+  ZK_PUSH_KEY:                process.env.ZK_PUSH_KEY || null,
 };

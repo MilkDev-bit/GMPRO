@@ -40,3 +40,13 @@ class ServerFailure extends Failure {
 class PlatformFailure extends Failure {
   const PlatformFailure(super.message);
 }
+
+/// Fallo cuando el hardware biométrico (Enclave Seguro / StrongBox / Face ID / Touch ID) no está disponible o soportado.
+class BiometricNotAvailableFailure extends Failure {
+  const BiometricNotAvailableFailure([super.message = 'Dispositivo no compatible o biometría no activada.']);
+}
+
+/// Fallo en la autenticación criptográfica de la Passkey (WebAuthn / FIDO2).
+class PasskeyAuthFailure extends Failure {
+  const PasskeyAuthFailure([super.message = 'Fallo en la verificación criptográfica de la llave de acceso.']);
+}

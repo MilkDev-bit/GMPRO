@@ -2,7 +2,6 @@
 /// @description Botón tipo cápsula para inicio de sesión nativo con animaciones suaves y feedback visual.
 
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class SocialLoginButton extends StatelessWidget {
@@ -27,33 +26,35 @@ class SocialLoginButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: double.infinity,
-      height: 58,
+    final isTransparent = backgroundColor == Colors.transparent;
+    
+    return Container(
+      height: 56,
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(30),
-        border: borderColor != null
-            ? Border.all(color: borderColor!, width: 1.2)
-            : Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: borderColor ?? Colors.white.withValues(alpha: 0.15), 
+          width: 1.2
+        ),
         boxShadow: [
-          BoxShadow(
-            color: backgroundColor == Colors.white
-                ? Colors.black.withValues(alpha: 0.25)
-                : backgroundColor.withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
+          if (!isTransparent)
+            BoxShadow(
+              color: backgroundColor.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(30),
-          onPressed: isLoading ? null : onPressed,
+          borderRadius: BorderRadius.circular(28),
+          onTap: isLoading ? null : onPressed,
+          splashColor: textColor.withValues(alpha: 0.1),
+          highlightColor: textColor.withValues(alpha: 0.05),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -67,13 +68,19 @@ class SocialLoginButton extends StatelessWidget {
                     ),
                   )
                 else ...[
-                  Icon(icon, color: textColor, size: 24),
-                  const SizedBox(width: 14),
-                  Text(
-                    label,
-                    style: AppTypography.buttonLabel.copyWith(
-                      color: textColor,
-                      fontSize: 16,
+                  Icon(icon, color: textColor, size: 22),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: AppTypography.buttonLabel.copyWith(
+                        color: textColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],

@@ -1,0 +1,183 @@
+/// @file lib/features/auth/presentation/providers/registration_provider.dart
+/// @description Estado reactivo (Riverpod) del flujo de alta multi-paso passwordless.
+/// Orquesta datos personales → correo → verificación OTP → registro de Passkey.
+///
+/// NOTA DE INTEGRACIÓN: los métodos marcados con `// TODO(backend)` deben
+/// conectarse a los endpoints de `auth-service` (Node/Zod) cuando estén listos:
+///   POST /register            → crea el socio y dispara el envío de OTP
+///   POST /otp/verify          → valida el código y habilita el registro de Passkey
+/// Mientras tanto simulan la latencia de red para mantener la UX end-to-end.
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'auth_provider.dart';
+
+// ── Enumeraciones del flujo ──────────────────────────────────────────────────
+enum RegistrationStep { personalInfo, email, otp, done }
+
+enum RegistrationStatus { idle, submitting, error }
+
+// ── Estado inmutable ─────────────────────────────────────────────────────────
+class RegistrationState {
+  final RegistrationStep step;
+  final RegistrationStatus status;
+  final String fullName;
+  final DateTime? birthDate;
+  final String phone;
+  final String email;
+  final String? errorMessage;
+  final bool otpError;
+
+  const RegistrationState({
+    this.step = RegistrationStep.personalInfo,
+    this.status = RegistrationStatus.idle,
+    this.fullName = '',
+    this.birthDate,
+    this.phone = '',
+    this.email = '',
+    this.errorMessage,
+    this.otpError = false,
+  });
+
+  bool get isSubmitting => status == RegistrationStatus.submitting;
+
+  RegistrationState copyWith({
+    RegistrationStep? step,
+    RegistrationStatus? status,
+    String? fullName,
+    DateTime? birthDate,
+    String? phone,
+    String? email,
+    String? errorMessage,
+    bool? otpError,
+  }) {
+    return RegistrationState(
+      step: step ?? this.step,
+      status: status ?? this.status,
+      fullName: fullName ?? this.fullName,
+      birthDate: birthDate ?? this.birthDate,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      errorMessage: errorMessage,
+      otpError: otpError ?? this.otpError,
+    );
+  }
+}
+
+// ── Notifier ─────────────────────────────────────────────────────────────────
+class RegistrationNotifier extends StateNotifier<RegistrationState> {
+  final Ref _ref;
+
+  RegistrationNotifier(this._ref) : super(const RegistrationState());
+
+  /// Paso 1 → guarda datos personales y avanza a la captura de correo.
+  void submitPersonalInfo({
+    required String fullName,
+    required DateTime birthDate,
+    required String phone,
+  }) {
+    state = state.copyWith(
+      fullName: fullName,
+      birthDate: birthDate,
+      phone: phone,
+      step: RegistrationStep.email,
+      status: RegistrationStatus.idle,
+    );
+  }
+
+  /// Paso 2 → guarda el correo, solicita el envío del OTP y avanza.
+  Future<void> submitEmail(String email) async {
+    if (state.isSubmitting) return;
+    state = state.copyWith(email: email, status: RegistrationStatus.submitting);
+
+    try {
+      await _requestOtp(email);
+      state = state.copyWith(
+        step: RegistrationStep.otp,
+        status: RegistrationStatus.idle,
+      );
+    } catch (_) {
+      state = state.copyWith(
+        status: RegistrationStatus.error,
+        errorMessage: 'No pudimos enviar el código. Verifica tu correo.',
+      );
+    }
+  }
+
+  /// Paso 3 → valida el OTP y, si es correcto, vincula la Passkey biométrica.
+  Future<void> verifyOtpAndRegister(String code) async {
+    if (state.isSubmitting) return;
+    state = state.copyWith(status: RegistrationStatus.submitting, otpError: false);
+
+    try {
+      final ok = await _verifyOtp(state.email, code);
+      if (!ok) {
+        state = state.copyWith(status: RegistrationStatus.idle, otpError: true);
+        return;
+      }
+
+      // Cierre passwordless: registra la Passkey (FIDO2) en el chip del móvil.
+      final registered = await _ref.read(authProvider.notifier).registerPasskey();
+      if (registered) {
+        state = state.copyWith(
+          step: RegistrationStep.done,
+          status: RegistrationStatus.idle,
+        );
+      } else {
+        state = state.copyWith(
+          status: RegistrationStatus.error,
+          errorMessage: 'No se pudo vincular tu Passkey. Intenta de nuevo.',
+        );
+      }
+    } catch (_) {
+      state = state.copyWith(
+        status: RegistrationStatus.error,
+        errorMessage: 'Error verificando el código. Intenta de nuevo.',
+      );
+    }
+  }
+
+  /// Reenvía el código OTP al correo capturado.
+  Future<void> resendOtp() async {
+    try {
+      await _requestOtp(state.email);
+    } catch (_) {
+      state = state.copyWith(
+        status: RegistrationStatus.error,
+        errorMessage: 'No pudimos reenviar el código.',
+      );
+    }
+  }
+
+  /// Retrocede un paso sin perder los datos ya capturados.
+  void previousStep() {
+    switch (state.step) {
+      case RegistrationStep.email:
+        state = state.copyWith(step: RegistrationStep.personalInfo);
+        break;
+      case RegistrationStep.otp:
+        state = state.copyWith(step: RegistrationStep.email, otpError: false);
+        break;
+      case RegistrationStep.personalInfo:
+      case RegistrationStep.done:
+        break;
+    }
+  }
+
+  // ── Integración con auth-service (simulada por ahora) ──────────────────────
+  Future<void> _requestOtp(String email) async {
+    // TODO(backend): POST /register { fullName, birthDate, phone, email }
+    await Future.delayed(const Duration(milliseconds: 900));
+  }
+
+  Future<bool> _verifyOtp(String email, String code) async {
+    // TODO(backend): POST /otp/verify { email, code } → 200 = válido
+    await Future.delayed(const Duration(milliseconds: 900));
+    return code.length == 6; // Aceptación provisional en cliente.
+  }
+}
+
+// ── Provider global ──────────────────────────────────────────────────────────
+final registrationProvider =
+    StateNotifierProvider.autoDispose<RegistrationNotifier, RegistrationState>(
+  (ref) => RegistrationNotifier(ref),
+);

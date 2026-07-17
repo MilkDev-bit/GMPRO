@@ -190,65 +190,104 @@ async function streamOpenAISSE(res, systemPrompt, userMessage, history) {
 /**
  * Genera una respuesta completa y estructurada (JSON) sin streaming, ideal para planes de rutina o dietas.
  *
+ * Soporta SALIDA ESTRUCTURADA NATIVA: si se pasa `responseSchema` (Gemini) o
+ * `openaiJsonSchema` (OpenAI), el motor del LLM restringe el JSON al esquema —
+ * eliminando alucinaciones de claves y permitiendo prompts mucho más cortos.
+ *
  * @param {string} systemPrompt
  * @param {string} userPrompt
- * @param {boolean} [useProModel=false] - Usa modelo Pro (gemini-2.5-pro / gpt-4o) para razonamiento complejo
+ * @param {boolean|object} [options=false] - Retrocompat: booleano = useProModel.
+ * @param {boolean} [options.useProModel=false] - Modelo Pro (gemini-2.5-pro / gpt-4o).
+ * @param {object}  [options.responseSchema]     - Esquema Gemini (generationConfig.responseSchema).
+ * @param {object}  [options.openaiJsonSchema]   - Esquema OpenAI ({ name, strict, schema }).
+ * @param {number}  [options.timeoutMs=45000]    - Timeout duro de la llamada al LLM.
  * @returns {Promise<string>} Texto/JSON retornado por el modelo
  */
-async function generateStructuredContent(systemPrompt, userPrompt, useProModel = false) {
-  const provider = env.AI_PROVIDER;
+async function generateStructuredContent(systemPrompt, userPrompt, options = false) {
+  // Retrocompatibilidad: llamadas antiguas pasaban un booleano useProModel.
+  const opts = (typeof options === 'boolean') ? { useProModel: options } : (options || {});
+  const {
+    useProModel      = false,
+    responseSchema   = null,
+    openaiJsonSchema = null,
+    timeoutMs        = 45_000,
+  } = opts;
 
-  if (provider === 'gemini') {
-    const model = useProModel ? (env.GEMINI_MODEL_PRO || 'gemini-2.5-pro') : (env.GEMINI_MODEL || 'gemini-2.0-flash');
-    const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+  const provider   = env.AI_PROVIDER;
+  const controller = new AbortController();
+  const timeoutId  = setTimeout(() => controller.abort(), timeoutMs);
 
-    const response = await fetch(url, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: {
-          temperature:      env.AI_TEMPERATURE || 0.3,
-          maxOutputTokens:  (env.AI_MAX_OUTPUT_TOKENS || 2048) * 2,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
+  try {
+    if (provider === 'gemini') {
+      const model = useProModel ? (env.GEMINI_MODEL_PRO || 'gemini-2.5-pro') : (env.GEMINI_MODEL || 'gemini-2.0-flash');
+      const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(`Gemini API Error (${response.status}): ${errText}`);
-    }
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-  } else {
-    const model = useProModel ? (env.OPENAI_MODEL_PRO || 'gpt-4o') : (env.OPENAI_MODEL || 'gpt-4o-mini');
-    const url   = 'https://api.openai.com/v1/chat/completions';
-
-    const response = await fetch(url, {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+      const generationConfig = {
         temperature:      env.AI_TEMPERATURE || 0.3,
-        response_format:  { type: 'json_object' },
-      }),
-    });
+        maxOutputTokens:  (env.AI_MAX_OUTPUT_TOKENS || 2048) * 2,
+        responseMimeType: 'application/json',
+      };
+      // Salida estructurada nativa: el modelo no puede desviarse del esquema.
+      if (responseSchema) generationConfig.responseSchema = responseSchema;
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      throw new Error(`OpenAI API Error (${response.status}): ${errText}`);
+      const response = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+      }
+      const data = await response.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    } else {
+      const model = useProModel ? (env.OPENAI_MODEL_PRO || 'gpt-4o') : (env.OPENAI_MODEL || 'gpt-4o-mini');
+      const url   = 'https://api.openai.com/v1/chat/completions';
+
+      // Structured Outputs estricto si hay esquema; si no, JSON libre.
+      const response_format = openaiJsonSchema
+        ? { type: 'json_schema', json_schema: openaiJsonSchema }
+        : { type: 'json_object' };
+
+      const response = await fetch(url, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: env.AI_TEMPERATURE || 0.3,
+          response_format,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`OpenAI API Error (${response.status}): ${errText}`);
+      }
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || '{}';
     }
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || '{}';
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`Timeout (${timeoutMs}ms) esperando respuesta estructurada del LLM (${provider}).`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

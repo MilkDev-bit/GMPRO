@@ -14,6 +14,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
+import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_provider.dart';
 import 'nutrition_plan_screen.dart';
 
@@ -37,7 +38,18 @@ class NutritionMainScreen extends ConsumerWidget {
               child: Opacity(
                 opacity: 0.45,
                 child: NutritionPlanScreen(
-                  plan: nutritionState.plan ?? ref.read(nutritionProvider.notifier).state.plan!,
+                  plan: nutritionState.plan ?? const NutritionPlan(
+                    id: 'locked_demo',
+                    nombre: 'Dieta AI Coach Bloqueada',
+                    descripcion: 'Membresía inactiva',
+                    objetivo: 'hipertrofia',
+                    caloriasMeta: 2500,
+                    proteinasMetaG: 180,
+                    carbohidratosMetaG: 280,
+                    grasasMetaG: 70,
+                    aguaMetaMl: 3500,
+                    comidas: [],
+                  ),
                 ),
               ),
             ),
@@ -206,8 +218,8 @@ class NutritionMainScreen extends ConsumerWidget {
             ],
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 }
 

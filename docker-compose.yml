@@ -22,8 +22,8 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   auth-service:
     build:
-      context: ./services/auth-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/auth-service/Dockerfile
       target: production                 # usa el stage 'production' del multi-stage
     image: gympro/auth-service:local
     container_name: gympro-auth
@@ -50,8 +50,8 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   access-service:
     build:
-      context: ./services/access-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/access-service/Dockerfile
       target: production
     image: gympro/access-service:local
     container_name: gympro-access
@@ -84,8 +84,8 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   payment-service:
     build:
-      context: ./services/payment-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/payment-service/Dockerfile
       target: production
     image: gympro/payment-service:local
     container_name: gympro-payment
@@ -116,8 +116,8 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   fitness-service:
     build:
-      context: ./services/fitness-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/fitness-service/Dockerfile
       target: production
     image: gympro/fitness-service:local
     container_name: gympro-fitness
@@ -151,8 +151,8 @@ services:
   # ─────────────────────────────────────────────────────────────────────────
   ai-service:
     build:
-      context: ./services/ai-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/ai-service/Dockerfile
       target: production
     image: gympro/ai-service:local
     container_name: gympro-ai

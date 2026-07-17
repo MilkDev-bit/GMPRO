@@ -26,6 +26,17 @@ const logger = createServiceLogger('payment-service:pdfService');
 function generateReceiptPdf({ subscription, user, receptionistId = null }) {
   return new Promise((resolve, reject) => {
     try {
+      // ── Blindaje de entrada: coerción segura para no romper la generación ────
+      // Evita que un registro con campos nulos o caracteres de control (emoji,
+      // \x00, etc.) lance una excepción y devuelva 500 en el endpoint de recibo.
+      subscription = subscription || {};
+      user = user || {};
+      const clean = (v, max = 80) =>
+        String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, max);
+      const safeId      = clean(subscription.id || 'SIN-FOLIO', 40);
+      const safeEstado  = clean(subscription.estado || 'active', 20);
+      const safeUserId  = clean(subscription.usuario_id || '', 40);
+
       const doc = new PDFDocument({
         size: 'LETTER',
         margins: { top: 50, bottom: 50, left: 50, right: 50 },
@@ -73,7 +84,7 @@ function generateReceiptPdf({ subscription, user, receptionistId = null }) {
 
       doc.fontSize(10)
          .font('Helvetica')
-         .text(`Folio: #${subscription.id.substring(0, 8).toUpperCase()}`, 0, 72, { align: 'right' });
+         .text(`Folio: #${safeId.substring(0, 8).toUpperCase()}`, 0, 72, { align: 'right' });
 
       doc.moveDown(4);
 
@@ -84,9 +95,9 @@ function generateReceiptPdf({ subscription, user, receptionistId = null }) {
       doc.rect(50, startY, 240, 95).fillAndStroke(lightColor, '#e2e8f0');
       doc.fillColor(darkColor).fontSize(11).font('Helvetica-Bold').text('RECIBÍ DE:', 65, startY + 15);
       doc.font('Helvetica').fontSize(10).fillColor(darkColor);
-      doc.text(user.nombre ? `${user.nombre} ${user.apellido_paterno || ''}` : `Usuario ID: ${subscription.usuario_id}`, 65, startY + 35);
-      doc.text(user.email || 'Email no disponible', 65, startY + 52);
-      doc.text(`ID Cliente: ${subscription.usuario_id.substring(0, 8)}`, 65, startY + 69);
+      doc.text(user.nombre ? `${clean(user.nombre, 60)} ${clean(user.apellido_paterno, 60)}`.trim() : `Usuario ID: ${safeUserId}`, 65, startY + 35);
+      doc.text(clean(user.email, 80) || 'Email no disponible', 65, startY + 52);
+      doc.text(`ID Cliente: ${safeUserId.substring(0, 8)}`, 65, startY + 69);
 
       // Caja Derecha: Datos del Comprobante
       doc.rect(310, startY, 250, 95).fillAndStroke(lightColor, '#e2e8f0');
@@ -97,7 +108,7 @@ function generateReceiptPdf({ subscription, user, receptionistId = null }) {
       if (receptionistId) {
         doc.text(`Atendió: ${receptionistId}`, 325, startY + 69);
       } else {
-        doc.text(`Estado: PAGADO (${subscription.estado.toUpperCase()})`, 325, startY + 69);
+        doc.text(`Estado: PAGADO (${safeEstado.toUpperCase()})`, 325, startY + 69);
       }
 
       // ── TABLA DE CONCEPTOS ────────────────────────────────────────────────

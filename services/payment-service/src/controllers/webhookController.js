@@ -32,12 +32,81 @@
 
 'use strict';
 
+const { createClient }           = require('@supabase/supabase-js');
 const { getStripeClient }        = require('../config/stripe');
 const env                        = require('../config/environment');
 const subscriptionModel          = require('../models/subscriptionModel');
+const { notifyBiometricSync,
+        notifyBiometricDelete }  = require('../services/biometricNotificationService');
 const { createServiceLogger }    = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('payment-service:webhook');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: Leer pin_terminal del usuario desde auth_service_db
+// El payment-service usa service_role_key, lo que le permite acceder a cualquier
+// schema de la misma instancia de Supabase (necesario para cruzar dominios de forma
+// controlada en este caso único de sincronización biométrica).
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _authDbClient = null;
+function getAuthDbClient() {
+  if (_authDbClient) return _authDbClient;
+  _authDbClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db:   { schema: 'auth_service_db' },
+    global: { headers: { 'x-app-name': 'gympro-payment-service-auth-reader' } },
+  });
+  return _authDbClient;
+}
+
+/**
+ * Obtiene o auto-asigna el pin_terminal de un usuario para la terminal ZKTeco.
+ * Si el usuario aún no tiene PIN, invoca la función SQL assign_pin_terminal() que
+ * genera uno atómicamente desde la secuencia.
+ *
+ * @param {string} usuarioId - UUID del usuario
+ * @returns {Promise<{id, nombre, pin_terminal}|null>}
+ */
+async function getUserBiometricInfo(usuarioId) {
+  if (!usuarioId) return null;
+  try {
+    const db = getAuthDbClient();
+
+    // Intentar obtener PIN existente
+    const { data, error } = await db
+      .from('usuarios')
+      .select('id, nombre, apellido_paterno, pin_terminal')
+      .eq('id', usuarioId)
+      .is('eliminado_en', null)
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      logger.error('Error leyendo usuario desde auth_service_db', { usuarioId, error: error.message });
+      return null;
+    }
+    if (!data) return null;
+
+    // Si aún no tiene PIN, auto-asignar via función SQL atómica
+    if (!data.pin_terminal) {
+      const { data: pin, error: pinError } = await db.rpc('assign_pin_terminal', {
+        p_usuario_id: usuarioId,
+      });
+      if (pinError) {
+        logger.error('Error auto-asignando pin_terminal', { usuarioId, error: pinError.message });
+        return { ...data, pin_terminal: null };
+      }
+      data.pin_terminal = pin;
+      logger.info('pin_terminal auto-asignado durante webhook de Stripe', { usuarioId, pin });
+    }
+
+    return data;
+  } catch (err) {
+    logger.error('Excepción en getUserBiometricInfo', { usuarioId, error: err.message });
+    return null;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HANDLER PRINCIPAL: POST /api/v1/webhooks/stripe
@@ -96,20 +165,24 @@ async function handleStripeWebhook(req, res) {
 
   logger.info('Evento de Stripe recibido', { eventId, eventType });
 
-  // ── PASO 2: Verificar idempotencia ────────────────────────────────────────
+  // ── PASO 2: Reclamo ATÓMICO de idempotencia ───────────────────────────────
+  // INSERT del event_id en el ledger (PK). El primero gana; una entrega duplicada
+  // o concurrente del mismo evento choca con la PK y se descarta sin reprocesar.
+  let claim;
   try {
-    const alreadyProcessed = await subscriptionModel.isEventAlreadyProcessed(eventId);
-    if (alreadyProcessed) {
-      logger.info('Evento ya procesado anteriormente, omitiendo', { eventId, eventType });
-      // Responder 200 para que Stripe no reintente (ya lo procesamos)
-      return res.status(200).json({ received: true, status: 'already_processed' });
-    }
+    claim = await subscriptionModel.claimWebhookEvent(eventId, eventType);
   } catch (dbError) {
-    // Si falla la verificación de idempotencia, procesamos de todas formas
-    // (es mejor procesar un duplicado que perder un pago legítimo)
-    logger.error('Error verificando idempotencia, procesando de todas formas', {
+    // Fail-closed: sin garantía de idempotencia NO procesamos. Pedimos reintento
+    // a Stripe (5xx) en lugar de arriesgar un doble procesamiento financiero.
+    logger.error('Ledger de idempotencia no disponible; se solicita reintento a Stripe', {
       eventId, error: dbError.message,
     });
+    return res.status(503).json({ error: 'Idempotency store unavailable. Please retry.' });
+  }
+
+  if (!claim.claimed) {
+    logger.info('Evento duplicado/concurrente ya reclamado, omitiendo', { eventId, eventType });
+    return res.status(200).json({ received: true, status: 'already_processed' });
   }
 
   // ── PASO 3: Despachar al handler del tipo de evento ───────────────────────
@@ -145,25 +218,23 @@ async function handleStripeWebhook(req, res) {
     return res.status(200).json({ received: true, eventId, eventType });
 
   } catch (handlerError) {
-    // Si el handler falla por error interno, logueamos pero respondemos 200.
-    // Si respondemos 5xx, Stripe reintentará hasta 72h (puede causar duplicados).
-    // La idempotencia nos protege si el evento se reintenta después de corregir el bug.
-    logger.error('Error procesando evento de Stripe', {
+    // El handler falló: LIBERAMOS el claim de idempotencia para que el reintento
+    // automático de Stripe pueda reprocesar el evento (no perder una activación
+    // legítima de pago). Respondemos 5xx para disparar ese reintento.
+    logger.error('Error procesando evento de Stripe; se libera claim para reintento', {
       eventId,
       eventType,
       error:  handlerError.message,
       stack:  handlerError.stack,
     });
 
-    // En desarrollo, devolver el error para debugging; en producción, siempre 200
-    if (!env.IS_PRODUCTION) {
-      return res.status(500).json({ error: handlerError.message, eventId });
-    }
+    await subscriptionModel.releaseWebhookEvent(eventId);
 
-    return res.status(200).json({
-      received: true,
+    return res.status(500).json({
+      received: false,
       eventId,
-      status:   'processing_error_logged',
+      status:   'processing_error_will_retry',
+      ...(!env.IS_PRODUCTION && { error: handlerError.message }),
     });
   }
 }
@@ -251,6 +322,29 @@ async function handleInvoicePaid(event) {
     monto: invoice.amount_paid / 100,
     moneda: invoice.currency,
   });
+
+  // ── SINCRONIZACIÓN BIOMÉTRICA ZKTECO (fire-and-forget) ───────────────────
+  // Obtener el usuario_id de la suscripción local para leer su pin_terminal
+  const updatedSub = await subscriptionModel.findByStripeSubscriptionId(subscriptionId);
+  if (updatedSub?.usuario_id) {
+    const userInfo = await getUserBiometricInfo(updatedSub.usuario_id);
+    if (userInfo?.pin_terminal) {
+      const nombreCompleto = [
+        userInfo.nombre,
+        userInfo.apellido_paterno,
+      ].filter(Boolean).join(' ');
+      // Llamada asíncrona sin await — no bloquea el webhook de Stripe
+      notifyBiometricSync(
+        updatedSub.usuario_id,
+        userInfo.pin_terminal,
+        nombreCompleto,
+      ).catch((e) => logger.error('Error async biometric sync', { error: e.message }));
+    } else {
+      logger.warn('invoice.paid: usuario sin pin_terminal, sync ZKTeco omitido', {
+        usuarioId: updatedSub.usuario_id,
+      });
+    }
+  }
 }
 
 /**
@@ -340,6 +434,20 @@ async function handleSubscriptionDeleted(event) {
   }
 
   logger.info('customer.subscription.deleted procesado', { subscriptionId, razon });
+
+  // ── REVOCACIÓN BIOMÉTRICA ZKTECO (fire-and-forget) ────────────────────────
+  // Buscar la suscripción cancelada para obtener usuario_id y su pin_terminal
+  const cancelledSub = await subscriptionModel.findByStripeSubscriptionId(subscriptionId)
+    .catch(() => null);
+  if (cancelledSub?.usuario_id) {
+    const userInfo = await getUserBiometricInfo(cancelledSub.usuario_id);
+    if (userInfo?.pin_terminal) {
+      notifyBiometricDelete(
+        cancelledSub.usuario_id,
+        userInfo.pin_terminal,
+      ).catch((e) => logger.error('Error async biometric delete', { error: e.message }));
+    }
+  }
 }
 
 /**

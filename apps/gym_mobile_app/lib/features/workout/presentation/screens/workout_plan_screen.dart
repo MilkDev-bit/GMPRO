@@ -8,12 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/services/index.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/workout_entities.dart';
 import '../../domain/muscle_catalog.dart';
 import '../widgets/interactive_anatomy_map.dart';
-import '../providers/workout_provider.dart';
 
 class WorkoutPlanScreen extends ConsumerStatefulWidget {
   const WorkoutPlanScreen({super.key, required this.plan});
@@ -32,7 +32,6 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
 
   WorkoutDay get _currentDay => widget.plan.dias[_currentDayIndex];
   List<WorkoutExercise> get _currentExercises => _currentDay.ejercicios;
-  WorkoutExercise get _currentExercise => _currentExercises[_currentExerciseIndex];
 
   @override
   void initState() {
@@ -49,7 +48,29 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
         _currentExerciseIndex = 0;
       });
       _exercisePageController.jumpToPage(0);
+      _syncCurrentExerciseToWatch(0);
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncCurrentExerciseToWatch(0);
+    });
+  }
+
+  void _syncCurrentExerciseToWatch(int index) {
+    if (index < 0 || index >= _currentExercises.length) return;
+    final exercise = _currentExercises[index];
+    try {
+      ref.read(wearableControllerProvider.notifier).syncWorkout(
+            exerciseId: exercise.ejercicioId,
+            exerciseName: exercise.nombre,
+            currentSeries: 1,
+            totalSeries: exercise.series,
+            reps: exercise.repeticiones,
+            restSeconds: exercise.descansoSeg,
+          );
+    } catch (e) {
+      debugPrint('⚠️ [WorkoutPlanScreen] No se pudo sincronizar con reloj: $e');
+    }
   }
 
   @override
@@ -152,6 +173,7 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
                     physics: const BouncingScrollPhysics(),
                     onPageChanged: (index) {
                       setState(() => _currentExerciseIndex = index);
+                      _syncCurrentExerciseToWatch(index);
                     },
                     itemCount: _currentExercises.length,
                     itemBuilder: (context, index) {

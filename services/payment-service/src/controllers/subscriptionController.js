@@ -106,10 +106,14 @@ async function cancelAutoRenew(req, res, next) {
     }
 
     const stripe = getStripeClient();
-    // Programar cancelación al final del período pagado en Stripe
+    // Programar cancelación al final del período pagado en Stripe.
+    // Idempotency-Key por (suscripción, día): dobles clics en "cancelar" no generan
+    // múltiples llamadas de escritura a Stripe.
+    const dayBucket = Math.floor(Date.now() / 86_400_000);
     const updatedStripeSub = await stripe.subscriptions.update(
       activeSub.stripe_subscription_id,
-      { cancel_at_period_end: true }
+      { cancel_at_period_end: true },
+      { idempotencyKey: `gympro:cancel:${activeSub.stripe_subscription_id}:${dayBucket}` },
     );
 
     logger.info('Renovación automática cancelada por el usuario', {

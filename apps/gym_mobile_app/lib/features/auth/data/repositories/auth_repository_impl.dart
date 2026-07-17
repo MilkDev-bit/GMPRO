@@ -8,17 +8,20 @@ import '../../domain/entities/auth_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_data_source.dart';
 import '../datasources/auth_remote_data_source.dart';
-import '../models/auth_response_model.dart';
+import '../datasources/passkey_remote_data_source.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
   final AuthLocalDataSource _localDataSource;
+  final PasskeyRemoteDataSource _passkeyDataSource;
 
   AuthRepositoryImpl({
     required AuthRemoteDataSource remoteDataSource,
     required AuthLocalDataSource localDataSource,
+    required PasskeyRemoteDataSource passkeyDataSource,
   })  : _remoteDataSource = remoteDataSource,
-        _localDataSource = localDataSource;
+        _localDataSource = localDataSource,
+        _passkeyDataSource = passkeyDataSource;
 
   @override
   Future<Either<Failure, AuthUser>> loginWithGoogle() async {
@@ -65,6 +68,47 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(e.message));
     } catch (e) {
       return Left(PlatformFailure('Error inesperado durante login con Apple: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, AuthUser>> loginWithPasskey({String? email}) async {
+    try {
+      final session = await _passkeyDataSource.loginWithPasskeyNative(email: email);
+      await _localDataSource.cacheSession(session);
+      return Right(session);
+    } on UserCancelledException catch (e) {
+      return Left(UserCancelledFailure(e.message));
+    } on BiometricNotAvailableException catch (e) {
+      return Left(BiometricNotAvailableFailure(e.message));
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message, statusCode: e.statusCode));
+    } on PasskeyException catch (e) {
+      return Left(PasskeyAuthFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(PlatformFailure('Error inesperado al iniciar sesión por Passkey: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> registerPasskey() async {
+    try {
+      final credentialId = await _passkeyDataSource.registerPasskeyNative();
+      return Right(credentialId);
+    } on UserCancelledException catch (e) {
+      return Left(UserCancelledFailure(e.message));
+    } on BiometricNotAvailableException catch (e) {
+      return Left(BiometricNotAvailableFailure(e.message));
+    } on PasskeyException catch (e) {
+      return Left(PasskeyAuthFailure(e.message));
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message, statusCode: e.statusCode));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(PlatformFailure('Error inesperado registrando Passkey: $e'));
     }
   }
 

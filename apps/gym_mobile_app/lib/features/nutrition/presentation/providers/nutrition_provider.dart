@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/nutrition_entities.dart';
 
 class NutritionState {
@@ -67,7 +68,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
       );
 
       if (response.data['success'] == true && response.data['data'] != null) {
-        final plan = NutritionPlan.fromJson(
+        final plan = await NutritionPlan.parseInBackground(
           response.data['data'] as Map<String, dynamic>,
         );
         state = state.copyWith(plan: plan, isLoading: false);
@@ -100,7 +101,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
 
       if (response.data['success'] == true && response.data['data'] != null) {
         final list = response.data['data'] as List<dynamic>;
-        final items = list.map((x) => FoodItem.fromJson(x as Map<String, dynamic>)).toList();
+        final items = await FoodItem.parseListInBackground(list);
         state = state.copyWith(searchResults: items, isSearching: false);
       } else {
         state = state.copyWith(
@@ -113,9 +114,9 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
       final qLower = query.toLowerCase();
       final filtered = _quickAddSuggestedFoods.filter(
         (f) =>
-            f.nombre.toLowerCase().includes(qLower) ||
-            f.marca.toLowerCase().includes(qLower) ||
-            f.codigoBarras.includes(qLower),
+            f.nombre.toLowerCase().contains(qLower) ||
+            f.marca.toLowerCase().contains(qLower) ||
+            f.codigoBarras.contains(qLower),
       );
       state = state.copyWith(searchResults: filtered, isSearching: false);
     }
@@ -201,9 +202,9 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
       marca: 'Optimum Nutrition',
       porcionG: 32,
       calorias100g: 388,
-      proteinas_100g: 78.0,
-      carbohidratos_100g: 9.7,
-      grasas_100g: 3.2,
+      proteinas100g: 78.0,
+      carbohidratos100g: 9.7,
+      grasas100g: 3.2,
     ),
     const FoodItem(
       codigoBarras: '0000000001234',

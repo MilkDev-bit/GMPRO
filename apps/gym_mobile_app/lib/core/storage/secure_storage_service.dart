@@ -62,6 +62,32 @@ class SecureStorageService {
     return token != null && token.isNotEmpty;
   }
 
+  /// Guarda una entrada de caché local en el almacenamiento.
+  Future<void> saveCacheEntry(String key, String jsonValue) async {
+    await _storage.write(key: key, value: jsonValue);
+  }
+
+  /// Recupera una entrada de caché almacenada previamente.
+  Future<String?> getCacheEntry(String key) async {
+    return await _storage.read(key: key);
+  }
+
+  /// Elimina una entrada específica de caché.
+  Future<void> deleteCacheEntry(String key) async {
+    await _storage.delete(key: key);
+  }
+
+  /// Borra todas las entradas de caché que comiencen con el prefijo dado.
+  Future<void> clearAllCacheEntriesPrefix(String prefix) async {
+    try {
+      final allEntries = await _storage.readAll();
+      final keysToDelete = allEntries.keys.where((k) => k.startsWith(prefix));
+      for (final k in keysToDelete) {
+        await _storage.delete(key: k);
+      }
+    } catch (_) {}
+  }
+
   /// Elimina por completo todas las credenciales y tokens al cerrar sesión.
   Future<void> clearAuth() async {
     await Future.wait([

@@ -3,7 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/network/api_client.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/datasources/payment_remote_data_source.dart';
 import '../../data/repositories/payment_repository_impl.dart';
 import '../../domain/repositories/payment_repository.dart';
@@ -33,12 +33,19 @@ class PaymentCheckoutState {
     this.status = PaymentCheckoutStatus.initial,
     this.errorMessage,
   });
+
+  bool get isLoading => status == PaymentCheckoutStatus.loading;
 }
 
 class PaymentNotifier extends StateNotifier<PaymentCheckoutState> {
   final CreateCheckoutSessionUseCase _createCheckoutSession;
 
   PaymentNotifier(this._createCheckoutSession) : super(const PaymentCheckoutState());
+
+  /// Abre el portal de Stripe Customer o reintenta cobro
+  Future<bool> openCustomerPortal() async {
+    return launchStripeCheckout();
+  }
 
   /// Inicia el flujo real de Stripe Checkout en modo de prueba o producción.
   Future<bool> launchStripeCheckout({

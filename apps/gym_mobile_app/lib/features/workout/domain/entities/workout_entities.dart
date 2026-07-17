@@ -1,6 +1,13 @@
 /// @file lib/features/workout/domain/entities/workout_entities.dart
 /// @description Entidades del dominio para rutinas IA con datos anatómicos completos.
 
+import 'package:flutter/foundation.dart';
+
+// Funciones top-level requeridas por compute() para ejecutarse en un Isolate separado
+WorkoutPlan _parseWorkoutPlanTopLevel(Map<String, dynamic> json) => WorkoutPlan.fromJson(json);
+List<WorkoutExercise> _parseExerciseListTopLevel(List<dynamic> list) =>
+    list.map((e) => WorkoutExercise.fromJson(e as Map<String, dynamic>)).toList();
+
 /// Representa un ejercicio individual con músculos primarios/secundarios mapeados.
 class WorkoutExercise {
   const WorkoutExercise({
@@ -46,6 +53,11 @@ class WorkoutExercise {
     if (raw == null) return [];
     if (raw is List) return raw.map((e) => e.toString()).toList();
     return [];
+  }
+
+  /// Parsea listas extensas de ejercicios en un hilo secundario/Isolate para evitar jank en la UI.
+  static Future<List<WorkoutExercise>> parseListInBackground(List<dynamic> list) async {
+    return compute(_parseExerciseListTopLevel, list);
   }
 }
 
@@ -100,5 +112,10 @@ class WorkoutPlan {
           .map((e) => WorkoutDay.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  /// Parsea un mapa JSON gigante en un hilo secundario/Isolate usando compute()
+  static Future<WorkoutPlan> parseInBackground(Map<String, dynamic> json) async {
+    return compute(_parseWorkoutPlanTopLevel, json);
   }
 }

@@ -17,6 +17,19 @@ class AppConfig {
   static const Duration connectionTimeout = Duration(seconds: 10);
   static const Duration receiveTimeout = Duration(seconds: 15);
 
+  /// ── Supabase (Realtime de vigencia de membresía) ─────────────────────────
+  /// Se inyectan por --dart-define en CI/CD (no hardcodear la anon key en repos).
+  /// El esquema payment_service_db debe estar publicado en `supabase_realtime`
+  /// y con una RLS que permita al socio leer SOLO su propia fila de suscripciones.
+  static const String supabaseUrl =
+      String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+  static const String supabaseAnonKey =
+      String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+
+  /// Indica si el Realtime está configurado (evita inicializar canales vacíos).
+  static bool get isSupabaseConfigured =>
+      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
   /// Clave de almacenamiento en flutter_secure_storage para tokens
   static const String keyAccessToken = 'gympro_access_token';
   static const String keyRefreshToken = 'gympro_refresh_token';

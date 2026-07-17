@@ -3,6 +3,7 @@
 /// con DraggableScrollableSheet, BackdropFilter de cristal y ajustador de porciones
 /// reactivo con AnimatedSwitcher, AnimatedScale y vibración háptica.
 
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +28,10 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
   FoodItem? _selectedItem;
   double _portionGrams = 100.0;
 
+  // Micro-interacción: escala amortiguada que "late" al recalcular en tiempo real.
+  double _valuePulse = 1.0;
+  Timer? _pulseResetTimer;
+
   @override
   void initState() {
     super.initState();
@@ -37,8 +42,32 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
 
   @override
   void dispose() {
+    _pulseResetTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Dispara un pulso de escala amortiguado (overshoot con easeOutBack) que se
+  /// resuelve solo tras ~120ms, dando sensación física al recalculado.
+  void _triggerValuePulse() {
+    if (_valuePulse != 1.12) setState(() => _valuePulse = 1.12);
+    _pulseResetTimer?.cancel();
+    _pulseResetTimer = Timer(const Duration(milliseconds: 120), () {
+      if (mounted) setState(() => _valuePulse = 1.0);
+    });
+  }
+
+  /// Aplica un nuevo gramaje con háptica + pulso SOLO cuando cambia el paso
+  /// numérico (evita spam de vibración durante el arrastre continuo).
+  void _applyPortion(double grams, {bool strongHaptic = false}) {
+    final changedStep = grams.round() != _portionGrams.round();
+    if (changedStep) {
+      strongHaptic
+          ? HapticFeedback.mediumImpact()
+          : HapticFeedback.lightImpact();
+      _triggerValuePulse();
+    }
+    setState(() => _portionGrams = grams);
   }
 
   @override
@@ -61,15 +90,20 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
             ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF1E1836).withValues(alpha: 0.94),
-                  const Color(0xFF100E22).withValues(alpha: 0.98),
-                ],
+                colors: AppColors.isDark(context)
+                    ? [
+                        const Color(0xFF1E1836).withValues(alpha: 0.94),
+                        const Color(0xFF100E22).withValues(alpha: 0.98),
+                      ]
+                    : [
+                        AppColors.lightSurface.withValues(alpha: 0.94),
+                        AppColors.lightSurfaceElevated.withValues(alpha: 0.98),
+                      ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
-              border: Border.all(color: AppColors.neonPurple.withValues(alpha: 0.4), width: 1.5),
+              border: Border.all(color: AppColors.neonPurpleOf(context).withValues(alpha: 0.4), width: 1.5),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.neonPurple.withValues(alpha: 0.25),
@@ -116,11 +150,11 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
                 // ── CAMPO DE BÚSQUEDA ──────────────────────────────────────────
                 TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AppColors.textPrimaryOf(context)),
                   decoration: InputDecoration(
                     hintText: 'Buscar alimento por código de barras o nombre...',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.neonCyan),
+                    hintStyle: TextStyle(color: AppColors.textMutedOf(context)),
+                    prefixIcon: Icon(Icons.search_rounded, color: AppColors.neonCyanOf(context)),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear_rounded, color: Colors.grey),
@@ -132,7 +166,7 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
                           )
                         : null,
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.06),
+                    fillColor: AppColors.surfaceElevatedOf(context).withValues(alpha: 0.6),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
                       borderSide: BorderSide.none,
@@ -191,20 +225,20 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: AppColors.surfaceElevatedOf(context).withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: AppColors.glassBorderOf(context)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.neonCyan.withValues(alpha: 0.15),
+                color: AppColors.neonCyanOf(context).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.4)),
+                border: Border.all(color: AppColors.neonCyanOf(context).withValues(alpha: 0.4)),
               ),
-              child: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.neonCyan, size: 24),
+              child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.neonCyanOf(context), size: 24),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -219,7 +253,7 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
                           style: GoogleFonts.outfit(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: Colors.white,
+                            color: AppColors.textPrimaryOf(context),
                           ),
                         ),
                       ),
@@ -272,7 +306,7 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                icon: Icon(Icons.arrow_back_rounded, color: AppColors.textPrimaryOf(context)),
                 onPressed: () {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedItem = null);
@@ -280,7 +314,7 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
               ),
               Text(
                 'Ajustar Porción en Gramos',
-                style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w800),
+                style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.textPrimaryOf(context)),
               ),
             ],
           ),
@@ -288,12 +322,12 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
           Container(
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
+              color: AppColors.surfaceElevatedOf(context),
               borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: AppColors.neonPurple.withValues(alpha: 0.45)),
+              border: Border.all(color: AppColors.neonPurpleOf(context).withValues(alpha: 0.45)),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.neonPurple.withValues(alpha: 0.15),
+                  color: AppColors.neonPurpleOf(context).withValues(alpha: 0.15),
                   blurRadius: 20,
                 ),
               ],
@@ -302,21 +336,27 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
               children: [
                 Text(
                   customized.nombre,
-                  style: GoogleFonts.outfit(fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white),
+                  style: GoogleFonts.outfit(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.textPrimaryOf(context)),
                   textAlign: TextAlign.center,
                 ),
-                Text(customized.marca, style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
+                Text(customized.marca, style: AppTypography.captionOf(context)),
                 const SizedBox(height: 20),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
-                  child: Text(
-                    '${_portionGrams.round()}g',
-                    key: ValueKey(_portionGrams.round()),
-                    style: GoogleFonts.outfit(
-                      fontSize: 44,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.neonCyan,
+                // Micro-escala amortiguada: el gramaje "rebota" con cada paso.
+                AnimatedScale(
+                  scale: _valuePulse,
+                  duration: const Duration(milliseconds: 140),
+                  curve: Curves.easeOutBack,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                    child: Text(
+                      '${_portionGrams.round()}g',
+                      key: ValueKey(_portionGrams.round()),
+                      style: GoogleFonts.outfit(
+                        fontSize: 44,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.neonCyanOf(context),
+                      ),
                     ),
                   ),
                 ),
@@ -325,12 +365,10 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
                   min: 10,
                   max: 500,
                   divisions: 49,
-                  activeColor: AppColors.neonCyan,
-                  inactiveColor: Colors.white.withValues(alpha: 0.12),
-                  onChanged: (v) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _portionGrams = v);
-                  },
+                  activeColor: AppColors.neonCyanOf(context),
+                  inactiveColor: AppColors.glassBorderOf(context),
+                  // Háptica ligera real + pulso por cada paso de 10g (no por pixel).
+                  onChanged: (v) => _applyPortion(v),
                 ),
                 Wrap(
                   spacing: 10,
@@ -338,29 +376,32 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
                     return ChoiceChip(
                       label: Text('${g}g'),
                       selected: _portionGrams == g.toDouble(),
-                      selectedColor: AppColors.neonPurple,
+                      selectedColor: AppColors.neonPurpleOf(context),
                       labelStyle: GoogleFonts.outfit(
                         fontWeight: FontWeight.w700,
-                        color: _portionGrams == g.toDouble() ? Colors.white : AppColors.textMuted,
+                        color: _portionGrams == g.toDouble() ? Colors.white : AppColors.textMutedOf(context),
                       ),
-                      onSelected: (_) {
-                        HapticFeedback.mediumImpact();
-                        setState(() => _portionGrams = g.toDouble());
-                      },
+                      onSelected: (_) => _applyPortion(g.toDouble(), strongHaptic: true),
                     );
                   }).toList(),
                 ),
                 const SizedBox(height: 22),
-                Divider(color: Colors.white.withValues(alpha: 0.08)),
+                Divider(color: AppColors.glassBorderOf(context)),
                 const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _MacroBadgeReactive(label: 'Calorías', val: '${customized.calorias} kcal', color: AppColors.neonCyan),
-                    _MacroBadgeReactive(label: 'Proteínas', val: '${customized.proteinas}g', color: const Color(0xFF00E676)),
-                    _MacroBadgeReactive(label: 'Carbos', val: '${customized.carbohidratos}g', color: AppColors.neonPurple),
-                    _MacroBadgeReactive(label: 'Grasas', val: '${customized.grasas}g', color: AppColors.neonPink),
-                  ],
+                // El bloque de macros recalculado comparte el mismo pulso físico.
+                AnimatedScale(
+                  scale: _valuePulse,
+                  duration: const Duration(milliseconds: 140),
+                  curve: Curves.easeOutBack,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _MacroBadgeReactive(label: 'Calorías', val: '${customized.calorias} kcal', color: AppColors.neonCyanOf(context)),
+                      _MacroBadgeReactive(label: 'Proteínas', val: '${customized.proteinas}g', color: AppColors.neonEmeraldOf(context)),
+                      _MacroBadgeReactive(label: 'Carbos', val: '${customized.carbohidratos}g', color: AppColors.neonPurple),
+                      _MacroBadgeReactive(label: 'Grasas', val: '${customized.grasas}g', color: AppColors.neonPink),
+                    ],
+                  ),
                 ),
               ],
             ),

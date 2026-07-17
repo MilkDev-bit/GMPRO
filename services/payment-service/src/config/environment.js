@@ -63,6 +63,10 @@ module.exports = {
   STRIPE_DEFAULT_CURRENCY:    process.env.STRIPE_DEFAULT_CURRENCY || 'mxn',
   CASH_PAYMENT_API_KEY:       process.env.CASH_PAYMENT_API_KEY,
   INTER_SERVICE_SECRET:       process.env.INTER_SERVICE_SECRET,
+  // URL interna del access-service para sincronización inmediata (Railway private networking).
+  // Ej.: http://access-service.railway.internal:3002/api/v1/access/internal
+  ACCESS_SERVICE_INTERNAL_URL: process.env.ACCESS_SERVICE_INTERNAL_URL || null,
+  INTER_SERVICE_TIMEOUT_MS:   parseInt(process.env.INTER_SERVICE_TIMEOUT_MS || '2500', 10),
   REDIS_URL:                  process.env.REDIS_URL || null,
   CORS_ALLOWED_ORIGINS:       process.env.CORS_ALLOWED_ORIGINS || '',
   BUSINESS_NAME:              process.env.BUSINESS_NAME || 'GymPro',

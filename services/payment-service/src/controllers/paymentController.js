@@ -8,6 +8,8 @@
 const { getStripeClient } = require('../config/stripe');
 const env                 = require('../config/environment');
 const subscriptionModel   = require('../models/subscriptionModel');
+const paymentHistoryModel = require('../models/paymentHistoryModel');
+const accessSyncService   = require('../services/accessSyncService');
 const { generateReceiptPdf } = require('../services/pdfService');
 const { getSupabaseClient } = require('../config/database');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
@@ -31,6 +33,7 @@ async function registerCashPayment(req, res, next) {
       plan_nombre = 'Membresía Mensual Efectivo',
       plan_duracion_dias = 30,
       monto,
+      metodo_pago = 'cash',   // 'cash' | 'card_terminal' | 'transfer'
       notas = null,
     } = req.body;
 
@@ -65,28 +68,85 @@ async function registerCashPayment(req, res, next) {
       notas,
     });
 
-    logger.info('Pago en efectivo registrado y suscripción activada', {
+    // 3. Acuñar pase de cortesía del día en access-service (best-effort).
+    //    Su codigo_ticket se imprime en el ticket térmico para ingreso inmediato.
+    const cortesia = await accessSyncService.mintCourtesyPass(usuario_id);
+
+    // 4. Registrar el asiento inmutable en el ledger historial_pagos.
+    const asiento = await paymentHistoryModel.recordCashPayment({
+      usuarioId:          usuario_id,
+      suscripcionId:      subscription.id,
+      monto:              Number(monto),
+      metodoPago:         metodo_pago,
+      planNombre:         subscription.plan_nombre,
+      planDuracionDias:   Number(plan_duracion_dias),
+      periodoDesde:       subscription.valido_desde,
+      periodoHasta:       subscription.valido_hasta,
+      paseCortesiaCodigo: cortesia?.codigo_ticket || null,
+      receptionistId,
+      notas,
+    });
+
+    // 5. Sincronización INMEDIATA: invalidar/pre-calentar la caché de vigencia en
+    //    access-service para que el torniquete conceda el paso al instante.
+    await accessSyncService.invalidateMembershipCache(
+      usuario_id,
+      subscription.valido_hasta,
+    );
+
+    logger.info('Pago presencial registrado, suscripción activada y acceso sincronizado', {
       action,
       subscriptionId: subscription.id,
+      historialPagoId: asiento.id,
       usuario_id,
       receptionistId,
       validoHasta: subscription.valido_hasta,
+      cortesiaEmitida: !!cortesia,
     });
+
+    // 6. Nombre legible del socio para el ticket físico.
+    const nombreSocio = usuario
+      ? `${usuario.nombre || 'Socio'} ${usuario.apellido_paterno || ''}`.trim()
+      : 'Socio GymPro';
+
+    // 7. Payload estructurado para la impresora térmica de mostrador
+    //    (compatible con printDailyTicket del reception-hardware-controller).
+    const ticketImpresion = {
+      tipo:            'pago_presencial',
+      user_name:       nombreSocio,
+      numero_recibo:   asiento.numero_recibo,
+      monto:           Number(monto),
+      moneda:          'MXN',
+      metodo_pago:     metodo_pago,
+      plan_nombre:     subscription.plan_nombre,
+      valido_hasta:    subscription.valido_hasta,
+      // Pase de cortesía del día (QR imprimible). Puede ser null si access-service no respondió.
+      codigo_ticket:   cortesia?.codigo_ticket || null,
+      qr_string:       cortesia?.qr_string || null,
+      vigencia_horas:  cortesia?.vigencia_horas || null,
+      notas:           `Recibo ${asiento.numero_recibo}`,
+    };
 
     return res.status(action === 'created' ? 201 : 200).json({
       success: true,
       data: {
         accion:            action === 'created' ? 'creada' : 'renovada',
         suscripcion_id:    subscription.id,
+        historial_pago_id: asiento.id,
+        numero_recibo:     asiento.numero_recibo,
         usuario_id:        subscription.usuario_id,
         plan_nombre:       subscription.plan_nombre,
-        metodo_pago:       subscription.metodo_pago,
+        metodo_pago:       metodo_pago,
         estado:            subscription.estado,
         valido_desde:      subscription.valido_desde,
         valido_hasta:      subscription.valido_hasta,
         atendido_por:      receptionistId,
-        monto_pagado:      subscription.monto,
-        recibo_pdf_url: `/api/v1/payments/${subscription.id}/receipt`,
+        monto_pagado:      Number(monto),
+        acceso_sincronizado: true,
+        pase_cortesia:     cortesia || null,
+        // Objeto listo para enviar a la impresora térmica local (POST /print-ticket).
+        ticket_impresion:  ticketImpresion,
+        recibo_pdf_url:    `/api/v1/payments/${subscription.id}/receipt`,
       },
       error: null,
     });
@@ -113,27 +173,38 @@ async function createCheckoutSession(req, res, next) {
     let customerId = history.find((s) => s.stripe_customer_id)?.stripe_customer_id;
 
     if (!customerId) {
-      // Crear nuevo customer en Stripe
-      const customer = await stripe.customers.create({
-        email:    userEmail,
-        metadata: { gympro_user_id: userId },
-      });
+      // Crear nuevo customer en Stripe.
+      // Idempotency-Key estable por usuario: un doble clic (o reintento de red) NO
+      // crea dos customers en Stripe — devuelve el mismo objeto ya creado.
+      const customer = await stripe.customers.create(
+        {
+          email:    userEmail,
+          metadata: { gympro_user_id: userId },
+        },
+        { idempotencyKey: `gympro:customer:${userId}` },
+      );
       customerId = customer.id;
     }
 
-    // 2. Crear sesión de Checkout
-    const session = await stripe.checkout.sessions.create({
-      customer:     customerId,
-      payment_method_types: ['card'],
-      mode:         'subscription',
-      line_items:   [{ price: priceId, quantity: 1 }],
-      success_url:  successUrl || 'https://app.gympro.com/payment/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url:   cancelUrl  || 'https://app.gympro.com/payment/cancel',
-      subscription_data: {
+    // 2. Crear sesión de Checkout.
+    // Idempotency-Key por (usuario, plan, ventana de 30s): los dobles clics rápidos
+    // colapsan en UNA sola sesión de checkout → evita cobros/sesiones duplicadas.
+    const idemBucket = Math.floor(Date.now() / 30_000);
+    const session = await stripe.checkout.sessions.create(
+      {
+        customer:     customerId,
+        payment_method_types: ['card'],
+        mode:         'subscription',
+        line_items:   [{ price: priceId, quantity: 1 }],
+        success_url:  successUrl || 'https://app.gympro.com/payment/success?session_id={CHECKOUT_SESSION_ID}',
+        cancel_url:   cancelUrl  || 'https://app.gympro.com/payment/cancel',
+        subscription_data: {
+          metadata: { gympro_user_id: userId },
+        },
         metadata: { gympro_user_id: userId },
       },
-      metadata: { gympro_user_id: userId },
-    });
+      { idempotencyKey: `gympro:checkout:${userId}:${priceId}:${idemBucket}` },
+    );
 
     logger.info('Stripe Checkout Session creada', {
       sessionId: session.id,

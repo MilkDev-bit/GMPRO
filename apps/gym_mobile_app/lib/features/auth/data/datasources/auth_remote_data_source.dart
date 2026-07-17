@@ -65,7 +65,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         apellidoPaterno: apellidoPaterno,
       );
     } on SignInWithAppleAuthorizationException catch (e) {
-      if (e.code == SignInWithAppleAuthorizationExceptionCode.canceled) {
+      if (e.code == AuthorizationErrorCode.canceled || e.code.toString().contains('canceled')) {
         throw const UserCancelledException('Inicio de sesión con Apple cancelado por el usuario.');
       }
       throw AuthException('Error de autorización con Apple: ${e.message}');

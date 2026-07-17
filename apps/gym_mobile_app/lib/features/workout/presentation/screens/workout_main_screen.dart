@@ -3,7 +3,6 @@
 /// el estado de membresía (isAccessValidProvider): bloquea con candado visual si está
 /// inactiva o muestra el mapa anatómico interactivo si está al corriente.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -186,7 +185,11 @@ class WorkoutMainScreen extends ConsumerWidget {
                   backgroundColor: AppColors.neonPurple,
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
                 ),
-                onPressed: () => ref.read(workoutProvider.notifier).generateRoutinePlan(),
+                onPressed: () => ref.read(workoutProvider.notifier).generateRoutinePlan(
+                  objetivo: 'hipertrofia',
+                  nivel: 'intermedio',
+                  lesiones: const ['ninguna'],
+                ),
               ),
             ],
           ),

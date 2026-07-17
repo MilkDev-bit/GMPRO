@@ -4,7 +4,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/failures.dart';
-import '../../../../core/network/api_client.dart';
+import '../../../../core/services/index.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../data/datasources/qr_access_remote_data_source.dart';
@@ -67,7 +67,6 @@ class QrAccessNotifier extends StateNotifier<QrAccessState> {
 
   /// Inicia el ciclo del código QR dinámico de 30 segundos.
   Future<void> startDynamicRefresh() async {
-    // Verificar primero si la suscripción local indica que está vencido
     final isValid = _ref.read(isAccessValidProvider);
     if (!isValid) {
       stopRefresh();
@@ -79,10 +78,20 @@ class QrAccessNotifier extends StateNotifier<QrAccessState> {
     _startTicker();
   }
 
-  /// Detiene el temporizador de refresco (ej. cuando la app va a segundo plano o se bloquea el acceso).
+  /// Detiene el temporizador de refresco.
   void stopRefresh() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
+  }
+
+  /// Gestiona el cambio en la suscripción desde los oyentes externos.
+  void handleSubscriptionStatusChange(bool isAccessValid) {
+    if (!isAccessValid) {
+      stopRefresh();
+      state = state.copyWith(status: QrStatus.paymentRequired);
+    } else if (state.status == QrStatus.paymentRequired || state.status == QrStatus.initial) {
+      startDynamicRefresh();
+    }
   }
 
   /// Consulta el nuevo token encriptado AES-256 al servidor de accesos.
@@ -95,7 +104,6 @@ class QrAccessNotifier extends StateNotifier<QrAccessState> {
     result.fold(
       (failure) {
         if (failure is AuthFailure && failure.statusCode == 402) {
-          // 402 Payment Required: la membresía venció o tiene adeudo
           stopRefresh();
           state = state.copyWith(status: QrStatus.paymentRequired);
         } else {
@@ -111,15 +119,21 @@ class QrAccessNotifier extends StateNotifier<QrAccessState> {
           qrToken: token,
           secondsRemaining: token.refreshInterval,
         );
+        // Sincronizar automáticamente con Apple Watch / Wear OS
+        try {
+          _ref.read(wearableControllerProvider.notifier).syncQrToken(
+                token: token.token,
+                expiresAt: token.expiresAt,
+              );
+        } catch (_) {}
       },
     );
   }
 
-  /// Ticker interno de 1 segundo que decrementa la cuenta regresiva e invoca refresco a los 0s.
+  /// Ticker interno de 1 segundo que decrementa la cuenta regresiva.
   void _startTicker() {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // Verificar proactivamente si cambió la suscripción
       if (!_ref.read(isAccessValidProvider)) {
         stopRefresh();
         state = state.copyWith(status: QrStatus.paymentRequired);
@@ -127,7 +141,6 @@ class QrAccessNotifier extends StateNotifier<QrAccessState> {
       }
 
       if (state.secondsRemaining <= 1) {
-        // Al llegar a 0 segundos, refrescar automáticamente en segundo plano
         _fetchNewQrToken();
       } else {
         state = state.copyWith(secondsRemaining: state.secondsRemaining - 1);
@@ -148,16 +161,9 @@ final qrAccessProvider = StateNotifierProvider<QrAccessNotifier, QrAccessState>(
     ref,
   );
 
-  // Observar cambios en la suscripción: si pasa de activa a inactiva, bloquear QR al instante
   ref.listen<AsyncValue<dynamic>>(subscriptionProvider, (previous, next) {
     next.whenData((sub) {
-      if (!sub.isAccessValid) {
-        notifier.stopRefresh();
-        notifier.state = notifier.state.copyWith(status: QrStatus.paymentRequired);
-      } else if (notifier.state.status == QrStatus.paymentRequired ||
-                 notifier.state.status == QrStatus.initial) {
-        notifier.startDynamicRefresh();
-      }
+      notifier.handleSubscriptionStatusChange(sub.isAccessValid as bool? ?? false);
     });
   });
 

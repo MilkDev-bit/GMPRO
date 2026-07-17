@@ -3,7 +3,6 @@
 /// acumulados, expansión orgánica animada (SizeTransition / AnimatedCrossFade) y
 /// alimentos con Swipe-to-Dismiss estilo premium y vibración háptica.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +10,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/presentation/widgets/glass_surface.dart';
+import '../../../../core/presentation/widgets/pressable.dart';
 import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_provider.dart';
 import 'food_search_modal.dart';
@@ -63,37 +64,44 @@ class _MealCardState extends ConsumerState<MealCard>
     final accentColor = _getMealColor(meal.tipo);
     final icon = _getMealIcon(meal.tipo);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(26),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOut,
-          margin: const EdgeInsets.only(bottom: 18),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color.lerp(const Color(0xFF1F1A3A), accentColor, 0.12)!,
-                const Color(0xFF100E22),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(
-              color: accentColor.withValues(alpha: _isExpanded ? 0.45 : 0.25),
-              width: _isExpanded ? 1.5 : 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: accentColor.withValues(alpha: _isExpanded ? 0.18 : 0.08),
-                blurRadius: _isExpanded ? 22 : 12,
-                offset: const Offset(0, 8),
-              ),
-            ],
+    // Sombra de acento animada al expandir (fuera del cristal, sin recortarse).
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: _isExpanded ? 0.18 : 0.08),
+            blurRadius: _isExpanded ? 22 : 12,
+            offset: const Offset(0, 8),
           ),
-          child: Column(
+        ],
+      ),
+      // Cristal premium: blur + relleno de marca + highlight specular + borde acento.
+      child: GlassSurface(
+        borderRadius: 26,
+        blurSigma: 14,
+        specularOpacity: 0.22,
+        border: Border.all(
+          color: accentColor.withValues(alpha: _isExpanded ? 0.45 : 0.25),
+          width: _isExpanded ? 1.5 : 1.0,
+        ),
+        gradient: LinearGradient(
+          colors: AppColors.isDark(context)
+              ? [
+                  Color.lerp(const Color(0xFF1F1A3A), accentColor, 0.12)!,
+                  const Color(0xFF100E22),
+                ]
+              : [
+                  Color.lerp(AppColors.lightSurface, accentColor, 0.08)!,
+                  AppColors.lightSurfaceElevated.withValues(alpha: 0.95),
+                ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        child: Column(
             children: [
               // ── CABECERA COMIDA CON FLECHA ANIMADA ─────────────────────────
               InkWell(
@@ -131,14 +139,13 @@ class _MealCardState extends ConsumerState<MealCard>
                               style: GoogleFonts.outfit(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                                color: AppColors.textPrimaryOf(context),
                               ),
                             ),
                             const SizedBox(height: 3),
                             Text(
                               '🕒 ${meal.horaSugerida}  •  ${meal.alimentos.length} alimentos',
-                              style: AppTypography.caption.copyWith(
-                                color: AppColors.textMuted,
+                              style: AppTypography.captionOf(context).copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -152,9 +159,10 @@ class _MealCardState extends ConsumerState<MealCard>
                             tween: IntTween(begin: 0, end: meal.caloriasTotal),
                             duration: const Duration(milliseconds: 800),
                             curve: Curves.easeOutExpo,
+                            // Cifras tabulares: los dígitos no "tiemblan" al contar.
                             builder: (context, val, _) => Text(
                               '$val kcal',
-                              style: GoogleFonts.outfit(
+                              style: AppTypography.numericLargeOf(context).copyWith(
                                 fontSize: 19,
                                 fontWeight: FontWeight.w900,
                                 color: accentColor,
@@ -166,7 +174,8 @@ class _MealCardState extends ConsumerState<MealCard>
                             style: GoogleFonts.outfit(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.textSecondary,
+                              color: AppColors.textSecondaryOf(context),
+                              fontFeatures: AppTypography.tabularFigures,
                             ),
                           ),
                         ],
@@ -200,13 +209,13 @@ class _MealCardState extends ConsumerState<MealCard>
                 firstChild: const SizedBox(width: double.infinity, height: 0),
                 secondChild: Column(
                   children: [
-                    Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                    Divider(color: AppColors.glassBorderOf(context), height: 1),
                     if (meal.alimentos.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
                           'No hay alimentos asignados aún.',
-                          style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                          style: AppTypography.captionOf(context),
                         ),
                       )
                     else
@@ -225,9 +234,10 @@ class _MealCardState extends ConsumerState<MealCard>
                     // ── BOTÓN AGREGAR ALIMENTO (OPEN FOOD FACTS) ─────────────
                     Padding(
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-                      child: InkWell(
+                      // Pressable: spring physics + háptica media en la acción primaria.
+                      child: Pressable(
+                        haptic: PressHaptic.medium,
                         onTap: () {
-                          HapticFeedback.mediumImpact();
                           showModalBottomSheet(
                             context: context,
                             isScrollControlled: true,
@@ -235,7 +245,6 @@ class _MealCardState extends ConsumerState<MealCard>
                             builder: (_) => FoodSearchModal(mealId: meal.id),
                           );
                         },
-                        borderRadius: BorderRadius.circular(18),
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 15),
@@ -271,12 +280,11 @@ class _MealCardState extends ConsumerState<MealCard>
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 300),
-                sizeCurve: Curves.easeInOut,
+                sizeCurve: Curves.easeOutCubic,
               ),
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -329,9 +337,9 @@ class _FoodRowSwipeable extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: AppColors.surfaceElevatedOf(context).withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: AppColors.glassBorderOf(context)),
         ),
         child: Row(
           children: [
@@ -362,7 +370,7 @@ class _FoodRowSwipeable extends ConsumerWidget {
                     style: GoogleFonts.outfit(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.textPrimaryOf(context),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -370,7 +378,7 @@ class _FoodRowSwipeable extends ConsumerWidget {
                     '${item.marca}  •  ${item.porcionG.toStringAsFixed(0)}g',
                     style: GoogleFonts.inter(
                       fontSize: 12,
-                      color: AppColors.textMuted,
+                      color: AppColors.textMutedOf(context),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -385,7 +393,7 @@ class _FoodRowSwipeable extends ConsumerWidget {
                   style: GoogleFonts.outfit(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: AppColors.textPrimaryOf(context),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -393,7 +401,7 @@ class _FoodRowSwipeable extends ConsumerWidget {
                   'P:${item.proteinas}g C:${item.carbohidratos}g G:${item.grasas}g',
                   style: GoogleFonts.inter(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

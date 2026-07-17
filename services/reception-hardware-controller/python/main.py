@@ -92,7 +92,7 @@ class LocalPrinterHandler(BaseHTTPRequestHandler):
                 notes = payload.get("notas", None)
 
                 logger.info(f"🖨️ [Servidor HTTP Local] Recibida orden de impresión para ticket '{ticket_code}'")
-                success = printer_controller.print_daily_visit_ticket(
+                success, status = printer_controller.print_daily_visit_ticket(
                     ticket_code=ticket_code,
                     qr_string=qr_string,
                     validity_hours=validity_hours,
@@ -100,12 +100,18 @@ class LocalPrinterHandler(BaseHTTPRequestHandler):
                     notes=notes
                 )
 
+                # Siempre respondemos 200/202 para NO BLOQUEAR la base de datos ni el servidor central
                 self.send_response(200 if success else 500)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
+                
+                msg = "Ticket impreso en papel de 80mm." if status == "printed" else (
+                    "Impresora temporalmente offline/sin papel. Ticket encolado localmente en auditoría sorda." if status == "queued_offline" else "Impresión en consola/simulación."
+                )
                 self.wfile.write(json.dumps({
                     "success": success,
-                    "mensaje": "Ticket impreso y cortado en papel de 80mm." if success else "Error en comandos ESC/POS."
+                    "print_status": status,
+                    "mensaje": msg
                 }).encode("utf-8"))
             except Exception as e:
                 logger.error(f"❌ [Servidor HTTP Local] Error procesando solicitud de impresión: {e}")
@@ -144,11 +150,11 @@ def main():
     logger.info(f"• Impresora 80mm   : {config.PRINTER_MODE.upper()}")
     logger.info("-" * 80)
 
-    # 1. Conectar y verificar el relevador USB del torniquete ZKTeco TS1000 Plus
-    relay_controller.connect()
+    # 1. Iniciar el relevador USB del torniquete ZKTeco TS1000 Plus (con Auto-Healing cada 3s)
+    relay_controller.start()
 
-    # 2. Conectar y verificar la impresora térmica de 80mm ESC/POS
-    printer_controller.connect()
+    # 2. Iniciar la impresora térmica de 80mm ESC/POS (con Auto-Healing y Cola Sorda)
+    printer_controller.start()
 
     # 3. Iniciar el servidor local HTTP en segundo plano para recibir órdenes de impresión
     http_thread = threading.Thread(target=start_local_printer_server, args=(18999,), daemon=True, name="HttpPrinterServer")

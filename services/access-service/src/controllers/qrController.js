@@ -153,26 +153,7 @@ async function verifyQr(req, res, next) {
       });
     }
 
-    // 3. Verificar que el nonce no se haya utilizado antes (Anti-Replay Attack)
-    const isUsed = await accessModel.isNonceAlreadyUsed(nonce, req.redisClient);
-    if (isUsed) {
-      logger.warn('Intento de ataque de repetición: QR ya escaneado previamente', { usuario_id, nonce });
-      await accessModel.recordAccess({
-        usuarioId:       usuario_id,
-        tokenCodigo:     nonce,
-        metodoAcceso:    'qr',
-        accesoConcedido: false,
-        razonRechazo:    'Código QR duplicado / Replay Attack detectado.',
-      }, req.redisClient);
-
-      return res.status(403).json({
-        success: false,
-        data: { acceso_concedido: false, apertura_torniquete: false },
-        error: 'Este código QR ya fue utilizado para ingresar. Por favor genera uno nuevo.',
-      });
-    }
-
-    // 4. Doble verificación de membresía al momento exacto de abrir (por si venció o se canceló hace segundos)
+    // 3. Doble verificación de membresía al momento exacto de abrir (por si venció o se canceló hace segundos)
     const membership = await paymentClientService.checkMembershipValidity(usuario_id, req.redisClient);
     if (!membership.valid) {
       await accessModel.recordAccess({
@@ -190,7 +171,43 @@ async function verifyQr(req, res, next) {
       });
     }
 
-    // 5. Conceder acceso y registrar en el historial del usuario
+    // 4. CONSUMO ATÓMICO del nonce (Anti-Replay real, a prueba de concurrencia).
+    //    Reclama el nonce en Redis (NX) + DB (PK). Dos escaneos simultáneos del
+    //    mismo QR: solo el primero reclama; el resto se rechaza como replay.
+    let claim;
+    try {
+      claim = await accessModel.claimQrNonceAtomically(nonce, usuario_id, req.redisClient, {
+        claimTtlMs:  ((env.QR_TTL_SECONDS || 30) + 10) * 1000,
+        turnstileId: req.turnstile?.id || null,
+      });
+    } catch (claimErr) {
+      // Fail-closed: si no podemos garantizar unicidad, NO abrimos el torniquete.
+      logger.error('No se pudo garantizar el consumo atómico del nonce QR', { usuario_id, error: claimErr.message });
+      return res.status(503).json({
+        success: false,
+        data: { acceso_concedido: false, apertura_torniquete: false },
+        error: 'No fue posible validar el acceso de forma segura en este momento. Intenta de nuevo.',
+      });
+    }
+
+    if (!claim.claimed) {
+      logger.warn('Ataque de repetición bloqueado: QR ya consumido', { usuario_id, nonce, layer: claim.layer });
+      await accessModel.recordAccess({
+        usuarioId:       usuario_id,
+        tokenCodigo:     nonce,
+        metodoAcceso:    'qr',
+        accesoConcedido: false,
+        razonRechazo:    'Código QR duplicado / Replay Attack detectado.',
+      }, req.redisClient);
+
+      return res.status(403).json({
+        success: false,
+        data: { acceso_concedido: false, apertura_torniquete: false },
+        error: 'Este código QR ya fue utilizado para ingresar. Por favor genera uno nuevo.',
+      });
+    }
+
+    // 5. Acceso concedido: registrar en el historial del usuario (auditoría)
     await accessModel.recordAccess({
       usuarioId:       usuario_id,
       tokenCodigo:     nonce,

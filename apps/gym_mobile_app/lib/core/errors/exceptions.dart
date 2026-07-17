@@ -28,3 +28,21 @@ class ServerException implements Exception {
   @override
   String toString() => 'ServerException: $message';
 }
+
+/// Excepción cuando la biometría o el chip de seguridad no es accesible.
+class BiometricNotAvailableException implements Exception {
+  final String message;
+  const BiometricNotAvailableException([this.message = 'Biometría o hardware no compatible.']);
+
+  @override
+  String toString() => 'BiometricNotAvailableException: $message';
+}
+
+/// Excepción durante la verificación o registro criptográfico con Passkey.
+class PasskeyException implements Exception {
+  final String message;
+  const PasskeyException(this.message);
+
+  @override
+  String toString() => 'PasskeyException: $message';
+}

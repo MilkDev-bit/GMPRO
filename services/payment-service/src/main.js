@@ -33,6 +33,7 @@ const subscriptionRoutes  = require('./routes/subscriptionRoutes');
 const paymentRoutes       = require('./routes/paymentRoutes');
 const cashPaymentRoutes   = require('./routes/cashPaymentRoutes');
 const webhookRoutes       = require('./routes/webhookRoutes');
+const { startCronDaemon } = require('./services/growthRetentionWorker');
 
 async function bootstrap() {
   const app = express();
@@ -132,12 +133,14 @@ async function bootstrap() {
   security.applyFinal(app);
 
   const PORT   = parseInt(process.env.PORT || '3003', 10);
-  const server = app.listen(PORT, '0.0.0.0', () =>
+  const server = app.listen(PORT, '0.0.0.0', () => {
     security.logger.info(`payment-service escuchando en :${PORT}`, {
       stripeMode:   process.env.STRIPE_SECRET_KEY?.startsWith('sk_live') ? 'PRODUCCIÓN' : 'TEST',
       redisEnabled: !!redisClient,
-    })
-  );
+    });
+    // Iniciar tarea Cron de Crecimiento y Retención en segundo plano
+    startCronDaemon(parseInt(process.env.GROWTH_CRON_INTERVAL_MINUTES || '360', 10));
+  });
 
   const shutdown = async (sig) => {
     security.logger.info(`${sig} recibido. Cerrando payment-service...`);

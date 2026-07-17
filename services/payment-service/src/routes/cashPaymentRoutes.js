@@ -29,6 +29,8 @@ router.post(
   [
     body('usuario_id').isUUID(4).withMessage('ID de usuario (UUID v4) requerido.'),
     body('monto').isFloat({ gt: 0 }).withMessage('El monto pagado debe ser mayor a 0.'),
+    body('metodo_pago').optional().isIn(['cash', 'card_terminal', 'transfer'])
+      .withMessage('metodo_pago debe ser cash, card_terminal o transfer.'),
     body('plan_nombre').optional().trim().isLength({ max: 100 }),
     body('plan_duracion_dias').optional().isInt({ min: 1, max: 365 }).withMessage('Duración en días inválida (1-365).'),
     body('notas').optional().trim().isLength({ max: 500 }),

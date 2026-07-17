@@ -86,6 +86,12 @@ async function bootstrap() {
 
   security.applyGlobal(app);
 
+  // ── Exponer el cliente Redis a los controllers (caché de recomendaciones) ──
+  app.use((req, _res, next) => {
+    req.redisClient = redisClient;
+    next();
+  });
+
   // ── Health ─────────────────────────────────────────────────────────────────
   app.get('/health', (_req, res) =>
     res.json({

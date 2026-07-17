@@ -13,9 +13,14 @@ const { Router }         = require('express');
 const { body, query, validationResult } = require('express-validator');
 const cookieParser       = require('cookie-parser');
 const authController     = require('../controllers/authController');
+const passkeyRoutes      = require('./passkeyRoutes');
+const { sanitizeFields } = require('../middlewares/inputSanitizer');
 const { createJwtVerifyMiddleware } = require('../../../../packages_shared/security/jwtVerify');
 
 const router = Router();
+
+// Montar subrutas de Passkeys nativos (Apple Enclave / Android StrongBox)
+router.use('/passkey', passkeyRoutes);
 
 // Cookie parser para leer el refresh token de la cookie HttpOnly
 router.use(cookieParser());
@@ -39,6 +44,10 @@ function validate(req, res, next) {
 // ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/register',
+  // Anti stored-XSS en campos de texto libre (defensa en profundidad, antes de validar).
+  // NOTA: aplicar también en la futura ruta de perfil/datos médicos:
+  //   sanitizeFields(['historial_clinico', 'contacto_emergencia', 'nombre', ...])
+  sanitizeFields(['nombre', 'apellido_paterno', 'apellido_materno']),
   [
     body('email')
       .isEmail().withMessage('Email inválido.')

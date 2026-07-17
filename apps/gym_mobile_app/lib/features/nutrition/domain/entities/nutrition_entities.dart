@@ -2,6 +2,13 @@
 /// @description Modelos de dominio para el plan nutricional y macros con
 /// integración de códigos de barras de Open Food Facts.
 
+import 'package:flutter/foundation.dart';
+
+// Funciones top-level requeridas por compute() para ejecutarse en un Isolate secundario
+NutritionPlan _parseNutritionPlanTopLevel(Map<String, dynamic> json) => NutritionPlan.fromJson(json);
+List<FoodItem> _parseFoodItemListTopLevel(List<dynamic> list) =>
+    list.map((x) => FoodItem.fromJson(x as Map<String, dynamic>)).toList();
+
 class FoodItem {
   const FoodItem({
     required this.codigoBarras,
@@ -70,6 +77,11 @@ class FoodItem {
         'grasas_100g': grasas100g,
         'es_open_food_facts': esOpenFoodFacts,
       };
+
+  /// Parsea listas extensas de alimentos (Open Food Facts) en un hilo secundario/Isolate usando compute()
+  static Future<List<FoodItem>> parseListInBackground(List<dynamic> list) async {
+    return compute(_parseFoodItemListTopLevel, list);
+  }
 }
 
 class Meal {
@@ -201,4 +213,9 @@ class NutritionPlan {
         'agua_meta_ml': aguaMetaMl,
         'comidas': comidas.map((x) => x.toJson()).toList(),
       };
+
+  /// Parsea un plan nutricional gigante en un hilo secundario/Isolate usando compute()
+  static Future<NutritionPlan> parseInBackground(Map<String, dynamic> json) async {
+    return compute(_parseNutritionPlanTopLevel, json);
+  }
 }

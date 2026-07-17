@@ -1,141 +1,170 @@
 /**
  * @file services/ai-service/src/controllers/recommendationController.js
- * @description Controlador para generación de rutinas y planes de nutrición estructurados (JSON).
- * La IA genera obligatoriamente musculos_primarios y musculos_secundarios por ejercicio
- * siguiendo el catálogo estándar NSCA/ACSM, habilitando el mapa anatómico interactivo en la app.
+ * @description Generación de rutinas y planes de nutrición estructurados (JSON) con:
+ *   1. Salida estructurada NATIVA del LLM (responseSchema Gemini / json_schema OpenAI)
+ *      → el modelo no puede inventar claves musculares ni romper el esquema, y el
+ *        System Prompt queda esbelto (sin lista de 43 músculos ni ejemplo JSON gigante).
+ *   2. Tubería de validación secuencial:
+ *        rutina  → muscleValidator.repairRoutinePlan
+ *        dieta   → macroSanitizer.validateAndReconcile → foodReconciliationService
+ *   3. Caché Redis (hash del perfil, TTL 24h) para latencia < 5ms y ahorro de tokens.
+ *
+ * El contrato con el frontend NO cambia: { success, data, error }. Los planes
+ * incorporan metadatos no intrusivos (_macros_check, _food_check, _meta) que la UI
+ * puede ignorar sin romperse.
  */
 
 'use strict';
 
+const crypto                  = require('crypto');
 const sanitizerService        = require('../services/sanitizerService');
 const fitnessContextClient    = require('../services/fitnessContextClient');
 const llmClientService        = require('../services/llmClientService');
+const muscleValidator         = require('../services/muscleValidator');
+const macroSanitizer          = require('../services/macroSanitizer');
+const foodReconciliation      = require('../services/foodReconciliationService');
+const foodCatalogClient       = require('../services/foodCatalogClient');
+const schemas                 = require('../services/structuredOutputSchemas');
 const env                     = require('../config/environment');
-const { VALID_MUSCLE_KEYS }   = require('../constants/muscleGroups');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('ai-service:recommendationController');
 
+const CACHE_TTL = env.AI_RECOMMENDATION_CACHE_TTL || 86_400; // 24h por defecto
+const IS_GEMINI = env.AI_PROVIDER === 'gemini';
+
+// ── Helpers de caché Redis ────────────────────────────────────────────────────
 /**
- * POST /api/v1/recommendations/routine
- * Genera una rutina de entrenamiento personalizada en formato JSON estructurado
- * con datos anatómicos completos por ejercicio para el mapa muscular interactivo.
+ * Construye una clave de caché determinista a partir del perfil/params del usuario.
+ * @param {string} kind - 'routine' | 'diet'
+ * @param {string} usuarioId
+ * @param {object} params - Parámetros normalizados que determinan el plan.
  */
+function buildCacheKey(kind, usuarioId, params) {
+  // Orden estable de claves para que el hash no dependa del orden de inserción.
+  const stable = JSON.stringify(params, Object.keys(params).sort());
+  const hash = crypto.createHash('sha256').update(stable).digest('hex').slice(0, 32);
+  return `ai:reco:${kind}:${usuarioId}:${hash}`;
+}
+
+async function readCache(redisClient, key) {
+  if (!redisClient) return null;
+  try {
+    const cached = await redisClient.get(key);
+    return cached ? JSON.parse(cached) : null;
+  } catch (err) {
+    logger.warn('Fallo leyendo caché de recomendación en Redis', { key, error: err.message });
+    return null;
+  }
+}
+
+async function writeCache(redisClient, key, value) {
+  if (!redisClient) return;
+  try {
+    await redisClient.setex(key, CACHE_TTL, JSON.stringify(value));
+  } catch (err) {
+    logger.warn('Fallo escribiendo caché de recomendación en Redis', { key, error: err.message });
+  }
+}
+
+/** Devuelve las opciones de esquema estructurado según el proveedor activo. */
+function schemaOptions(kind) {
+  if (kind === 'routine') {
+    return IS_GEMINI
+      ? { useProModel: true, responseSchema: schemas.geminiRoutineSchema() }
+      : { useProModel: true, openaiJsonSchema: schemas.openaiRoutineSchema() };
+  }
+  return IS_GEMINI
+    ? { useProModel: true, responseSchema: schemas.geminiDietSchema() }
+    : { useProModel: true, openaiJsonSchema: schemas.openaiDietSchema() };
+}
+
+/** Parseo tolerante: intenta rescatar el bloque JSON aunque venga con envoltura. */
+function parseLlmJson(raw) {
+  try { return JSON.parse(raw); } catch (_) {}
+  const start = raw.indexOf('{');
+  const end   = raw.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(raw.slice(start, end + 1)); } catch (_) {}
+  }
+  return null;
+}
+
+// ── POST /api/v1/recommendations/routine ──────────────────────────────────────
 async function generateRoutinePlan(req, res, next) {
   try {
     const usuarioId = req.user.id;
     const {
-      objetivo       = 'hipertrofia',
-      diasPorSemana  = 4,
-      nivel          = 'intermedio',
-      lesiones       = 'ninguna',
+      objetivo      = 'hipertrofia',
+      diasPorSemana = 4,
+      nivel         = 'intermedio',
+      lesiones      = 'ninguna',
     } = req.body;
 
-    // Sanitizar campos libres del usuario antes de inyectarlos al prompt
     const checkLesiones = sanitizerService.sanitizeUserPrompt(lesiones);
     if (!checkLesiones.isValid) {
       return res.status(400).json({ success: false, data: null, error: checkLesiones.rejectionReason });
     }
 
+    // ── Caché: si el mismo perfil ya generó plan, responder al instante ───────
+    const cacheKey = buildCacheKey('routine', usuarioId, {
+      objetivo, diasPorSemana, nivel, lesiones: checkLesiones.sanitized,
+    });
+    const cached = await readCache(req.redisClient, cacheKey);
+    if (cached) {
+      logger.info('Rutina servida desde caché Redis', { usuarioId, cacheKey });
+      return res.status(200).json({ success: true, data: cached, error: null });
+    }
+
     const userContext = await fitnessContextClient.getUserFitnessContext(usuarioId);
 
-    // ── CATÁLOGO INYECTADO EN EL PROMPT ──────────────────────────────────────
-    // Se limita a 80 claves para no saturar la ventana de contexto del LLM
-    const muscleSample = VALID_MUSCLE_KEYS.slice(0, 80).join(' | ');
-
+    // System Prompt ESBELTO: la restricción de esquema/músculos la impone el
+    // responseSchema nativo del LLM, no el texto del prompt (ahorro de tokens).
     const systemPrompt = `${env.AI_SYSTEM_PERSONA}
 
 ## MODO: Científico del Deporte y Entrenador en Jefe con Mapeo Anatómico
+Genera una rutina de entrenamiento personalizada. Para CADA ejercicio incluye
+músculos primarios (≥1) y secundarios usando ÚNICAMENTE las claves permitidas por
+el esquema, y un ejercicio_id con formato "wger-<número>". Responde solo el JSON
+del esquema, sin texto adicional.`;
 
-Tu objetivo es generar una rutina de entrenamiento personalizada ESTRICTAMENTE en el siguiente formato JSON.
-**REGLA CRÍTICA**: Para CADA ejercicio debes incluir:
-  - "musculos_primarios": Array de músculos principales activados (≥1 músculo).
-  - "musculos_secundarios": Array de músculos secundarios o estabilizadores (puede ser [] si no aplica).
-  - "ejercicio_id": Identificador único en formato "wger-<número_3_digitos>".
-  - "video_url": URL de ejemplo en https://wger.de/media/exercise-videos/video.mp4 (puedes inventar un path válido).
+    const userPrompt = `Plan de ${diasPorSemana} días/semana, objetivo ${objetivo}, nivel ${nivel}.
+Lesiones/restricciones: ${checkLesiones.sanitized}
+Mediciones recientes del socio: ${JSON.stringify(userContext.ultimas_mediciones || [])}`;
 
-### CLAVES VÁLIDAS DE MÚSCULOS (usa SOLO estas, sin inventar nuevas):
-${muscleSample}
+    logger.info('Generando plan de rutina IA (structured output)', { usuarioId, objetivo, diasPorSemana, nivel });
 
-### ESQUEMA JSON OBLIGATORIO:
-{
-  "nombre": "String — Nombre motivador del plan",
-  "descripcion": "String — Resumen fisiológico y objetivo",
-  "nivel": "<nivel>",
-  "objetivo": "<objetivo>",
-  "dias": [
-    {
-      "dia": "Día 1 — Pecho y Tríceps",
-      "enfoque_muscular": ["pectoral_mayor_esternal", "triceps_braquial"],
-      "ejercicios": [
-        {
-          "ejercicio_id": "wger-001",
-          "nombre": "Press de Banca con Barra",
-          "musculos_primarios": ["pectoral_mayor_esternal", "pectoral_mayor_superior"],
-          "musculos_secundarios": ["triceps_braquial", "deltoides_anterior"],
-          "series": 4,
-          "repeticiones": "8-10",
-          "descanso_seg": 90,
-          "notas": "Controlar la fase excéntrica. Codos a 45°.",
-          "video_url": "https://wger.de/media/exercise-videos/bench-press.mp4"
-        }
-      ]
-    }
-  ]
-}
+    const rawJsonString = await llmClientService.generateStructuredContent(
+      systemPrompt, userPrompt, schemaOptions('routine'),
+    );
 
-No devuelvas ningún texto, comentario ni markdown fuera del bloque JSON puro. Tu respuesta comienza con { y termina con }.`;
-
-    const userPrompt = `Genera un plan de ${diasPorSemana} días por semana enfocado en ${objetivo} para nivel ${nivel}.
-Consideraciones de lesiones/restricciones: ${checkLesiones.sanitized}
-Datos corporales previos del socio: ${JSON.stringify(userContext.ultimas_mediciones || [])}`;
-
-    logger.info('Generando plan de rutina IA con datos anatómicos', { usuarioId, objetivo, diasPorSemana, nivel });
-
-    const rawJsonString = await llmClientService.generateStructuredContent(systemPrompt, userPrompt, true);
-
-    let planStructured;
-    try {
-      planStructured = JSON.parse(rawJsonString);
-    } catch (parseErr) {
-      logger.warn('Fallo al parsear respuesta IA, retornando como texto crudo', { error: parseErr.message });
-      planStructured = { nombre: `Plan ${objetivo}`, rawContent: rawJsonString };
+    const parsed = parseLlmJson(rawJsonString);
+    if (!parsed) {
+      logger.error('Respuesta de rutina no parseable como JSON', { usuarioId });
+      return res.status(502).json({
+        success: false, data: null,
+        error: 'La IA devolvió una respuesta no válida. Intenta de nuevo.',
+      });
     }
 
-    // ── POST-PROCESO: Validar y normalizar claves musculares ──────────────────
-    // Si el LLM inventó una clave no existente, se elimina en silencio para
-    // evitar que el frontend intente renderizar un músculo que no existe en el SVG.
-    if (planStructured.dias && Array.isArray(planStructured.dias)) {
-      for (const dia of planStructured.dias) {
-        if (!Array.isArray(dia.ejercicios)) continue;
-        for (const ej of dia.ejercicios) {
-          ej.musculos_primarios = _filterValidMuscles(ej.musculos_primarios);
-          ej.musculos_secundarios = _filterValidMuscles(ej.musculos_secundarios);
-          // Garantizar ejercicio_id siempre presente
-          if (!ej.ejercicio_id) {
-            ej.ejercicio_id = `wger-${Math.floor(Math.random() * 900 + 100)}`;
-          }
-        }
-      }
+    // ── Tubería de validación: músculos (fuzzy-match + invariantes) ───────────
+    const { plan, corrections, discarded, droppedExercises } = muscleValidator.repairRoutinePlan(parsed);
+    if (corrections.length || discarded.length) {
+      logger.info('Rutina auto-corregida por muscleValidator', {
+        usuarioId, corrections: corrections.length, discarded: discarded.length, droppedExercises,
+      });
     }
+    plan._meta = { auto_corregido: corrections.length + discarded.length, generado_en: new Date().toISOString() };
 
-    logger.info('Plan de rutina con mapeo anatómico generado exitosamente', { usuarioId });
+    await writeCache(req.redisClient, cacheKey, plan);
 
-    return res.status(200).json({
-      success: true,
-      data:    planStructured,
-      error:   null,
-    });
+    return res.status(200).json({ success: true, data: plan, error: null });
   } catch (err) {
     next(err);
   }
 }
 
-/**
- * POST /api/v1/recommendations/diet
- * Genera un plan de nutrición y macros personalizado en formato JSON estructurado
- * con alimentos y códigos de barras de Open Food Facts.
- */
+// ── POST /api/v1/recommendations/diet ─────────────────────────────────────────
 async function generateDietPlan(req, res, next) {
   try {
     const usuarioId = req.user.id;
@@ -153,97 +182,77 @@ async function generateDietPlan(req, res, next) {
       return res.status(400).json({ success: false, data: null, error: checkRestricciones.rejectionReason });
     }
 
+    // ── Caché por perfil nutricional ──────────────────────────────────────────
+    const cacheKey = buildCacheKey('diet', usuarioId, {
+      objetivo, pesoKg, estaturaCm, edad, actividad, restricciones: checkRestricciones.sanitized,
+    });
+    const cached = await readCache(req.redisClient, cacheKey);
+    if (cached) {
+      logger.info('Dieta servida desde caché Redis', { usuarioId, cacheKey });
+      return res.status(200).json({ success: true, data: cached, error: null });
+    }
+
     const systemPrompt = `${env.AI_SYSTEM_PERSONA}
 
 ## MODO: Nutricionista Deportivo IA & Coach de Rendimiento (Open Food Facts)
+Genera un plan nutricional con desglose de macros conforme al esquema. Asocia cada
+alimento a un código de barras de Open Food Facts cuando sea posible. La energía
+debe respetar Atwater (proteína 4 kcal/g, carbohidrato 4 kcal/g, grasa 9 kcal/g).
+Responde solo el JSON del esquema, sin texto adicional.`;
 
-Tu objetivo es generar un plan nutricional personalizado con desglose de macronutrientes ESTRICTAMENTE en el siguiente formato JSON.
-**REGLA CRÍTICA**: Los alimentos sugeridos en cada comida deben asociarse con códigos de barras reales o estándares precargados de Open Food Facts (por ejemplo: avena, pechuga de pollo, arroz integral, atún, proteína whey, huevo).
-
-### ESQUEMA JSON OBLIGATORIO:
-{
-  "nombre": "String — Nombre motivador del plan nutricional",
-  "descripcion": "String — Estrategia calórica y reparto de macros",
-  "objetivo": "<objetivo>",
-  "calorias_meta": 2600,
-  "proteinas_meta_g": 180,
-  "carbohidratos_meta_g": 300,
-  "grasas_meta_g": 75,
-  "agua_meta_ml": 3500,
-  "comidas": [
-    {
-      "id": "meal_desayuno",
-      "tipo": "desayuno",
-      "nombre": "Desayuno Energético Hipertrofia",
-      "hora_sugerida": "08:00 AM",
-      "calorias": 650,
-      "proteinas": 42,
-      "carbohidratos": 78,
-      "grasas": 18,
-      "alimentos": [
-        {
-          "codigo_barras": "7501008012345",
-          "nombre": "Avena Integral Quaker",
-          "marca": "Quaker",
-          "porcion_g": 80,
-          "calorias_100g": 370,
-          "proteinas_100g": 13.5,
-          "carbohidratos_100g": 66.0,
-          "grasas_100g": 7.0,
-          "es_open_food_facts": true
-        },
-        {
-          "codigo_barras": "7501111122222",
-          "nombre": "Claras de Huevo Líquidas y Huevos Enteros",
-          "marca": "San Juan",
-          "porcion_g": 200,
-          "calorias_100g": 140,
-          "proteinas_100g": 13.0,
-          "carbohidratos_100g": 1.1,
-          "grasas_100g": 9.5,
-          "es_open_food_facts": true
-        }
-      ]
-    }
-  ]
-}
-
-No devuelvas ningún texto, comentario ni markdown fuera del bloque JSON puro. Tu respuesta comienza con { y termina con }.`;
-
-    const userPrompt = `Genera un plan de nutrición para objetivo ${objetivo}, peso ${pesoKg}kg, estatura ${estaturaCm}cm, actividad ${actividad}.
+    const userPrompt = `Objetivo ${objetivo}, peso ${pesoKg}kg, estatura ${estaturaCm}cm, edad ${edad}, actividad ${actividad}.
 Restricciones alimentarias: ${checkRestricciones.sanitized}`;
 
-    logger.info('Generando plan nutricional IA con Open Food Facts', { usuarioId, objetivo, pesoKg });
+    logger.info('Generando plan nutricional IA (structured output)', { usuarioId, objetivo, pesoKg });
 
-    const rawJsonString = await llmClientService.generateStructuredContent(systemPrompt, userPrompt, true);
+    const rawJsonString = await llmClientService.generateStructuredContent(
+      systemPrompt, userPrompt, schemaOptions('diet'),
+    );
 
-    let planStructured;
-    try {
-      planStructured = JSON.parse(rawJsonString);
-    } catch (parseErr) {
-      logger.warn('Fallo al parsear respuesta IA nutrición, retornando fallback', { error: parseErr.message });
-      planStructured = { nombre: `Plan ${objetivo}`, rawContent: rawJsonString };
+    const parsed = parseLlmJson(rawJsonString);
+    if (!parsed) {
+      logger.error('Respuesta de dieta no parseable como JSON', { usuarioId });
+      return res.status(502).json({
+        success: false, data: null,
+        error: 'La IA devolvió una respuesta no válida. Intenta de nuevo.',
+      });
     }
 
-    return res.status(200).json({
-      success: true,
-      data:    planStructured,
-      error:   null,
+    // ── Tubería de validación: 1) macros Atwater, 2) reconciliación de barcodes ─
+    const macroResult = macroSanitizer.validateAndReconcile(parsed);
+    if (macroResult.corrections.length || macroResult.warnings.length) {
+      logger.info('Plan nutricional reconciliado (Atwater)', {
+        usuarioId,
+        corrections: macroResult.corrections.length,
+        warnings: macroResult.warnings.length,
+      });
+    }
+
+    const foodResult = await foodReconciliation.reconcilePlanFoods(macroResult.plan, {
+      lookupByBarcodes: foodCatalogClient.lookupByBarcodes,
+      lookupByName:     foodCatalogClient.lookupByName,
+      useOpenFoodFacts: true,
     });
+    if (foodResult.degraded > 0) {
+      logger.info('Barcodes alucinados degradados', {
+        usuarioId, verificados: foodResult.verified, degradados: foodResult.degraded,
+      });
+    }
+
+    const finalPlan = foodResult.plan;
+    finalPlan._meta = {
+      macros_corregidos: macroResult.corrections.length,
+      alimentos_verificados: foodResult.verified,
+      alimentos_degradados: foodResult.degraded,
+      generado_en: new Date().toISOString(),
+    };
+
+    await writeCache(req.redisClient, cacheKey, finalPlan);
+
+    return res.status(200).json({ success: true, data: finalPlan, error: null });
   } catch (err) {
     next(err);
   }
 }
 
-/**
- * Filtra un array de claves musculares, retornando solo las que existen en el catálogo NSCA/ACSM.
- * @param {any} arr
- * @returns {string[]}
- */
-function _filterValidMuscles(arr) {
-  if (!Array.isArray(arr)) return [];
-  return arr.filter((key) => typeof key === 'string' && VALID_MUSCLE_KEYS.includes(key));
-}
-
 module.exports = { generateRoutinePlan, generateDietPlan };
-

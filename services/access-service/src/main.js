@@ -22,6 +22,7 @@ const { requireTurnstileApiKey }      = require('./middlewares/turnstileAuth');
 const qrRoutes         = require('./routes/qrRoutes');
 const ticketRoutes     = require('./routes/ticketRoutes');
 const accessRoutes     = require('./routes/accessRoutes');
+const internalRoutes   = require('./routes/internalRoutes');
 const zkAdmsRoutes     = require('./routes/zkAdmsRoutes');
 const qrController     = require('./controllers/qrController');
 const ticketController = require('./controllers/ticketController');
@@ -51,6 +52,14 @@ async function bootstrap() {
   });
 
   security.applyGlobal(app);
+
+  // ── Exponer el cliente Redis a los controllers vía req.redisClient ─────────
+  // Los controllers (qr, ticket, internal) leen req.redisClient para caché de
+  // vigencia y locks atómicos. Se inyecta una sola vez tras la seguridad global.
+  app.use((req, _res, next) => {
+    req.redisClient = redisClient;
+    next();
+  });
 
   // ── Health ────────────────────────────────────────────────────────────────
   app.get('/health', (_req, res) =>
@@ -94,6 +103,9 @@ async function bootstrap() {
   // ── 2. Rutas modulares agrupadas /api/v1/... ──────────────────────────────
   app.use('/api/v1/qr',      qrRateLimiter,       qrRoutes);
   app.use('/api/v1/tickets', ticketRoutes);
+  // Rutas internas (payment-service → access-service). Montadas ANTES de
+  // /api/v1/access para no heredar el rate limiter del torniquete ni la API Key.
+  app.use('/api/v1/access/internal', internalRoutes);
   app.use('/api/v1/access',  validateRateLimiter, accessRoutes);
   app.use('/api/v1/adms',    zkAdmsRoutes);
   app.use('/iclock',         zkAdmsRoutes);
