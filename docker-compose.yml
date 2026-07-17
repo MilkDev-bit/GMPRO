@@ -1,0 +1,219 @@
+## =============================================================================
+## GymPro · Docker Compose — Entorno de Desarrollo Local
+## =============================================================================
+## Uso:
+##   docker compose up --build          → levantar todos los servicios
+##   docker compose up auth-service     → levantar solo un servicio
+##   docker compose down -v             → bajar y limpiar volúmenes
+##
+## NOTAS:
+##   - Cada servicio lee su .env desde su propia carpeta
+##   - Los servicios se comunican por la red interna 'gympro-network'
+##   - El nombre de host interno es el nombre del servicio (ej: auth-service)
+##   - Supabase NO se levanta localmente; apunta a tu proyecto cloud de Supabase
+## =============================================================================
+
+name: gympro
+
+services:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # auth-service · Puerto: 3001
+  # ─────────────────────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+      target: production                 # usa el stage 'production' del multi-stage
+    image: gympro/auth-service:local
+    container_name: gympro-auth
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./services/auth-service/.env    # crea este archivo desde .env.example
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    networks:
+      - gympro-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e",
+        "require('http').get('http://localhost:3001/health', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # access-service · Puerto: 3002
+  # ─────────────────────────────────────────────────────────────────────────
+  access-service:
+    build:
+      context: ./services/access-service
+      dockerfile: Dockerfile
+      target: production
+    image: gympro/access-service:local
+    container_name: gympro-access
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./services/access-service/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      # En desarrollo local, usar el nombre de contenedor como host
+      - AUTH_SERVICE_INTERNAL_URL=http://auth-service:3001
+      - PAYMENT_SERVICE_INTERNAL_URL=http://payment-service:3003
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    networks:
+      - gympro-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e",
+        "require('http').get('http://localhost:3002/health', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # payment-service · Puerto: 3003
+  # ─────────────────────────────────────────────────────────────────────────
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+      target: production
+    image: gympro/payment-service:local
+    container_name: gympro-payment
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./services/payment-service/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - AUTH_SERVICE_INTERNAL_URL=http://auth-service:3001
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    networks:
+      - gympro-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e",
+        "require('http').get('http://localhost:3003/health', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # fitness-service · Puerto: 3004
+  # ─────────────────────────────────────────────────────────────────────────
+  fitness-service:
+    build:
+      context: ./services/fitness-service
+      dockerfile: Dockerfile
+      target: production
+    image: gympro/fitness-service:local
+    container_name: gympro-fitness
+    ports:
+      - "3004:3004"
+    env_file:
+      - ./services/fitness-service/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - AUTH_SERVICE_INTERNAL_URL=http://auth-service:3001
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gympro-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e",
+        "require('http').get('http://localhost:3004/health', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # ai-service · Puerto: 3005
+  # ─────────────────────────────────────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+      target: production
+    image: gympro/ai-service:local
+    container_name: gympro-ai
+    ports:
+      - "3005:3005"
+    env_file:
+      - ./services/ai-service/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - FITNESS_SERVICE_INTERNAL_URL=http://fitness-service:3004
+      - AUTH_SERVICE_INTERNAL_URL=http://auth-service:3001
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      fitness-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gympro-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e",
+        "require('http').get('http://localhost:3005/health', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Redis · Cache compartido (opcional en producción, usar Railway Redis Add-on)
+  # ─────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: gympro-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    networks:
+      - gympro-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+
+# =============================================================================
+# Redes y Volúmenes
+# =============================================================================
+
+networks:
+  gympro-network:
+    name: gympro-network
+    driver: bridge
+
+volumes:
+  redis-data:
+    name: gympro-redis-data

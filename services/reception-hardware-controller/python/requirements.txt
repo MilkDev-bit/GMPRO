@@ -1,0 +1,6 @@
+# Dependencias para el Controlador de Hardware de Recepción GymPro (Python 3)
+pyserial>=3.5            # Comunicación con puertos COM/Serie del relevador y lector QR
+requests>=2.31.0         # Cliente HTTP para contactar con access-service en Railway
+python-escpos>=3.1       # Comandos ESC/POS para impresión en impresora térmica de 80mm
+pyusb>=1.2.1             # Acceso de bajo nivel para dispositivos HID e impresoras USB
+evdev>=1.6.1; sys_platform == 'linux'  # Secuestro exclusivo (device.grab()) del lector USB HID en Linux

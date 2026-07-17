@@ -1,0 +1,19 @@
+{
+  "name": "gympro-reception-hardware-controller",
+  "version": "1.0.0",
+  "description": "Controlador de Hardware en Mostrador de Recepción para GymPro AI (Lector QR, Relevador ZKTeco TS1000 Plus e Impresora Térmica 80mm ESC/POS)",
+  "main": "reception_controller.js",
+  "scripts": {
+    "start": "node reception_controller.js",
+    "dev": "NODE_ENV=development node reception_controller.js"
+  },
+  "author": "GymPro AI Engineering Team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "escpos": "^3.0.0-alpha.6",
+    "escpos-usb": "^3.0.0-alpha.4",
+    "serialport": "^12.0.0"
+  }
+}

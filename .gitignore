@@ -1,0 +1,84 @@
+# =============================================================================
+# GymPro Monorepo · .gitignore
+# =============================================================================
+
+# ── Variables de entorno (NUNCA versionar) ────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+# Los .env.example SÍ se versionan (contienen valores ficticios como documentación)
+!.env.example
+
+# ── Node.js ────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+.yarn/
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+dist/
+build/
+.cache/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# ── Flutter / Dart ────────────────────────────────────────────────────────────
+apps/gym_mobile_app/.dart_tool/
+apps/gym_mobile_app/.flutter-plugins
+apps/gym_mobile_app/.flutter-plugins-dependencies
+apps/gym_mobile_app/.pub-cache/
+apps/gym_mobile_app/.pub/
+apps/gym_mobile_app/build/
+apps/gym_mobile_app/*.g.dart
+
+# ── iOS (Flutter) ─────────────────────────────────────────────────────────────
+apps/gym_mobile_app/ios/Pods/
+apps/gym_mobile_app/ios/.symlinks/
+apps/gym_mobile_app/ios/Flutter/Flutter.framework
+apps/gym_mobile_app/ios/Flutter/Flutter.podspec
+apps/gym_mobile_app/ios/Runner/GeneratedPluginRegistrant.*
+*.xcworkspace/xcuserdata/
+
+# ── Android (Flutter) ─────────────────────────────────────────────────────────
+apps/gym_mobile_app/android/.gradle/
+apps/gym_mobile_app/android/local.properties
+apps/gym_mobile_app/android/key.properties        # keystore config — NUNCA versionar
+apps/gym_mobile_app/android/*.jks                  # keystore file — NUNCA versionar
+apps/gym_mobile_app/android/app/google-services.json  # Firebase config — gestionar por CI/CD
+
+# ── iOS — Archivos sensibles (Firebase/APNs) ──────────────────────────────────
+apps/gym_mobile_app/ios/GoogleService-Info.plist   # Firebase iOS config — gestionar por CI/CD
+
+# ── Editores e IDEs ────────────────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json                           # Extensiones recomendadas del equipo sí se versionan
+!.vscode/settings.json                             # Settings del workspace también
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+
+# ── Certificados y claves privadas ────────────────────────────────────────────
+*.pem
+*.p12
+*.p8
+*.cer
+*.key
+*.crt
+
+# ── Railway y Docker locales ───────────────────────────────────────────────────
+.railway/

@@ -1,0 +1,243 @@
+/// @file lib/features/workout/presentation/providers/workout_provider.dart
+/// @description Proveedor Riverpod para el estado del plan de rutina IA con datos anatómicos.
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+
+import '../../../../core/network/api_client.dart';
+import '../../domain/entities/workout_entities.dart';
+
+// Estado de la pantalla de rutina
+class WorkoutState {
+  const WorkoutState({
+    this.plan,
+    this.isLoading = false,
+    this.error,
+  });
+
+  final WorkoutPlan? plan;
+  final bool isLoading;
+  final String? error;
+
+  WorkoutState copyWith({WorkoutPlan? plan, bool? isLoading, String? error}) {
+    return WorkoutState(
+      plan:      plan ?? this.plan,
+      isLoading: isLoading ?? this.isLoading,
+      error:     error,
+    );
+  }
+}
+
+class WorkoutNotifier extends StateNotifier<WorkoutState> {
+  WorkoutNotifier(this._apiClient) : super(WorkoutState(plan: _defaultStubPlan));
+
+  final ApiClient _apiClient;
+
+  /// Genera un nuevo plan de rutina desde el ai-service con el perfil del usuario.
+  Future<void> generateRoutinePlan({
+    String objetivo      = 'hipertrofia',
+    int diasPorSemana    = 4,
+    String nivel         = 'intermedio',
+    String lesiones      = 'ninguna',
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _apiClient.dio.post(
+        '/api/v1/recommendations/routine',
+        data: {
+          'objetivo':      objetivo,
+          'diasPorSemana': diasPorSemana,
+          'nivel':         nivel,
+          'lesiones':      lesiones,
+        },
+      );
+
+      if (response.data['success'] == true && response.data['data'] != null) {
+        final plan = WorkoutPlan.fromJson(
+          response.data['data'] as Map<String, dynamic>,
+        );
+        state = state.copyWith(plan: plan, isLoading: false);
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: response.data['error'] as String? ?? 'Error al generar la rutina desde AI Service',
+        );
+      }
+    } on DioException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message ?? 'Error de conexión con AI Service. Mostrando rutina de alta intensidad.',
+      );
+    }
+  }
+
+  /// Plan anatómico de demostración inicial o fallback para alta disponibilidad (100% funcional desde el primer momento)
+  static final WorkoutPlan _defaultStubPlan = WorkoutPlan(
+    id: 'plan_demo_ai_01',
+    nombre: 'Hipertrofia Total AI — Fuerza & Estética',
+    nivel: 'intermedio',
+    objetivo: 'hipertrofia',
+    creadoEn: DateTime.now().toIso8601String(),
+    dias: [
+      WorkoutDay(
+        dia: 'Día 1 — Pecho y Tríceps (Empuje)',
+        enfoque: 'Fuerza Superior y Tensión Mecánica',
+        ejercicios: [
+          WorkoutExercise(
+            ejercicio_id: 'wger-123',
+            nombre: 'Press de Banca Inclinado con Mancuernas',
+            musculos_primarios: ['pectoral_mayor_superior', 'triceps_braquial'],
+            musculos_secundarios: ['deltoides_anterior'],
+            series: 4,
+            repeticiones: '8-10',
+            descansoSeg: 90,
+            notas: 'Contrae 2 segundos arriba. Ángulo de banca a 30° exactos.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-124',
+            nombre: 'Fondos en Paralelas con Lastre (Dips)',
+            musculos_primarios: ['pectoral_mayor_inferior', 'triceps_braquial'],
+            musculos_secundarios: ['deltoides_anterior'],
+            series: 4,
+            repeticiones: '10-12',
+            descansoSeg: 75,
+            notas: 'Inclina el torso ligeramente al frente para enfatizar el pectoral inferior.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-125',
+            nombre: 'Aperturas en Polea Alta (Crossover)',
+            musculos_primarios: ['pectoral_mayor_medio'],
+            musculos_secundarios: [],
+            series: 3,
+            repeticiones: '12-15',
+            descansoSeg: 60,
+            notas: 'Cruza las manos al frente y mantén contracción isométrica 1 segundo.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-126',
+            nombre: 'Extensión de Tríceps en Polea con Cuerda',
+            musculos_primarios: ['triceps_braquial'],
+            musculos_secundarios: ['anconeo'],
+            series: 4,
+            repeticiones: '12-15',
+            descansoSeg: 60,
+            notas: 'Separa la cuerda al final del movimiento abriendo las muñecas.',
+          ),
+        ],
+      ),
+      WorkoutDay(
+        dia: 'Día 2 — Espalda y Bíceps (Tracción)',
+        enfoque: 'Amplitud dorsal y densidad del core',
+        ejercicios: [
+          WorkoutExercise(
+            ejercicio_id: 'wger-201',
+            nombre: 'Dominadas Pronadas con Carga (Pull-ups)',
+            musculos_primarios: ['dorsal_ancho'],
+            musculos_secundarios: ['biceps_braquial', 'trapecio', 'romboide'],
+            series: 4,
+            repeticiones: '6-8',
+            descansoSeg: 120,
+            notas: 'Rango de recorrido completo desde bloqueo escapular inferior.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-202',
+            nombre: 'Remo con Barra Pendlay',
+            musculos_primarios: ['dorsal_ancho', 'trapecio', 'romboide'],
+            musculos_secundarios: ['biceps_braquial', 'erector_espinal'],
+            series: 4,
+            repeticiones: '8-10',
+            descansoSeg: 90,
+            notas: 'Torso paralelo al suelo. Explosivo concéntrico y control excéntrico.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-203',
+            nombre: 'Curl de Bíceps con Barra EZ en Banco Scott',
+            musculos_primarios: ['biceps_braquial', 'braquial_anterior'],
+            musculos_secundarios: ['braquiorradial'],
+            series: 4,
+            repeticiones: '10-12',
+            descansoSeg: 60,
+            notas: 'Mantén los codos pegados al cojín sin balanceo.',
+          ),
+        ],
+      ),
+      WorkoutDay(
+        dia: 'Día 3 — Pierna Completa (Cuádriceps & Glúteo)',
+        enfoque: 'Desarrollo de tren inferior y estabilidad',
+        ejercicios: [
+          WorkoutExercise(
+            ejercicio_id: 'wger-301',
+            nombre: 'Sentadilla Trasera con Barra Alta (Back Squat)',
+            musculos_primarios: ['cuadriceps', 'gluteo_mayor'],
+            musculos_secundarios: ['isquiotibiales', 'erector_espinal'],
+            series: 5,
+            repeticiones: '6-8',
+            descansoSeg: 150,
+            notas: 'Profundidad bajo la paralela con core activo en todo momento.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-302',
+            nombre: 'Prensa Inclinada a 45 Grados',
+            musculos_primarios: ['cuadriceps'],
+            musculos_secundarios: ['gluteo_mayor'],
+            series: 4,
+            repeticiones: '12-15',
+            descansoSeg: 90,
+            notas: 'No bloquees las rodillas al extender en la parte superior.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-303',
+            nombre: 'Elevación de Talones de Pie para Pantorrilla',
+            musculos_primarios: ['gastrocnemio', 'soleo'],
+            musculos_secundarios: [],
+            series: 4,
+            repeticiones: '15-20',
+            descansoSeg: 45,
+            notas: 'Pausa de 2 segundos en el máximo estiramiento inferior.',
+          ),
+        ],
+      ),
+      WorkoutDay(
+        dia: 'Día 4 — Hombro y Core (Deltoides & Abdomen)',
+        enfoque: 'Estética 3D de hombro y cinturón abdominal',
+        ejercicios: [
+          WorkoutExercise(
+            ejercicio_id: 'wger-401',
+            nombre: 'Press Militar con Mancuernas Sentado',
+            musculos_primarios: ['deltoides_anterior', 'deltoides_lateral'],
+            musculos_secundarios: ['triceps_braquial', 'trapecio'],
+            series: 4,
+            repeticiones: '8-10',
+            descansoSeg: 90,
+            notas: 'Empuje vertical sin arquería excesiva en la zona lumbar.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-402',
+            nombre: 'Elevaciones Laterales con Polea Baja',
+            musculos_primarios: ['deltoides_lateral'],
+            musculos_secundarios: [],
+            series: 4,
+            repeticiones: '12-15',
+            descansoSeg: 60,
+            notas: 'Tensión constante en todo el recorrido cruzando el cable tras el cuerpo.',
+          ),
+          WorkoutExercise(
+            ejercicio_id: 'wger-403',
+            nombre: 'Elevación de Piernas Colgado en Barra (Hanging Leg Raise)',
+            musculos_primarios: ['recto_abdominal', 'oblicuos'],
+            musculos_secundarios: [],
+            series: 4,
+            repeticiones: '12-15',
+            descansoSeg: 60,
+            notas: 'Enróscate elevando la pelvis, no solo flexionando las caderas.',
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+final workoutProvider = StateNotifierProvider<WorkoutNotifier, WorkoutState>((ref) {
+  final api = ref.watch(apiClientProvider);
+  return WorkoutNotifier(api);
+});

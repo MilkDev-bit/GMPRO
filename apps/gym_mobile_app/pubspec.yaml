@@ -1,0 +1,45 @@
+name: gym_mobile_app
+description: Aplicación móvil oficial de GymPro (Clean Architecture + Autenticación Nativa Apple/Google + Diseño Neón Sport)
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── Autenticación Nativa Oficial (Pub.dev) ──────────────────────────────────
+  google_sign_in: ^6.2.1          # Inicio de sesión nativo con cuenta Google (Android/iOS)
+  sign_in_with_apple: ^6.1.1      # Inicio de sesión nativo con Apple ID (Soporta FaceID/TouchID en iOS)
+
+  # ── Almacenamiento Seguro (Keychain / Keystore) ─────────────────────────────
+  flutter_secure_storage: ^9.2.2  # Almacenamiento cifrado en hardware para JWT (AES / Keychain)
+
+  # ── Cliente HTTP y Red ──────────────────────────────────────────────────────
+  dio: ^5.7.0                     # Cliente HTTP robusto con interceptores para JWT y reintentos
+
+  # ── Gestión de Estado (Riverpod) ────────────────────────────────────────────
+  flutter_riverpod: ^2.5.1        # Gestión de estado reactiva, segura ante tipos y modular
+
+  # ── Utilidades e Interfaz Gráfica ───────────────────────────────────────────
+  dartz: ^0.10.1                  # Programación funcional (Either<Failure, Success>) para Clean Arch
+  equatable: ^2.0.5               # Comparación por valor de entidades y estados
+  google_fonts: ^6.2.1            # Tipografía moderna (Outfit e Inter)
+  flutter_svg: ^2.0.10            # Íconos vectoriales nítidos
+  uuid: ^4.5.1                    # Generación de identificadores de sesión
+  qr_flutter: ^4.1.0              # Renderizado de códigos QR nítidos para torniquetes
+  url_launcher: ^6.3.0            # Lanzamiento de portal de pagos Stripe y checkout en navegador
+  toastification: ^2.3.0          # Toasts dinámicos y fluidos estilo nativo iOS / Dynamic Island
+  flutter_local_notifications: ^18.0.1 # Programación y canales nativos de notificación Android/iOS
+  firebase_core: ^3.8.0           # Núcleo de Firebase para inicialización nativa en app
+  firebase_messaging: ^15.1.6     # Recepción de notificaciones push remotes FCM / APNs
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

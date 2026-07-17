@@ -1,0 +1,62 @@
+# =============================================================================
+# .dockerignore — GymPro Microservices (aplicar en cada services/*)
+# =============================================================================
+# Este archivo evita que archivos innecesarios sean copiados al contexto de
+# build de Docker, reduciendo tamaño de imagen y tiempo de build.
+
+# ── Dependencias (se reinstalan en el build) ──────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── Variables de entorno (NUNCA deben entrar a la imagen) ─────────────────
+.env
+.env.*
+!.env.example        # El ejemplo SÍ puede incluirse como documentación
+
+# ── Archivos de desarrollo y testing ──────────────────────────────────────
+**/*.test.js
+**/*.spec.js
+**/__tests__/
+**/__mocks__/
+coverage/
+.nyc_output/
+
+# ── Configuración de editores e IDEs ──────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Git ────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+
+# ── CI/CD y scripts de deploy ─────────────────────────────────────────────
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# ── Documentación (no necesaria en runtime) ───────────────────────────────
+README.md
+CHANGELOG.md
+docs/
+*.md
+
+# ── Archivos de build anteriores ──────────────────────────────────────────
+dist/
+build/
+.cache/
+
+# ── Docker compose (solo para desarrollo local) ───────────────────────────
+docker-compose*.yml
+Dockerfile*
+
+# ── Logs ──────────────────────────────────────────────────────────────────
+logs/
+*.log
