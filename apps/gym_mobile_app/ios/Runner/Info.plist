@@ -61,5 +61,17 @@
 	<!-- Configuración de FaceID para Apple Sign-In y Keychain seguro -->
 	<key>NSFaceIDUsageDescription</key>
 	<string>GymPro utiliza FaceID para un inicio de sesión nativo rápido y seguro con tu cuenta de Apple o Google.</string>
+
+	<!-- ── LIVE ACTIVITIES / ISLA DINÁMICA (iOS 16.1+) ────────────────────
+	     Requisito obligatorio: sin esta clave ActivityKit rechaza request().
+	     Debe estar en el Info.plist del target Runner (la app), no solo en
+	     el de la Widget Extension. -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+
+	<!-- Permite actualizar la Live Activity con contenido más frecuente.
+	     Opcional: solo si en el futuro se envían updates por APNs. -->
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<false/>
 </dict>
 </plist>

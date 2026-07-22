@@ -2,6 +2,10 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Lee android/app/google-services.json y genera los recursos que
+    // FirebaseOptions necesita en runtime. Debe ir DESPUÉS del plugin de
+    // Android; si no, no encuentra la configuración del módulo.
+    id("com.google.gms.google-services")
 }
 
 android {

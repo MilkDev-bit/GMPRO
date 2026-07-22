@@ -355,9 +355,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.neonEmerald.withValues(alpha: 0.5),
-                    blurRadius: 38,
-                    offset: const Offset(0, 14),
+                    color: AppColors.neonEmerald.withValues(alpha: 0.24),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
                   ),
                 ],
               ),
@@ -490,13 +490,21 @@ class _PrimaryButton extends StatelessWidget {
       height: 56,
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        // Gradiente atenuado (22% hacia el fondo) para bajar la saturación.
+        gradient: LinearGradient(
+          colors: [
+            Color.lerp(AppColors.neonPurple, AppColors.darkBackground, 0.22)!,
+            Color.lerp(AppColors.neonPink, AppColors.darkBackground, 0.22)!,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppColors.neonPurple.withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: AppColors.neonPurple.withValues(alpha: 0.20),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

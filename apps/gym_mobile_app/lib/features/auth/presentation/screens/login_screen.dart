@@ -138,7 +138,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  // ── Marca y resplandor superior ────────────────────────────────────────────
+  /// Gradiente de marca ATENUADO: mezcla un 22% con el fondo obsidiana para
+  /// bajar la saturación (el neón puro "quemaba" en pantalla) sin perder la
+  /// identidad Neon Sport.
+  static final LinearGradient _brandGradientSoft = LinearGradient(
+    colors: [
+      Color.lerp(AppColors.neonPurple, AppColors.darkBackground, 0.22)!,
+      Color.lerp(AppColors.neonPink, AppColors.darkBackground, 0.22)!,
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // ── Marca ──────────────────────────────────────────────────────────────────
   Widget _buildBrand() {
     return Column(
       children: [
@@ -147,12 +159,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           height: 92,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: AppColors.primaryGradient,
+            gradient: _brandGradientSoft,
             boxShadow: [
+              // Halo contenido: antes 0.5/34 producía un orbe fluorescente.
               BoxShadow(
-                color: AppColors.neonPink.withValues(alpha: 0.5),
-                blurRadius: 34,
-                offset: const Offset(0, 12),
+                color: AppColors.neonPink.withValues(alpha: 0.22),
+                blurRadius: 26,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
@@ -162,18 +175,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             size: 44,
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 20),
         Text(
           'GYMPRO',
           style: AppTypography.displayLarge.copyWith(letterSpacing: 3.0),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Alto rendimiento & acceso biométrico',
-          style: AppTypography.bodyMedium.copyWith(
-            color: AppColors.darkTextSecondary,
-          ),
-          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -294,13 +299,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return Container(
       height: 56,
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        gradient: _brandGradientSoft,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
+          // Sombra de color contenida (antes 0.4/24 saturaba todo el bloque).
           BoxShadow(
-            color: AppColors.neonPurple.withValues(alpha: 0.4),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: AppColors.neonPurple.withValues(alpha: 0.20),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

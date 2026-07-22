@@ -3,10 +3,19 @@
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:toastification/toastification.dart';
+// Generado por `flutterfire configure` — no editar a mano.
+// Sí se commitea: las API keys de cliente de Firebase son identificadores
+// públicos, no secretos; la seguridad la dan las Security Rules. (Los
+// google-services.json / GoogleService-Info.plist sí están en .gitignore
+// en este repo, así que un clon limpio necesita volver a ejecutar
+// `flutterfire configure`.)
+import 'firebase_options.dart';
+import 'core/config/app_config.dart';
 import 'core/services/firebase_background_handler.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/toast_service.dart';
@@ -18,15 +27,35 @@ import 'features/auth/presentation/screens/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicialización nativa de Firebase (si el archivo google-services.json / GoogleService-Info.plist está presente)
+  // ── Firebase ────────────────────────────────────────────────────────
+  // Se inicializa con `DefaultFirebaseOptions.currentPlatform` (generado
+  // por `flutterfire configure` en lib/firebase_options.dart) en vez de
+  // con `Firebase.initializeApp()` a secas.
+  //
+  // Diferencia: sin opciones explícitas, Firebase las busca en los
+  // recursos nativos, que solo existen si el plugin de Gradle procesó
+  // google-services.json. Con opciones explícitas funciona en las tres
+  // plataformas — incluida web, donde no hay recursos nativos.
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
     // Registrar el manejador de notificaciones en segundo plano en el nivel de aislamiento principal
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
+    // Se sigue arrancando sin push: es una degradación aceptable, la app
+    // funciona entera salvo las notificaciones remotas.
     debugPrint('⚠️ [main] Firebase no disponible en el entorno actual o falta configuración nativa: $e');
+  }
+
+  // Deja constancia de a qué backend apunta la app. Evita horas perdidas
+  // depurando cambios del backend local mientras la app habla con Railway.
+  if (kDebugMode) {
+    final env = AppConfig.environmentSummary;
+    debugPrint('🌐 [main] Backend: ${env['modo']} · host=${env['host']}');
+    debugPrint('🌐 [main] ai-service: ${env['ai']}');
   }
 
   // Inicializar canales nativos de notificación local y listeners en primer plano

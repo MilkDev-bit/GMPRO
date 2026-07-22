@@ -5,12 +5,12 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/presentation/widgets/pressable.dart';
 import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_provider.dart';
 
@@ -33,7 +33,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
   bool _waterWaveAnimation = false;
 
   void _triggerWaterPulse(int amount) {
-    HapticFeedback.mediumImpact();
+    // La háptica la dispara Pressable en el gesto (evita doble vibración).
     ref.read(nutritionProvider.notifier).addWater(amount);
     setState(() => _waterWaveAnimation = true);
     Future.delayed(const Duration(milliseconds: 600), () {
@@ -110,14 +110,12 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                             duration: const Duration(milliseconds: 1200),
                             curve: Curves.easeOutExpo,
                             builder: (context, value, child) {
+                              // Cifra héroe con figuras tabulares: el contador no
+                              // "tiembla" al pasar de 999 a 1000 kcal.
                               return Text(
                                 '$value',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 38,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.textPrimaryOf(context),
-                                  height: 1.0,
-                                ),
+                                style: AppTypography.numericHeroOf(context)
+                                    .copyWith(fontSize: 38),
                               );
                             },
                           ),
@@ -308,6 +306,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                                       fontSize: 18,
                                       fontWeight: FontWeight.w900,
                                       color: AppColors.infoOf(context),
+                                      fontFeatures: AppTypography.tabularFigures,
                                     ),
                                   );
                                 },
@@ -465,56 +464,23 @@ class _MacroBarAnimatedState extends State<_MacroBarAnimated> {
   }
 }
 
-class _WaterQuickButtonElastic extends StatefulWidget {
+/// Botón de hidratación rápida.
+/// Migrado a [Pressable]: físicas de resorte (SpringSimulation) + háptica
+/// centralizada, sustituyendo el AnimationController con curva estática easeInOut.
+class _WaterQuickButtonElastic extends StatelessWidget {
   const _WaterQuickButtonElastic({required this.label, required this.onTap});
   final String label;
   final VoidCallback onTap;
 
   @override
-  State<_WaterQuickButtonElastic> createState() => _WaterQuickButtonElasticState();
-}
-
-class _WaterQuickButtonElasticState extends State<_WaterQuickButtonElastic>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _scale = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      // opaque: toda el área (incluido el padding) responde al toque.
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (context, child) => Transform.scale(scale: _scale.value, child: child),
+    return Pressable(
+      haptic: PressHaptic.medium,
+      onTap: onTap,
+      child: ConstrainedBox(
         // Hitbox mínima de 44x44 px lógicos (Apple HIG) para evitar toques erróneos.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          child: Container(
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        child: Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -533,16 +499,16 @@ class _WaterQuickButtonElasticState extends State<_WaterQuickButtonElastic>
               children: [
                 Icon(Icons.add_rounded, color: AppColors.infoOf(context), size: 14),
                 Text(
-                  widget.label,
+                  label,
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     color: AppColors.infoOf(context),
+                    fontFeatures: AppTypography.tabularFigures,
                   ),
                 ),
               ],
             ),
-          ),
         ),
       ),
     );

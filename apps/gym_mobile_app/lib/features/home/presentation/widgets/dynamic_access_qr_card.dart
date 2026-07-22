@@ -2,6 +2,7 @@
 /// @description Tarjeta visual que muestra el QR de acceso rotativo o la alerta "Acceso Inactivo".
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -284,6 +285,8 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
               onPressed: isBusy
                   ? null
                   : () {
+                      // Acción financiera primaria: háptica media de confirmación.
+                      HapticFeedback.mediumImpact();
                       ref.read(paymentProvider.notifier).launchStripeCheckout();
                     },
             ),

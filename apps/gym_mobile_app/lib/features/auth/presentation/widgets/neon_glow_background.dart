@@ -24,10 +24,11 @@ class NeonGlowBackground extends StatelessWidget {
             height: 450,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              // Atenuado: 0.4/0.1 → 0.16/0.05. El lavado de color era excesivo.
               gradient: RadialGradient(
                 colors: [
-                  AppColors.neonCyan.withValues(alpha: 0.4),
-                  AppColors.neonCyan.withValues(alpha: 0.1),
+                  AppColors.neonCyan.withValues(alpha: 0.16),
+                  AppColors.neonCyan.withValues(alpha: 0.05),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.5, 1.0],
@@ -47,8 +48,8 @@ class NeonGlowBackground extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  AppColors.neonPink.withValues(alpha: 0.35),
-                  AppColors.neonPink.withValues(alpha: 0.08),
+                  AppColors.neonPink.withValues(alpha: 0.14),
+                  AppColors.neonPink.withValues(alpha: 0.04),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.5, 1.0],
@@ -68,7 +69,7 @@ class NeonGlowBackground extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  AppColors.neonEmerald.withValues(alpha: 0.15),
+                  AppColors.neonEmerald.withValues(alpha: 0.06),
                   Colors.transparent,
                 ],
               ),

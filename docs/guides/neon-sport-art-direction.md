@@ -105,13 +105,25 @@ llamar `HapticFeedback` manualmente (lo centraliza `Pressable`), evitando dobles
 - Las cifras tabulares evitan re-layout de ancho variable en contadores animados.
 - Se conservó una única capa de blur por tarjeta (no se anidan BackdropFilters).
 
-## Aplicación y adopción
+## Aplicación y adopción (estado)
 
-Migrado como referencia: **`meal_card.dart`** (GlassSurface + Pressable + cifras
-tabulares + curva spring). Para completar la elevación, adoptar las mismas primitivas en:
-`macro_summary_dashboard.dart` (dashboard → `GlassSurface`, botones de agua → `Pressable`),
-`home_dashboard_screen.dart` (header sticky → `GlassSurface`), `dynamic_access_qr_card.dart`
-(botón escanear → `Pressable`) y las tarjetas de workout (finalizar serie).
+| Componente | Cambio aplicado |
+|---|---|
+| `meal_card.dart` | `GlassSurface` (blur 14 + specular + borde acento) · `Pressable` en "Agregar Alimento" · kcal y P/C/G con cifras tabulares · `sizeCurve` → `easeOutCubic` |
+| `home_dashboard_screen.dart` | Header sticky migrado a `GlassSurface` (blur progresivo con el scroll + specular 0.12) |
+| `macro_summary_dashboard.dart` | Botones **+250/+500 ml** migrados a `Pressable` (spring + háptica media), eliminando su `AnimationController` con `easeInOut` · contador de kcal con `numericHeroOf` y ml con cifras tabulares |
+| `dynamic_access_qr_card.dart` | Háptica media en la acción financiera primaria (checkout Stripe) |
+
+**Nota sobre botones Material:** los `ElevatedButton` (p. ej. checkout de Stripe) **no** se
+envuelven en `Pressable` — competirían en la *gesture arena* con el gesto propio del botón.
+Para ellos se añade la háptica en `onPressed`; si se quiere también la micro-escala, hay que
+sustituir el `ElevatedButton` por un `Container` dentro de `Pressable`.
+
+**Pendiente de adoptar:** tarjetas de workout ("finalizar serie") y
+`food_search_modal.dart` (la hoja ya tiene su propio pulso de escala + háptica del slider).
+
+> La tarjeta QR **no** tiene botón de "escanear": el código lo lee el torniquete, por lo que
+> su acción primaria real es el checkout — que es la que recibió la háptica.
 
 **Verificación:** balance sintáctico OK en los 4 archivos. Pendiente en entorno Flutter:
 `flutter analyze` + captura de *DevTools* (raster/UI thread) para confirmar 120 FPS y prueba

@@ -7,11 +7,28 @@
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 const logger = createServiceLogger('ai-service:config');
 
+/**
+ * Valida una API key de Supabase admitiendo los DOS formatos vigentes:
+ *
+ *   · Legacy  : JWT que empieza por 'eyJ' y supera los 100 caracteres.
+ *   · Actual  : 'sb_secret_...' / 'sb_publishable_...', ~40 caracteres.
+ *
+ * El validador anterior exigía length > 100, lo que rechazaba las claves
+ * nuevas y dejaba el servicio en crash loop con un mensaje engañoso
+ * ("formato inválido") pese a que la clave era correcta.
+ */
+function isValidSupabaseKey(v) {
+  if (!v) return false;
+  if (v.startsWith('sb_secret_') || v.startsWith('sb_publishable_')) return v.length >= 20;
+  if (v.startsWith('eyJ')) return v.length > 100;
+  return false;
+}
+
 const ENV_SCHEMA = [
   { key: 'NODE_ENV',                required: true,  validate: (v) => ['development','production','test'].includes(v) },
   { key: 'PORT',                    required: true,  validate: (v) => +v > 0 },
   { key: 'SUPABASE_URL',            required: true,  validate: (v) => v.startsWith('https://') },
-  { key: 'SUPABASE_SERVICE_ROLE_KEY', required: true, validate: (v) => v.length > 100 },
+  { key: 'SUPABASE_SERVICE_ROLE_KEY', required: true, validate: isValidSupabaseKey },
   { key: 'SUPABASE_DB_SCHEMA',      required: true },
   { key: 'JWT_SECRET',              required: true,  validate: (v) => v.length >= 64 },
   { key: 'INTER_SERVICE_SECRET',    required: true,  validate: (v) => v.length >= 32 },

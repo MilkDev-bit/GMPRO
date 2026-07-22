@@ -82,3 +82,11 @@ logs/
 
 # ── Railway y Docker locales ───────────────────────────────────────────────────
 .railway/
+
+# Backups de .env generados por scripts/sync-secrets.sh — CONTIENEN SECRETOS
+*.env.bak.*
+.env.bak.*
+services/*/.env.bak.*
+
+# Archivos efímeros generados por Flutter (rutas de build, sin secretos)
+apps/*/ios/Flutter/ephemeral/

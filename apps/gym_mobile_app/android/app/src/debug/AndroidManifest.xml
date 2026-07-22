@@ -1,7 +1,27 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- The INTERNET permission is required for development. Specifically,
          the Flutter tool needs it to communicate with the running application
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!--
+      Permite HTTP en claro SOLO en debug y SOLO hacia los hosts listados
+      en network_security_config.xml (10.0.2.2, localhost...).
+
+      Sin esto, la app no puede hablar con el backend local de Docker y
+      falla con "CLEARTEXT communication to 10.0.2.2 not permitted",
+      un error que no menciona la palabra "http" y despista bastante.
+
+      Al vivir en src/debug/, la build de release no lo incluye: producción
+      sigue exigiendo HTTPS.
+
+      tools:replace es necesario porque el manifest principal (o algún
+      plugin) puede declarar ya el atributo; sin él, la fusión de
+      manifests falla con un conflicto.
+    -->
+    <application
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:replace="android:networkSecurityConfig" />
 </manifest>

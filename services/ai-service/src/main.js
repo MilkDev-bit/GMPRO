@@ -175,6 +175,19 @@ async function bootstrap() {
     })
   );
 
+  // Verificación de modelos: los proveedores retiran modelos sin previo
+  // aviso (gemini-2.0-flash se apagó el 01-06-2026). Sin esto, el
+  // servicio arranca bien y devuelve 404 en cada petición de usuario:
+  // el fallo aparece en soporte, no en el despliegue.
+  //
+  // Va DESPUÉS del listen y sin await: es diagnóstico, no debe retrasar
+  // el arranque ni impedirlo si la red del proveedor falla.
+  require('./services/modelHealthCheck')
+    .verifyConfiguredModels()
+    .catch((err) =>
+      security.logger.warn('Verificación de modelos no completada', { error: err.message })
+    );
+
   // El SSE mantiene conexiones largas abiertas — el timeout del servidor
   // HTTP base debe ser mayor que el timeout por ruta para no cortar streams.
   server.keepAliveTimeout = 125_000;  // 5s más que el timeout de ruta

@@ -55,8 +55,8 @@ class SignupProgressBar extends StatelessWidget {
                     boxShadow: isActive
                         ? [
                             BoxShadow(
-                              color: AppColors.neonPurple.withValues(alpha: 0.45),
-                              blurRadius: 10,
+                              color: AppColors.neonPurple.withValues(alpha: 0.22),
+                              blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
                           ]

@@ -1,0 +1,496 @@
+Date : 2026-07-22 09:33:37
+Directory : /home/MictDev/Projects/GymPro
+Total : 277 files,  64020 codes, 5846 comments, 4656 blanks, all 74522 lines
+
+Languages
++------------------+------------+------------+------------+------------+------------+
+| language         | files      | code       | comment    | blank      | total      |
++------------------+------------+------------+------------+------------+------------+
+| JSON             |         14 |     34,784 |          0 |         12 |     34,796 |
+| Dart             |         95 |     14,359 |      1,083 |      1,477 |     16,919 |
+| JavaScript       |        111 |     10,570 |      3,709 |      2,100 |     16,379 |
+| Markdown         |         13 |      1,576 |          0 |        424 |      2,000 |
+| Python           |          7 |        770 |        197 |        149 |      1,116 |
+| MS SQL           |          6 |        693 |        424 |        266 |      1,383 |
+| Shell Script     |          5 |        412 |        139 |         78 |        629 |
+| Swift            |          5 |        368 |        102 |         60 |        530 |
+| YAML             |          3 |        209 |         64 |         28 |        301 |
+| Docker           |          5 |        135 |         25 |         35 |        195 |
+| XML              |          8 |         81 |         85 |         12 |        178 |
+| Ignore           |          1 |         37 |         15 |         11 |         63 |
+| Dotenv           |          1 |         12 |          0 |          1 |         13 |
+| Properties       |          2 |          9 |          2 |          2 |         13 |
+| pip requirements |          1 |          5 |          1 |          1 |          7 |
++------------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                              | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                                 |        277 |     64,020 |      5,846 |      4,656 |     74,522 |
+| . (Files)                                                                                                                         |          1 |        171 |         36 |         13 |        220 |
+| apps                                                                                                                              |        118 |     14,993 |      1,312 |      1,584 |     17,889 |
+| apps/gym_mobile_app                                                                                                               |        118 |     14,993 |      1,312 |      1,584 |     17,889 |
+| apps/gym_mobile_app (Files)                                                                                                       |          4 |        106 |         28 |         25 |        159 |
+| apps/gym_mobile_app/android                                                                                                       |         11 |        119 |         87 |         14 |        220 |
+| apps/gym_mobile_app/android (Files)                                                                                               |          1 |          4 |          2 |          1 |          7 |
+| apps/gym_mobile_app/android/app                                                                                                   |          9 |        110 |         85 |         12 |        207 |
+| apps/gym_mobile_app/android/app (Files)                                                                                           |          1 |         29 |          0 |          0 |         29 |
+| apps/gym_mobile_app/android/app/src                                                                                               |          8 |         81 |         85 |         12 |        178 |
+| apps/gym_mobile_app/android/app/src/debug                                                                                         |          2 |         16 |         37 |          3 |         56 |
+| apps/gym_mobile_app/android/app/src/debug (Files)                                                                                 |          1 |          7 |         19 |          2 |         28 |
+| apps/gym_mobile_app/android/app/src/debug/res                                                                                     |          1 |          9 |         18 |          1 |         28 |
+| apps/gym_mobile_app/android/app/src/debug/res/xml                                                                                 |          1 |          9 |         18 |          1 |         28 |
+| apps/gym_mobile_app/android/app/src/main                                                                                          |          5 |         62 |         44 |          8 |        114 |
+| apps/gym_mobile_app/android/app/src/main (Files)                                                                                  |          1 |         36 |         12 |          2 |         50 |
+| apps/gym_mobile_app/android/app/src/main/res                                                                                      |          4 |         26 |         32 |          6 |         64 |
+| apps/gym_mobile_app/android/app/src/main/res/drawable                                                                             |          1 |          4 |          7 |          2 |         13 |
+| apps/gym_mobile_app/android/app/src/main/res/drawable-v21                                                                         |          1 |          4 |          7 |          2 |         13 |
+| apps/gym_mobile_app/android/app/src/main/res/values                                                                               |          1 |          9 |          9 |          1 |         19 |
+| apps/gym_mobile_app/android/app/src/main/res/values-night                                                                         |          1 |          9 |          9 |          1 |         19 |
+| apps/gym_mobile_app/android/app/src/profile                                                                                       |          1 |          3 |          4 |          1 |          8 |
+| apps/gym_mobile_app/android/gradle                                                                                                |          1 |          5 |          0 |          1 |          6 |
+| apps/gym_mobile_app/android/gradle/wrapper                                                                                        |          1 |          5 |          0 |          1 |          6 |
+| apps/gym_mobile_app/ios                                                                                                           |          8 |        409 |        114 |         68 |        591 |
+| apps/gym_mobile_app/ios/Flutter                                                                                                   |          3 |         41 |         12 |          8 |         61 |
+| apps/gym_mobile_app/ios/Flutter (Files)                                                                                           |          1 |         12 |          2 |          1 |         15 |
+| apps/gym_mobile_app/ios/Flutter/ephemeral                                                                                         |          2 |         29 |         10 |          7 |         46 |
+| apps/gym_mobile_app/ios/GymProLiveActivity                                                                                        |          3 |        210 |         65 |         31 |        306 |
+| apps/gym_mobile_app/ios/Runner                                                                                                    |          2 |        158 |         37 |         29 |        224 |
+| apps/gym_mobile_app/lib                                                                                                           |         94 |     14,345 |      1,073 |      1,470 |     16,888 |
+| apps/gym_mobile_app/lib (Files)                                                                                                   |          2 |        143 |         40 |         18 |        201 |
+| apps/gym_mobile_app/lib/core                                                                                                      |         30 |      4,010 |        459 |        568 |      5,037 |
+| apps/gym_mobile_app/lib/core/config                                                                                               |          1 |         52 |         37 |         20 |        109 |
+| apps/gym_mobile_app/lib/core/errors                                                                                               |          2 |         62 |         17 |         23 |        102 |
+| apps/gym_mobile_app/lib/core/navigation                                                                                           |          3 |        535 |         37 |         47 |        619 |
+| apps/gym_mobile_app/lib/core/network                                                                                              |          4 |        295 |         43 |         59 |        397 |
+| apps/gym_mobile_app/lib/core/presentation                                                                                         |          3 |        933 |         79 |         96 |      1,108 |
+| apps/gym_mobile_app/lib/core/presentation/widgets                                                                                 |          3 |        933 |         79 |         96 |      1,108 |
+| apps/gym_mobile_app/lib/core/services                                                                                             |         12 |      1,461 |        157 |        228 |      1,846 |
+| apps/gym_mobile_app/lib/core/services (Files)                                                                                     |          5 |        756 |         95 |         99 |        950 |
+| apps/gym_mobile_app/lib/core/services/wearables                                                                                   |          3 |        404 |         33 |         75 |        512 |
+| apps/gym_mobile_app/lib/core/services/widgets                                                                                     |          4 |        301 |         29 |         54 |        384 |
+| apps/gym_mobile_app/lib/core/storage                                                                                              |          2 |        186 |         30 |         36 |        252 |
+| apps/gym_mobile_app/lib/core/theme                                                                                                |          3 |        486 |         59 |         59 |        604 |
+| apps/gym_mobile_app/lib/features                                                                                                  |         62 |     10,192 |        574 |        884 |     11,650 |
+| apps/gym_mobile_app/lib/features/auth                                                                                             |         22 |      2,479 |        151 |        279 |      2,909 |
+| apps/gym_mobile_app/lib/features/auth/data                                                                                        |          6 |        473 |         41 |         76 |        590 |
+| apps/gym_mobile_app/lib/features/auth/data/datasources                                                                            |          3 |        282 |         28 |         48 |        358 |
+| apps/gym_mobile_app/lib/features/auth/data/models                                                                                 |          2 |         64 |          4 |         11 |         79 |
+| apps/gym_mobile_app/lib/features/auth/data/repositories                                                                           |          1 |        127 |          9 |         17 |        153 |
+| apps/gym_mobile_app/lib/features/auth/domain                                                                                      |          6 |         83 |         18 |         33 |        134 |
+| apps/gym_mobile_app/lib/features/auth/domain/entities                                                                             |          1 |         29 |          2 |          5 |         36 |
+| apps/gym_mobile_app/lib/features/auth/domain/repositories                                                                         |          1 |         11 |          8 |          8 |         27 |
+| apps/gym_mobile_app/lib/features/auth/domain/usecases                                                                             |          4 |         43 |          8 |         20 |         71 |
+| apps/gym_mobile_app/lib/features/auth/presentation                                                                                |         10 |      1,923 |         92 |        170 |      2,185 |
+| apps/gym_mobile_app/lib/features/auth/presentation/providers                                                                      |          2 |        350 |         35 |         51 |        436 |
+| apps/gym_mobile_app/lib/features/auth/presentation/screens                                                                        |          2 |        905 |         34 |         59 |        998 |
+| apps/gym_mobile_app/lib/features/auth/presentation/widgets                                                                        |          6 |        668 |         23 |         60 |        751 |
+| apps/gym_mobile_app/lib/features/home                                                                                             |          4 |      1,114 |         49 |         74 |      1,237 |
+| apps/gym_mobile_app/lib/features/home/presentation                                                                                |          4 |      1,114 |         49 |         74 |      1,237 |
+| apps/gym_mobile_app/lib/features/home/presentation/screens                                                                        |          1 |        201 |         19 |         20 |        240 |
+| apps/gym_mobile_app/lib/features/home/presentation/widgets                                                                        |          3 |        913 |         30 |         54 |        997 |
+| apps/gym_mobile_app/lib/features/nutrition                                                                                        |          7 |      2,346 |         78 |        128 |      2,552 |
+| apps/gym_mobile_app/lib/features/nutrition/domain                                                                                 |          1 |        192 |          7 |         23 |        222 |
+| apps/gym_mobile_app/lib/features/nutrition/domain/entities                                                                        |          1 |        192 |          7 |         23 |        222 |
+| apps/gym_mobile_app/lib/features/nutrition/presentation                                                                           |          6 |      2,154 |         71 |        105 |      2,330 |
+| apps/gym_mobile_app/lib/features/nutrition/presentation/providers                                                                 |          1 |        359 |         11 |         19 |        389 |
+| apps/gym_mobile_app/lib/features/nutrition/presentation/screens                                                                   |          2 |        494 |         20 |         30 |        544 |
+| apps/gym_mobile_app/lib/features/nutrition/presentation/widgets                                                                   |          3 |      1,301 |         40 |         56 |      1,397 |
+| apps/gym_mobile_app/lib/features/payment                                                                                          |          5 |        167 |         15 |         36 |        218 |
+| apps/gym_mobile_app/lib/features/payment/data                                                                                     |          2 |         70 |          4 |         12 |         86 |
+| apps/gym_mobile_app/lib/features/payment/data/datasources                                                                         |          1 |         42 |          2 |          7 |         51 |
+| apps/gym_mobile_app/lib/features/payment/data/repositories                                                                        |          1 |         28 |          2 |          5 |         35 |
+| apps/gym_mobile_app/lib/features/payment/domain                                                                                   |          2 |         27 |          5 |          8 |         40 |
+| apps/gym_mobile_app/lib/features/payment/domain/repositories                                                                      |          1 |          9 |          3 |          3 |         15 |
+| apps/gym_mobile_app/lib/features/payment/domain/usecases                                                                          |          1 |         18 |          2 |          5 |         25 |
+| apps/gym_mobile_app/lib/features/payment/presentation                                                                             |          1 |         70 |          6 |         16 |         92 |
+| apps/gym_mobile_app/lib/features/payment/presentation/providers                                                                   |          1 |         70 |          6 |         16 |         92 |
+| apps/gym_mobile_app/lib/features/qr_access                                                                                        |          8 |        486 |         33 |         69 |        588 |
+| apps/gym_mobile_app/lib/features/qr_access/data                                                                                   |          3 |         96 |          7 |         19 |        122 |
+| apps/gym_mobile_app/lib/features/qr_access/data/datasources                                                                       |          1 |         49 |          3 |          7 |         59 |
+| apps/gym_mobile_app/lib/features/qr_access/data/models                                                                            |          1 |         24 |          2 |          7 |         33 |
+| apps/gym_mobile_app/lib/features/qr_access/data/repositories                                                                      |          1 |         23 |          2 |          5 |         30 |
+| apps/gym_mobile_app/lib/features/qr_access/domain                                                                                 |          3 |         31 |          9 |         14 |         54 |
+| apps/gym_mobile_app/lib/features/qr_access/domain/entities                                                                        |          1 |         14 |          3 |          6 |         23 |
+| apps/gym_mobile_app/lib/features/qr_access/domain/repositories                                                                    |          1 |          6 |          4 |          3 |         13 |
+| apps/gym_mobile_app/lib/features/qr_access/domain/usecases                                                                        |          1 |         11 |          2 |          5 |         18 |
+| apps/gym_mobile_app/lib/features/qr_access/presentation                                                                           |          2 |        359 |         17 |         36 |        412 |
+| apps/gym_mobile_app/lib/features/qr_access/presentation/providers                                                                 |          1 |        138 |         11 |         23 |        172 |
+| apps/gym_mobile_app/lib/features/qr_access/presentation/screens                                                                   |          1 |        221 |          6 |         13 |        240 |
+| apps/gym_mobile_app/lib/features/subscription                                                                                     |         10 |      1,739 |         87 |        130 |      1,956 |
+| apps/gym_mobile_app/lib/features/subscription/data                                                                                |          4 |        149 |         26 |         26 |        201 |
+| apps/gym_mobile_app/lib/features/subscription/data/datasources                                                                    |          2 |        103 |         21 |         15 |        139 |
+| apps/gym_mobile_app/lib/features/subscription/data/models                                                                         |          1 |         25 |          3 |          6 |         34 |
+| apps/gym_mobile_app/lib/features/subscription/data/repositories                                                                   |          1 |         21 |          2 |          5 |         28 |
+| apps/gym_mobile_app/lib/features/subscription/domain                                                                              |          3 |         42 |          9 |         15 |         66 |
+| apps/gym_mobile_app/lib/features/subscription/domain/entities                                                                     |          1 |         25 |          4 |          7 |         36 |
+| apps/gym_mobile_app/lib/features/subscription/domain/repositories                                                                 |          1 |          6 |          3 |          3 |         12 |
+| apps/gym_mobile_app/lib/features/subscription/domain/usecases                                                                     |          1 |         11 |          2 |          5 |         18 |
+| apps/gym_mobile_app/lib/features/subscription/presentation                                                                        |          3 |      1,548 |         52 |         89 |      1,689 |
+| apps/gym_mobile_app/lib/features/subscription/presentation/providers                                                              |          1 |         89 |         12 |         14 |        115 |
+| apps/gym_mobile_app/lib/features/subscription/presentation/screens                                                                |          2 |      1,459 |         40 |         75 |      1,574 |
+| apps/gym_mobile_app/lib/features/workout                                                                                          |          6 |      1,861 |        161 |        168 |      2,190 |
+| apps/gym_mobile_app/lib/features/workout/domain                                                                                   |          2 |        160 |         32 |         40 |        232 |
+| apps/gym_mobile_app/lib/features/workout/domain (Files)                                                                           |          1 |         63 |         23 |         24 |        110 |
+| apps/gym_mobile_app/lib/features/workout/domain/entities                                                                          |          1 |         97 |          9 |         16 |        122 |
+| apps/gym_mobile_app/lib/features/workout/presentation                                                                             |          4 |      1,701 |        129 |        128 |      1,958 |
+| apps/gym_mobile_app/lib/features/workout/presentation/providers                                                                   |          1 |        229 |          6 |         13 |        248 |
+| apps/gym_mobile_app/lib/features/workout/presentation/screens                                                                     |          2 |        680 |         32 |         41 |        753 |
+| apps/gym_mobile_app/lib/features/workout/presentation/widgets                                                                     |          1 |        792 |         91 |         74 |        957 |
+| apps/gym_mobile_app/test                                                                                                          |          1 |         14 |         10 |          7 |         31 |
+| docs                                                                                                                              |         17 |      2,153 |        424 |        664 |      3,241 |
+| docs/database                                                                                                                     |          6 |        693 |        424 |        266 |      1,383 |
+| docs/database/schemas                                                                                                             |          6 |        693 |        424 |        266 |      1,383 |
+| docs/database/schemas (Files)                                                                                                     |          2 |        570 |        313 |        227 |      1,110 |
+| docs/database/schemas/migrations                                                                                                  |          4 |        123 |        111 |         39 |        273 |
+| docs/guides                                                                                                                       |         11 |      1,460 |          0 |        398 |      1,858 |
+| packages_shared                                                                                                                   |         10 |        936 |        628 |        210 |      1,774 |
+| packages_shared (Files)                                                                                                           |          1 |         28 |          0 |          1 |         29 |
+| packages_shared/security                                                                                                          |          9 |        908 |        628 |        209 |      1,745 |
+| scripts                                                                                                                           |          6 |      1,134 |        314 |        206 |      1,654 |
+| scripts (Files)                                                                                                                   |          3 |        328 |        112 |         64 |        504 |
+| scripts/seed                                                                                                                      |          3 |        806 |        202 |        142 |      1,150 |
+| services                                                                                                                          |        125 |     44,633 |      3,132 |      1,979 |     49,744 |
+| services (Files)                                                                                                                  |          1 |         37 |         15 |         11 |         63 |
+| services/access-service                                                                                                           |         23 |      8,169 |        525 |        357 |      9,051 |
+| services/access-service (Files)                                                                                                   |          3 |      6,533 |          5 |          9 |      6,547 |
+| services/access-service/src                                                                                                       |         20 |      1,636 |        520 |        348 |      2,504 |
+| services/access-service/src (Files)                                                                                               |          1 |         94 |         22 |         24 |        140 |
+| services/access-service/src/config                                                                                                |          2 |         96 |         23 |         16 |        135 |
+| services/access-service/src/controllers                                                                                           |          4 |        506 |        128 |        101 |        735 |
+| services/access-service/src/middlewares                                                                                           |          4 |        119 |         45 |         40 |        204 |
+| services/access-service/src/models                                                                                                |          1 |        214 |         94 |         32 |        340 |
+| services/access-service/src/routes                                                                                                |          5 |        196 |         35 |         46 |        277 |
+| services/access-service/src/services                                                                                              |          3 |        411 |        173 |         89 |        673 |
+| services/ai-service                                                                                                               |         22 |      8,072 |        499 |        301 |      8,872 |
+| services/ai-service (Files)                                                                                                       |          3 |      6,533 |          5 |          9 |      6,547 |
+| services/ai-service/src                                                                                                           |         19 |      1,539 |        494 |        292 |      2,325 |
+| services/ai-service/src (Files)                                                                                                   |          1 |        138 |         50 |         25 |        213 |
+| services/ai-service/src/config                                                                                                    |          2 |        100 |         18 |         15 |        133 |
+| services/ai-service/src/constants                                                                                                 |          1 |         55 |         30 |         17 |        102 |
+| services/ai-service/src/controllers                                                                                               |          2 |        233 |         49 |         48 |        330 |
+| services/ai-service/src/middlewares                                                                                               |          1 |          5 |          6 |          3 |         14 |
+| services/ai-service/src/routes                                                                                                    |          2 |         60 |         11 |         15 |         86 |
+| services/ai-service/src/services                                                                                                  |         10 |        948 |        330 |        169 |      1,447 |
+| services/auth-service                                                                                                             |         19 |      9,243 |        704 |        421 |     10,368 |
+| services/auth-service (Files)                                                                                                     |          3 |      7,385 |          5 |          9 |      7,399 |
+| services/auth-service/src                                                                                                         |         16 |      1,858 |        699 |        412 |      2,969 |
+| services/auth-service/src (Files)                                                                                                 |          1 |         99 |         45 |         27 |        171 |
+| services/auth-service/src/config                                                                                                  |          2 |        138 |         45 |         35 |        218 |
+| services/auth-service/src/controllers                                                                                             |          3 |        702 |        175 |        145 |      1,022 |
+| services/auth-service/src/middlewares                                                                                             |          2 |        175 |         89 |         35 |        299 |
+| services/auth-service/src/models                                                                                                  |          3 |        430 |        199 |        102 |        731 |
+| services/auth-service/src/routes                                                                                                  |          3 |        172 |         50 |         40 |        262 |
+| services/auth-service/src/services                                                                                                |          2 |        142 |         96 |         28 |        266 |
+| services/fitness-service                                                                                                          |         26 |      8,458 |        439 |        280 |      9,177 |
+| services/fitness-service (Files)                                                                                                  |          3 |      6,982 |          5 |          9 |      6,996 |
+| services/fitness-service/src                                                                                                      |         23 |      1,476 |        434 |        271 |      2,181 |
+| services/fitness-service/src (Files)                                                                                              |          1 |        118 |         26 |         22 |        166 |
+| services/fitness-service/src/config                                                                                               |          2 |        106 |         11 |         13 |        130 |
+| services/fitness-service/src/controllers                                                                                          |          6 |        471 |         89 |         80 |        640 |
+| services/fitness-service/src/middlewares                                                                                          |          1 |          6 |          5 |          3 |         14 |
+| services/fitness-service/src/models                                                                                               |          3 |        222 |         85 |         48 |        355 |
+| services/fitness-service/src/routes                                                                                               |          5 |        107 |         34 |         41 |        182 |
+| services/fitness-service/src/services                                                                                             |          4 |        430 |        162 |         59 |        651 |
+| services/fitness-service/src/services/email                                                                                       |          4 |        430 |        162 |         59 |        651 |
+| services/fitness-service/src/utils                                                                                                |          1 |         16 |         22 |          5 |         43 |
+| services/payment-service                                                                                                          |         23 |      9,322 |        689 |        377 |     10,388 |
+| services/payment-service (Files)                                                                                                  |          3 |      7,409 |          5 |          9 |      7,423 |
+| services/payment-service/src                                                                                                      |         20 |      1,913 |        684 |        368 |      2,965 |
+| services/payment-service/src (Files)                                                                                              |          1 |        101 |         39 |         21 |        161 |
+| services/payment-service/src/config                                                                                               |          3 |        122 |         41 |         24 |        187 |
+| services/payment-service/src/controllers                                                                                          |          3 |        605 |        223 |        112 |        940 |
+| services/payment-service/src/middlewares                                                                                          |          2 |         59 |         53 |         19 |        131 |
+| services/payment-service/src/models                                                                                               |          2 |        336 |        141 |         50 |        527 |
+| services/payment-service/src/routes                                                                                               |          4 |         94 |         28 |         30 |        152 |
+| services/payment-service/src/services                                                                                             |          5 |        596 |        159 |        112 |        867 |
+| services/reception-hardware-controller                                                                                            |         11 |      1,332 |        261 |        232 |      1,825 |
+| services/reception-hardware-controller (Files)                                                                                    |          1 |         49 |          0 |         16 |         65 |
+| services/reception-hardware-controller/node                                                                                       |          3 |        525 |         73 |         72 |        670 |
+| services/reception-hardware-controller/python                                                                                     |          7 |        758 |        188 |        144 |      1,090 |
++-----------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| filename                                                                                                                          | language         | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/README.md                                                                       | Markdown         |         67 |          0 |         10 |         77 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/analysis_options.yaml                                                           | YAML             |          3 |         22 |          4 |         29 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/google-services.json                                                | JSON             |         29 |          0 |          0 |         29 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/debug/AndroidManifest.xml                                       | XML              |          7 |         19 |          2 |         28 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/debug/res/xml/network_security_config.xml                       | XML              |          9 |         18 |          1 |         28 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/main/AndroidManifest.xml                                        | XML              |         36 |         12 |          2 |         50 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/main/res/drawable-v21/launch_background.xml                     | XML              |          4 |          7 |          2 |         13 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/main/res/drawable/launch_background.xml                         | XML              |          4 |          7 |          2 |         13 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/main/res/values-night/styles.xml                                | XML              |          9 |          9 |          1 |         19 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/main/res/values/styles.xml                                      | XML              |          9 |          9 |          1 |         19 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/app/src/profile/AndroidManifest.xml                                     | XML              |          3 |          4 |          1 |          8 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/gradle.properties                                                       | Properties       |          4 |          2 |          1 |          7 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/android/gradle/wrapper/gradle-wrapper.properties                                | Properties       |          5 |          0 |          1 |          6 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/firebase.json                                                                   | JSON             |          1 |          0 |          0 |          1 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/Flutter/ephemeral/flutter_lldb_helper.py                                    | Python           |         17 |         10 |          6 |         33 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/Flutter/ephemeral/flutter_native_integration.env                            | Dotenv           |         12 |          0 |          1 |         13 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/Flutter/flutter_export_environment.sh                                       | Shell Script     |         12 |          2 |          1 |         15 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/GymProLiveActivity/GymProLiveActivity.swift                                 | Swift            |        180 |         28 |         22 |        230 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/GymProLiveActivity/GymProLiveActivityBundle.swift                           | Swift            |         10 |         10 |          3 |         23 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/GymProLiveActivity/GymProWorkoutAttributes.swift                            | Swift            |         20 |         27 |          6 |         53 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/Runner/AppDelegate.swift                                                    | Swift            |         17 |         11 |          7 |         35 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/ios/Runner/LiveActivityBridge.swift                                             | Swift            |        141 |         26 |         22 |        189 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/config/app_config.dart                                                 | Dart             |         52 |         37 |         20 |        109 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/errors/exceptions.dart                                                 | Dart             |         31 |          7 |         11 |         49 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/errors/failures.dart                                                   | Dart             |         31 |         10 |         12 |         53 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/navigation/app_shell.dart                                              | Dart             |        487 |         29 |         39 |        555 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/navigation/nav_destination.dart                                        | Dart             |         46 |          4 |          5 |         55 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/navigation/shell_nav_provider.dart                                     | Dart             |          2 |          4 |          3 |          9 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/network/api_client.dart                                                | Dart             |        105 |         13 |         15 |        133 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/network/auth_interceptor.dart                                          | Dart             |         42 |          6 |         11 |         59 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/network/cache_interceptor.dart                                         | Dart             |         81 |         10 |         16 |        107 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/network/retry_interceptor.dart                                         | Dart             |         67 |         14 |         17 |         98 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/presentation/widgets/glass_surface.dart                                | Dart             |        116 |         24 |         17 |        157 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/presentation/widgets/premium_loading_overlay.dart                      | Dart             |        732 |         41 |         64 |        837 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/presentation/widgets/pressable.dart                                    | Dart             |         85 |         14 |         15 |        114 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/firebase_background_handler.dart                              | Dart             |         15 |         13 |          5 |         33 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/index.dart                                                    | Dart             |         10 |          2 |          2 |         14 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/live_activity_service.dart                                    | Dart             |        122 |         29 |         21 |        172 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/notification_service.dart                                     | Dart             |        454 |         42 |         60 |        556 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/toast_service.dart                                            | Dart             |        155 |          9 |         11 |        175 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/wearables/wearable_payloads.dart                              | Dart             |        141 |          8 |         22 |        171 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/wearables/wearable_provider.dart                              | Dart             |        111 |          7 |         16 |        134 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/wearables/wearable_service.dart                               | Dart             |        152 |         18 |         37 |        207 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/widgets/home_widget_service.dart                              | Dart             |         43 |          7 |          9 |         59 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/widgets/live_activity_service.dart                            | Dart             |         98 |          7 |         20 |        125 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/widgets/widget_payloads.dart                                  | Dart             |        114 |          7 |         14 |        135 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/services/widgets/widget_provider.dart                                  | Dart             |         46 |          8 |         11 |         65 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/storage/local_cache_service.dart                                       | Dart             |        112 |         18 |         22 |        152 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/storage/secure_storage_service.dart                                    | Dart             |         74 |         12 |         14 |        100 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/theme/app_colors.dart                                                  | Dart             |        106 |         28 |         20 |        154 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/theme/app_theme.dart                                                   | Dart             |        175 |         15 |         15 |        205 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/core/theme/app_typography.dart                                              | Dart             |        205 |         16 |         24 |        245 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/data/datasources/auth_local_data_source.dart                  | Dart             |         32 |          2 |          9 |         43 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/data/datasources/auth_remote_data_source.dart                 | Dart             |        131 |         13 |         21 |        165 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/data/datasources/passkey_remote_data_source.dart              | Dart             |        119 |         13 |         18 |        150 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/data/models/auth_response_model.dart                          | Dart             |         41 |          2 |          7 |         50 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/data/models/oauth_credential_model.dart                       | Dart             |         23 |          2 |          4 |         29 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/data/repositories/auth_repository_impl.dart                   | Dart             |        127 |          9 |         17 |        153 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/domain/entities/auth_user.dart                                | Dart             |         29 |          2 |          5 |         36 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/domain/repositories/auth_repository.dart                      | Dart             |         11 |          8 |          8 |         27 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/domain/usecases/authenticate_with_passkey_usecase.dart        | Dart             |         11 |          2 |          5 |         18 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/domain/usecases/login_with_apple_usecase.dart                 | Dart             |         11 |          2 |          5 |         18 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/domain/usecases/login_with_google_usecase.dart                | Dart             |         11 |          2 |          5 |         18 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/domain/usecases/register_passkey_usecase.dart                 | Dart             |         10 |          2 |          5 |         17 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/providers/auth_provider.dart                     | Dart             |        209 |         13 |         30 |        252 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/providers/registration_provider.dart             | Dart             |        141 |         22 |         21 |        184 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/screens/login_screen.dart                        | Dart             |        410 |         20 |         29 |        459 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/screens/registration_screen.dart                 | Dart             |        495 |         14 |         30 |        539 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/widgets/auth_error_snackbar.dart                 | Dart             |         47 |          2 |          4 |         53 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/widgets/neon_glow_background.dart                | Dart             |         70 |          8 |          8 |         86 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/widgets/neon_text_field.dart                     | Dart             |        172 |          4 |         11 |        187 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/widgets/otp_input.dart                           | Dart             |        195 |          4 |         24 |        223 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/widgets/signup_progress_bar.dart                 | Dart             |         97 |          3 |          7 |        107 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/auth/presentation/widgets/social_login_button.dart                 | Dart             |         87 |          2 |          6 |         95 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/home/presentation/screens/home_dashboard_screen.dart               | Dart             |        201 |         19 |         20 |        240 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/home/presentation/widgets/ai_modules_grid.dart                     | Dart             |        315 |          2 |         14 |        331 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/home/presentation/widgets/dynamic_access_qr_card.dart              | Dart             |        280 |          6 |         13 |        299 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/home/presentation/widgets/macro_progress_card.dart                 | Dart             |        318 |         22 |         27 |        367 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/nutrition/domain/entities/nutrition_entities.dart                  | Dart             |        192 |          7 |         23 |        222 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/nutrition/presentation/providers/nutrition_provider.dart           | Dart             |        359 |         11 |         19 |        389 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/nutrition/presentation/screens/nutrition_main_screen.dart          | Dart             |        336 |         12 |         20 |        368 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/nutrition/presentation/screens/nutrition_plan_screen.dart          | Dart             |        158 |          8 |         10 |        176 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/nutrition/presentation/widgets/food_search_modal.dart              | Dart             |        429 |         15 |         20 |        464 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/nutrition/presentation/widgets/macro_summary_dashboard.dart        | Dart             |        481 |         14 |         22 |        517 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/nutrition/presentation/widgets/meal_card.dart                      | Dart             |        391 |         11 |         14 |        416 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/payment/data/datasources/payment_remote_data_source.dart           | Dart             |         42 |          2 |          7 |         51 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/payment/data/repositories/payment_repository_impl.dart             | Dart             |         28 |          2 |          5 |         35 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/payment/domain/repositories/payment_repository.dart                | Dart             |          9 |          3 |          3 |         15 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/payment/domain/usecases/create_checkout_session_usecase.dart       | Dart             |         18 |          2 |          5 |         25 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/payment/presentation/providers/payment_provider.dart               | Dart             |         70 |          6 |         16 |         92 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/data/datasources/qr_access_remote_data_source.dart       | Dart             |         49 |          3 |          7 |         59 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/data/models/access_qr_token_model.dart                   | Dart             |         24 |          2 |          7 |         33 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/data/repositories/qr_access_repository_impl.dart         | Dart             |         23 |          2 |          5 |         30 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/domain/entities/access_qr_token.dart                     | Dart             |         14 |          3 |          6 |         23 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/domain/repositories/qr_access_repository.dart            | Dart             |          6 |          4 |          3 |         13 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/domain/usecases/generate_dynamic_qr_usecase.dart         | Dart             |         11 |          2 |          5 |         18 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/presentation/providers/qr_access_provider.dart           | Dart             |        138 |         11 |         23 |        172 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/qr_access/presentation/screens/qr_access_screen.dart               | Dart             |        221 |          6 |         13 |        240 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/data/datasources/subscription_realtime_service.dart   | Dart             |         48 |         15 |          8 |         71 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/data/datasources/subscription_remote_data_source.dart | Dart             |         55 |          6 |          7 |         68 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/data/models/user_subscription_model.dart              | Dart             |         25 |          3 |          6 |         34 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/data/repositories/subscription_repository_impl.dart   | Dart             |         21 |          2 |          5 |         28 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/domain/entities/user_subscription.dart                | Dart             |         25 |          4 |          7 |         36 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/domain/repositories/subscription_repository.dart      | Dart             |          6 |          3 |          3 |         12 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/domain/usecases/get_subscription_status_usecase.dart  | Dart             |         11 |          2 |          5 |         18 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/presentation/providers/subscription_provider.dart     | Dart             |         89 |         12 |         14 |        115 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/presentation/screens/settings_and_billing_screen.dart | Dart             |      1,112 |         30 |         56 |      1,198 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/subscription/presentation/screens/subscription_screen.dart         | Dart             |        347 |         10 |         19 |        376 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/workout/domain/entities/workout_entities.dart                      | Dart             |         97 |          9 |         16 |        122 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/workout/domain/muscle_catalog.dart                                 | Dart             |         63 |         23 |         24 |        110 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/workout/presentation/providers/workout_provider.dart               | Dart             |        229 |          6 |         13 |        248 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/workout/presentation/screens/workout_main_screen.dart              | Dart             |        183 |          9 |          9 |        201 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/workout/presentation/screens/workout_plan_screen.dart              | Dart             |        497 |         23 |         32 |        552 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/features/workout/presentation/widgets/interactive_anatomy_map.dart          | Dart             |        792 |         91 |         74 |        957 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/firebase_options.dart                                                       | Dart             |         53 |         12 |          4 |         69 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/lib/main.dart                                                                   | Dart             |         90 |         28 |         14 |        132 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/pubspec.yaml                                                                    | YAML             |         35 |          6 |         11 |         52 |
+| /home/MictDev/Projects/GymPro/apps/gym_mobile_app/test/widget_test.dart                                                           | Dart             |         14 |         10 |          7 |         31 |
+| /home/MictDev/Projects/GymPro/docker-compose.yml                                                                                  | YAML             |        171 |         36 |         13 |        220 |
+| /home/MictDev/Projects/GymPro/docs/database/schemas/01_create_schemas_and_tables.sql                                              | MS SQL           |        360 |        202 |        137 |        699 |
+| /home/MictDev/Projects/GymPro/docs/database/schemas/02_fitness_service_db.sql                                                     | MS SQL           |        210 |        111 |         90 |        411 |
+| /home/MictDev/Projects/GymPro/docs/database/schemas/migrations/003_add_pin_terminal_to_usuarios.sql                               | MS SQL           |         46 |         24 |         11 |         81 |
+| /home/MictDev/Projects/GymPro/docs/database/schemas/migrations/004_add_historial_pagos_and_courtesy.sql                           | MS SQL           |         46 |         40 |         16 |        102 |
+| /home/MictDev/Projects/GymPro/docs/database/schemas/migrations/005_add_qr_nonces_consumidos.sql                                   | MS SQL           |         15 |         23 |          6 |         44 |
+| /home/MictDev/Projects/GymPro/docs/database/schemas/migrations/006_webhook_events_procesados.sql                                  | MS SQL           |         16 |         24 |          6 |         46 |
+| /home/MictDev/Projects/GymPro/docs/guides/access-service-security-audit.md                                                        | Markdown         |        114 |          0 |         30 |        144 |
+| /home/MictDev/Projects/GymPro/docs/guides/ai-services-audit.md                                                                    | Markdown         |        190 |          0 |         58 |        248 |
+| /home/MictDev/Projects/GymPro/docs/guides/auth-service-security-audit.md                                                          | Markdown         |        111 |          0 |         28 |        139 |
+| /home/MictDev/Projects/GymPro/docs/guides/cash-payment-flow.md                                                                    | Markdown         |        113 |          0 |         27 |        140 |
+| /home/MictDev/Projects/GymPro/docs/guides/emails-and-live-activities.md                                                           | Markdown         |        153 |          0 |         43 |        196 |
+| /home/MictDev/Projects/GymPro/docs/guides/neon-sport-art-direction.md                                                             | Markdown         |         98 |          0 |         33 |        131 |
+| /home/MictDev/Projects/GymPro/docs/guides/nutrition-ux-audit.md                                                                   | Markdown         |        110 |          0 |         28 |        138 |
+| /home/MictDev/Projects/GymPro/docs/guides/payment-service-fintech-audit.md                                                        | Markdown         |        111 |          0 |         28 |        139 |
+| /home/MictDev/Projects/GymPro/docs/guides/railway-deployment.md                                                                   | Markdown         |        250 |          0 |         62 |        312 |
+| /home/MictDev/Projects/GymPro/docs/guides/theme-accessibility-audit.md                                                            | Markdown         |         90 |          0 |         26 |        116 |
+| /home/MictDev/Projects/GymPro/docs/guides/ui-performance-audit.md                                                                 | Markdown         |        120 |          0 |         35 |        155 |
+| /home/MictDev/Projects/GymPro/packages_shared/package.json                                                                        | JSON             |         28 |          0 |          1 |         29 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/corsConfig.js                                                              | JavaScript       |         76 |         65 |         23 |        164 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/errorHandler.js                                                            | JavaScript       |        126 |         57 |         22 |        205 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/helmetConfig.js                                                            | JavaScript       |         65 |         91 |         23 |        179 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/index.js                                                                   | JavaScript       |         67 |         67 |         22 |        156 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/inputSanitizer.js                                                          | JavaScript       |        180 |        115 |         35 |        330 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/inputSanitizer.test.js                                                     | JavaScript       |        127 |         15 |         23 |        165 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/jwtVerify.js                                                               | JavaScript       |        117 |         56 |         28 |        201 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/logger.js                                                                  | JavaScript       |         49 |         54 |         13 |        116 |
+| /home/MictDev/Projects/GymPro/packages_shared/security/rateLimiter.js                                                             | JavaScript       |        101 |        108 |         20 |        229 |
+| /home/MictDev/Projects/GymPro/scripts/check-secrets.sh                                                                            | Shell Script     |         81 |         36 |         15 |        132 |
+| /home/MictDev/Projects/GymPro/scripts/preflight.sh                                                                                | Shell Script     |        174 |         41 |         34 |        249 |
+| /home/MictDev/Projects/GymPro/scripts/seed/run_all_seeds.sh                                                                       | Shell Script     |         72 |         25 |         13 |        110 |
+| /home/MictDev/Projects/GymPro/scripts/seed/seed_alimentos_off.js                                                                  | JavaScript       |        417 |         94 |         75 |        586 |
+| /home/MictDev/Projects/GymPro/scripts/seed/seed_ejercicios_wger.js                                                                | JavaScript       |        317 |         83 |         54 |        454 |
+| /home/MictDev/Projects/GymPro/scripts/sync-secrets.sh                                                                             | Shell Script     |         73 |         35 |         15 |        123 |
+| /home/MictDev/Projects/GymPro/services/.dockerignore                                                                              | Ignore           |         37 |         15 |         11 |         63 |
+| /home/MictDev/Projects/GymPro/services/access-service/Dockerfile                                                                  | Docker           |         27 |          5 |          7 |         39 |
+| /home/MictDev/Projects/GymPro/services/access-service/package-lock.json                                                           | JSON             |      6,470 |          0 |          1 |      6,471 |
+| /home/MictDev/Projects/GymPro/services/access-service/package.json                                                                | JSON             |         36 |          0 |          1 |         37 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/config/database.js                                                      | JavaScript       |         28 |          4 |          6 |         38 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/config/environment.js                                                   | JavaScript       |         68 |         19 |         10 |         97 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/controllers/internalController.js                                       | JavaScript       |         70 |         23 |         19 |        112 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/controllers/qrController.js                                             | JavaScript       |        178 |         36 |         30 |        244 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/controllers/ticketController.js                                         | JavaScript       |        121 |         31 |         22 |        174 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/controllers/zkAdmsController.js                                         | JavaScript       |        137 |         38 |         30 |        205 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/main.js                                                                 | JavaScript       |         94 |         22 |         24 |        140 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/middlewares/admsDeviceAuth.js                                           | JavaScript       |         44 |         25 |         13 |         82 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/middlewares/interServiceAuth.js                                         | JavaScript       |         31 |          9 |         11 |         51 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/middlewares/jwtVerify.js                                                | JavaScript       |          6 |          5 |          3 |         14 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/middlewares/turnstileAuth.js                                            | JavaScript       |         38 |          6 |         13 |         57 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/models/accessModel.js                                                   | JavaScript       |        214 |         94 |         32 |        340 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/routes/accessRoutes.js                                                  | JavaScript       |         45 |          7 |          9 |         61 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/routes/internalRoutes.js                                                | JavaScript       |         38 |          5 |          8 |         51 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/routes/qrRoutes.js                                                      | JavaScript       |         28 |          6 |          8 |         42 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/routes/ticketRoutes.js                                                  | JavaScript       |         39 |          6 |          8 |         53 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/routes/zkAdmsRoutes.js                                                  | JavaScript       |         46 |         11 |         13 |         70 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/services/cryptoService.js                                               | JavaScript       |         64 |         46 |         21 |        131 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/services/paymentClientService.js                                        | JavaScript       |         93 |         20 |         15 |        128 |
+| /home/MictDev/Projects/GymPro/services/access-service/src/services/zkAdmsService.js                                               | JavaScript       |        254 |        107 |         53 |        414 |
+| /home/MictDev/Projects/GymPro/services/ai-service/Dockerfile                                                                      | Docker           |         27 |          5 |          7 |         39 |
+| /home/MictDev/Projects/GymPro/services/ai-service/package-lock.json                                                               | JSON             |      6,470 |          0 |          1 |      6,471 |
+| /home/MictDev/Projects/GymPro/services/ai-service/package.json                                                                    | JSON             |         36 |          0 |          1 |         37 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/config/database.js                                                          | JavaScript       |         28 |          4 |          6 |         38 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/config/environment.js                                                       | JavaScript       |         72 |         14 |          9 |         95 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/constants/muscleGroups.js                                                   | JavaScript       |         55 |         30 |         17 |        102 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/controllers/chatController.js                                               | JavaScript       |         43 |         16 |         12 |         71 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/controllers/recommendationController.js                                     | JavaScript       |        190 |         33 |         36 |        259 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/main.js                                                                     | JavaScript       |        138 |         50 |         25 |        213 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/middlewares/jwtVerify.js                                                    | JavaScript       |          5 |          6 |          3 |         14 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/routes/chatRoutes.js                                                        | JavaScript       |         25 |          5 |          7 |         37 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/routes/recommendationRoutes.js                                              | JavaScript       |         35 |          6 |          8 |         49 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/fitnessContextClient.js                                            | JavaScript       |         33 |         10 |          9 |         52 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/foodCatalogClient.js                                               | JavaScript       |         45 |         20 |          9 |         74 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/foodReconciliationService.js                                       | JavaScript       |        116 |         46 |         19 |        181 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/historyWindowService.js                                            | JavaScript       |         54 |         50 |         16 |        120 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/llmClientService.js                                                | JavaScript       |        218 |         43 |         37 |        298 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/macroSanitizer.js                                                  | JavaScript       |         99 |         36 |         19 |        154 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/modelHealthCheck.js                                                | JavaScript       |         79 |         35 |         18 |        132 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/muscleValidator.js                                                 | JavaScript       |        135 |         50 |         23 |        208 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/sanitizerService.js                                                | JavaScript       |         51 |         19 |         12 |         82 |
+| /home/MictDev/Projects/GymPro/services/ai-service/src/services/structuredOutputSchemas.js                                         | JavaScript       |        118 |         21 |          7 |        146 |
+| /home/MictDev/Projects/GymPro/services/auth-service/Dockerfile                                                                    | Docker           |         27 |          5 |          7 |         39 |
+| /home/MictDev/Projects/GymPro/services/auth-service/package-lock.json                                                             | JSON             |      7,316 |          0 |          1 |      7,317 |
+| /home/MictDev/Projects/GymPro/services/auth-service/package.json                                                                  | JSON             |         42 |          0 |          1 |         43 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/config/database.js                                                        | JavaScript       |         41 |         26 |         11 |         78 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/config/environment.js                                                     | JavaScript       |         97 |         19 |         24 |        140 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/controllers/authController.js                                             | JavaScript       |        315 |         81 |         68 |        464 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/controllers/passkeyController.js                                          | JavaScript       |        294 |         64 |         47 |        405 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/controllers/passwordController.js                                         | JavaScript       |         93 |         30 |         30 |        153 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/main.js                                                                   | JavaScript       |         99 |         45 |         27 |        171 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/middlewares/inputSanitizer.js                                             | JavaScript       |         42 |         42 |          7 |         91 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/middlewares/jwtVerify.js                                                  | JavaScript       |        133 |         47 |         28 |        208 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/models/passkeyModel.js                                                    | JavaScript       |        123 |         54 |         31 |        208 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/models/resetTokenModel.js                                                 | JavaScript       |         48 |         26 |         16 |         90 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/models/userModel.js                                                       | JavaScript       |        259 |        119 |         55 |        433 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/routes/authRoutes.js                                                      | JavaScript       |        101 |         36 |         21 |        158 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/routes/passkeyRoutes.js                                                   | JavaScript       |         24 |          6 |          9 |         39 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/routes/passwordRoutes.js                                                  | JavaScript       |         47 |          8 |         10 |         65 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/services/emailService.js                                                  | JavaScript       |         86 |         39 |         14 |        139 |
+| /home/MictDev/Projects/GymPro/services/auth-service/src/services/tokenService.js                                                  | JavaScript       |         56 |         57 |         14 |        127 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/Dockerfile                                                                 | Docker           |         27 |          5 |          7 |         39 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/package-lock.json                                                          | JSON             |      6,917 |          0 |          1 |      6,918 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/package.json                                                               | JSON             |         38 |          0 |          1 |         39 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/config/database.js                                                     | JavaScript       |         28 |          4 |          6 |         38 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/config/environment.js                                                  | JavaScript       |         78 |          7 |          7 |         92 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/controllers/emailController.js                                         | JavaScript       |         46 |         14 |         11 |         71 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/controllers/exerciseController.js                                      | JavaScript       |         45 |         12 |         11 |         68 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/controllers/foodController.js                                          | JavaScript       |        181 |         16 |         19 |        216 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/controllers/internalController.js                                      | JavaScript       |         84 |         19 |         14 |        117 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/controllers/progressController.js                                      | JavaScript       |         48 |         12 |         11 |         71 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/controllers/routineController.js                                       | JavaScript       |         67 |         16 |         14 |         97 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/main.js                                                                | JavaScript       |        118 |         26 |         22 |        166 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/middlewares/jwtVerify.js                                               | JavaScript       |          6 |          5 |          3 |         14 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/models/exerciseModel.js                                                | JavaScript       |         81 |         24 |         18 |        123 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/models/progressModel.js                                                | JavaScript       |         66 |         31 |         14 |        111 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/models/routineModel.js                                                 | JavaScript       |         75 |         30 |         16 |        121 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/routes/exerciseRoutes.js                                               | JavaScript       |          7 |          6 |          7 |         20 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/routes/foodRoutes.js                                                   | JavaScript       |          7 |          6 |          7 |         20 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/routes/internalRoutes.js                                               | JavaScript       |         40 |          9 |         10 |         59 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/routes/progressRoutes.js                                               | JavaScript       |         26 |          6 |          8 |         40 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/routes/routineRoutes.js                                                | JavaScript       |         27 |          7 |          9 |         43 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/services/email/emailProvider.js                                        | JavaScript       |         68 |         28 |         14 |        110 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/services/email/emailQueue.js                                           | JavaScript       |         87 |         53 |         15 |        155 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/services/email/emailTemplates.js                                       | JavaScript       |        196 |         56 |         14 |        266 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/services/email/emailWorker.js                                          | JavaScript       |         79 |         25 |         16 |        120 |
+| /home/MictDev/Projects/GymPro/services/fitness-service/src/utils/postgrestSanitizer.js                                            | JavaScript       |         16 |         22 |          5 |         43 |
+| /home/MictDev/Projects/GymPro/services/payment-service/Dockerfile                                                                 | Docker           |         27 |          5 |          7 |         39 |
+| /home/MictDev/Projects/GymPro/services/payment-service/package-lock.json                                                          | JSON             |      7,343 |          0 |          1 |      7,344 |
+| /home/MictDev/Projects/GymPro/services/payment-service/package.json                                                               | JSON             |         39 |          0 |          1 |         40 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/config/database.js                                                     | JavaScript       |         28 |          4 |          6 |         38 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/config/environment.js                                                  | JavaScript       |         67 |         18 |          7 |         92 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/config/stripe.js                                                       | JavaScript       |         27 |         19 |         11 |         57 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/controllers/paymentController.js                                       | JavaScript       |        205 |         49 |         31 |        285 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/controllers/subscriptionController.js                                  | JavaScript       |         99 |         23 |         21 |        143 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/controllers/webhookController.js                                       | JavaScript       |        301 |        151 |         60 |        512 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/main.js                                                                | JavaScript       |        101 |         39 |         21 |        161 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/middlewares/apiKeyAuth.js                                              | JavaScript       |         53 |         46 |         16 |        115 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/middlewares/jwtVerify.js                                               | JavaScript       |          6 |          7 |          3 |         16 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/models/paymentHistoryModel.js                                          | JavaScript       |         58 |         28 |         10 |         96 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/models/subscriptionModel.js                                            | JavaScript       |        278 |        113 |         40 |        431 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/routes/cashPaymentRoutes.js                                            | JavaScript       |         30 |          6 |          7 |         43 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/routes/paymentRoutes.js                                                | JavaScript       |         34 |          6 |          8 |         48 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/routes/subscriptionRoutes.js                                           | JavaScript       |         24 |          7 |          9 |         40 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/routes/webhookRoutes.js                                                | JavaScript       |          6 |          9 |          6 |         21 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/services/accessSyncService.js                                          | JavaScript       |         70 |         30 |          9 |        109 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/services/biometricNotificationService.js                               | JavaScript       |         77 |         31 |         16 |        124 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/services/emailService.js                                               | JavaScript       |        115 |         28 |         11 |        154 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/services/growthRetentionWorker.js                                      | JavaScript       |        211 |         42 |         45 |        298 |
+| /home/MictDev/Projects/GymPro/services/payment-service/src/services/pdfService.js                                                 | JavaScript       |        123 |         28 |         31 |        182 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/README.md                                                    | Markdown         |         49 |          0 |         16 |         65 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/node/cash_payment_client.js                                  | JavaScript       |        131 |         36 |         20 |        187 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/node/package.json                                            | JSON             |         19 |          0 |          1 |         20 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/node/reception_controller.js                                 | JavaScript       |        375 |         37 |         51 |        463 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/python/access_api_client.py                                  | Python           |         57 |         25 |         14 |         96 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/python/config.py                                             | Python           |         29 |         26 |         16 |         71 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/python/main.py                                               | Python           |        122 |         36 |         29 |        187 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/python/qr_scanner_listener.py                                | Python           |        192 |         26 |         26 |        244 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/python/relay_controller.py                                   | Python           |        123 |         30 |         20 |        173 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/python/requirements.txt                                      | pip requirements |          5 |          1 |          1 |          7 |
+| /home/MictDev/Projects/GymPro/services/reception-hardware-controller/python/thermal_printer.py                                    | Python           |        230 |         44 |         38 |        312 |
+| Total                                                                                                                             |                  |     64,020 |      5,846 |      4,656 |     74,522 |
++-----------------------------------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+

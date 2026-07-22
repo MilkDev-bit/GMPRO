@@ -8,6 +8,7 @@
 const sanitizerService        = require('../services/sanitizerService');
 const fitnessContextClient     = require('../services/fitnessContextClient');
 const llmClientService         = require('../services/llmClientService');
+const historyWindowService     = require('../services/historyWindowService');
 const env                      = require('../config/environment');
 const { createServiceLogger }  = require('../../../../packages_shared/security/logger');
 
@@ -45,10 +46,22 @@ async function streamChat(req, res, next) {
     }
     systemPrompt += '\nUtiliza esta información para personalizar tus consejos y motivación sin reiterarla repetitivamente en cada respuesta.';
 
-    logger.info('Iniciando sesión de chat SSE', { usuarioId, provider: env.AI_PROVIDER });
+    // 4. Ventana móvil sobre el historial.
+    //    El historial llega DEL CLIENTE, así que este recorte es un
+    //    límite de coste que el backend impone: sin él, un cliente con
+    //    un bug puede enviar cientos de turnos y los facturamos enteros.
+    const { turns, stats } = historyWindowService.applyWindow(history);
 
-    // 4. Iniciar streaming SSE hacia el cliente Express
-    await llmClientService.generateChatStreamSSE(res, systemPrompt, check.sanitized, history);
+    logger.info('Iniciando sesión de chat SSE', {
+      usuarioId,
+      provider: env.AI_PROVIDER,
+      historyRecibido: stats.received,
+      historyEnviado: stats.kept,
+      tokensAhorrados: stats.estTokensSaved,
+    });
+
+    // 5. Iniciar streaming SSE hacia el cliente Express
+    await llmClientService.generateChatStreamSSE(res, systemPrompt, check.sanitized, turns);
   } catch (err) {
     next(err);
   }

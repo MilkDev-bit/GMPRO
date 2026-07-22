@@ -2,14 +2,13 @@
 /// @description Dashboard principal con tarjetas de macros, QR dinámico y módulos IA.
 /// El contenido hace scroll BAJO la barra de cristal flotante gracias al padding inferior.
 
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/presentation/widgets/glass_surface.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../qr_access/presentation/providers/qr_access_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
@@ -152,17 +151,19 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
     final opacity =
         (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24 * opacity, sigmaY: 24 * opacity),
-        child: Container(
-          color: AppColors.background.withValues(alpha: 0.85 + 0.15 * opacity),
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top,
-            left: 20,
-            right: 12,
-          ),
-          child: Row(
+    // Cristal premium: blur progresivo al hacer scroll + highlight specular sutil
+    // en el filo superior, que da la sensación de un panel de vidrio real.
+    return GlassSurface(
+      borderRadius: 0,
+      blurSigma: 24 * opacity,
+      specularOpacity: 0.12,
+      tint: AppColors.background.withValues(alpha: 0.85 + 0.15 * opacity),
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        left: 20,
+        right: 12,
+      ),
+      child: Row(
             children: [
               // Logo
               Container(
@@ -228,8 +229,6 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
                 onPressed: onLogout,
               ),
             ],
-          ),
-        ),
       ),
     );
   }

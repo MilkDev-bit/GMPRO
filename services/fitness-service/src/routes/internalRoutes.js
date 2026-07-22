@@ -8,6 +8,7 @@
 const { Router }                 = require('express');
 const { body, validationResult } = require('express-validator');
 const internalController         = require('../controllers/internalController');
+const emailController            = require('../controllers/emailController');
 
 const router = Router();
 
@@ -34,6 +35,24 @@ router.post(
   ],
   validate,
   internalController.verifyFoods
+);
+
+// ── Correos transaccionales (cola BullMQ) ───────────────────────────────────
+// GET /api/v1/internal/emails/templates
+router.get('/emails/templates', emailController.listTemplates);
+
+// POST /api/v1/internal/emails/enqueue → 202 Accepted (entrega asíncrona)
+router.post(
+  '/emails/enqueue',
+  [
+    body('to').isEmail().withMessage('Destinatario inválido.'),
+    body('template').isString().notEmpty().withMessage('Plantilla requerida.'),
+    body('vars').optional().isObject(),
+    body('delayMs').optional().isInt({ min: 0, max: 7 * 24 * 3600 * 1000 }),
+    body('dedupeKey').optional().isString().isLength({ max: 120 }),
+  ],
+  validate,
+  emailController.enqueueTransactionalEmail
 );
 
 module.exports = router;

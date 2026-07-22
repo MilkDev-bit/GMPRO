@@ -21,6 +21,13 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.0.1" apply false
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
+    // Procesa google-services.json y genera los recursos (values.xml) que
+    // FirebaseOptions lee en tiempo de ejecución. Sin este plugin, la app
+    // compila pero falla al arrancar con:
+    //   "Failed to load FirebaseOptions from resource.
+    //    Check that you have defined values.xml correctly."
+    // que es exactamente el error que aparecía en tus logs.
+    id("com.google.gms.google-services") version "4.4.2" apply false
 }
 
 include(":app")

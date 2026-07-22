@@ -127,18 +127,29 @@ async function bootstrap() {
 
   security.applyFinal(app);
 
+  // ── Worker de correos transaccionales (BullMQ) ────────────────────────────
+  // Corre en el mismo proceso pero fuera del ciclo request/response: encolar es
+  // instantáneo y la entrega (con reintentos) nunca bloquea al usuario.
+  const { startEmailWorker, stopEmailWorker } = require('./services/email/emailWorker');
+  const { closeQueue } = require('./services/email/emailQueue');
+  startEmailWorker();
+
   const PORT   = parseInt(process.env.PORT || '3004', 10);
   const server = app.listen(PORT, '0.0.0.0', () =>
     security.logger.info(`fitness-service escuchando en :${PORT}`, {
       redisEnabled:   !!redisClient,
       cacheTtl:       process.env.EXERCISE_CATALOG_CACHE_TTL || '3600',
       hppWhitelist:   ['muscleGroup', 'equipment', 'difficulty', 'tag'],
+      emailQueue:     !!process.env.REDIS_URL,
     })
   );
 
   const shutdown = async (sig) => {
     security.logger.info(`${sig} recibido. Cerrando fitness-service...`);
     server.close(async () => {
+      // Esperar a que terminen los correos en vuelo antes de matar el proceso.
+      await stopEmailWorker();
+      await closeQueue();
       if (redisClient) await redisClient.quit();
       process.exit(0);
     });
