@@ -20,18 +20,28 @@ class AuthInterceptor extends Interceptor {
   /// de forma irrecuperable (el interceptor no tiene BuildContext).
   final void Function()? _onSessionExpired;
 
-  AuthInterceptor(this._storageService, {void Function()? onSessionExpired})
-      : _onSessionExpired = onSessionExpired;
+  AuthInterceptor(
+    this._storageService, {
+    void Function()? onSessionExpired,
+    Dio? refreshClient,
+  })  : _onSessionExpired = onSessionExpired,
+        _injectedRefreshDio = refreshClient;
 
-  /// Dio DEDICADO al /refresh y a los reintentos: SIN interceptores, para no
-  /// re-entrar en este mismo onError (bucle infinito). Punto #4 del requisito.
-  late final Dio _refreshDio = Dio(
-    BaseOptions(
-      baseUrl: AppConfig.authServiceBaseUrl,
-      connectTimeout: AppConfig.connectionTimeout,
-      receiveTimeout: AppConfig.receiveTimeout,
-    ),
-  );
+  /// Permite inyectar el Dio de refresh en tests. En producción es null y se
+  /// crea el `_refreshDio` interno por defecto.
+  final Dio? _injectedRefreshDio;
+
+  /// Dio DEDICADO al /refresh y a los reintentos: en producción SIN
+  /// interceptores, para no re-entrar en este mismo onError (bucle infinito).
+  /// Punto #4 del requisito. En tests se inyecta uno con mock adapter.
+  late final Dio _refreshDio = _injectedRefreshDio ??
+      Dio(
+        BaseOptions(
+          baseUrl: AppConfig.authServiceBaseUrl,
+          connectTimeout: AppConfig.connectionTimeout,
+          receiveTimeout: AppConfig.receiveTimeout,
+        ),
+      );
 
   /// Guard SINGLE-FLIGHT: si hay un refresh en curso, las demás peticiones 401
   /// esperan ESTE future en vez de disparar su propio /refresh (que el backend

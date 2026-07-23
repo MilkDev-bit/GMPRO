@@ -46,6 +46,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # Mock del adapter HTTP de Dio para tests de red sin sockets reales.
+  http_mock_adapter: ^0.6.1
 
 flutter:
   uses-material-design: true
