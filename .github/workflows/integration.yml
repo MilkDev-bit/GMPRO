@@ -14,8 +14,13 @@ on:
 
 jobs:
   integration:
-    name: auth-service integration
+    name: ${{ matrix.service }} integration
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth-service, payment-service]
 
     services:
       postgres:
@@ -50,7 +55,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: services/auth-service
+        working-directory: services/${{ matrix.service }}
 
     steps:
       - name: Checkout
@@ -61,7 +66,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: services/auth-service/package-lock.json
+          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
 
       - name: Install dependencies
         run: npm ci
