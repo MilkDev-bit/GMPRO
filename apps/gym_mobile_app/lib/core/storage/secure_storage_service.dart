@@ -13,9 +13,18 @@ class SecureStorageService {
             const FlutterSecureStorage(
               aOptions: AndroidOptions(
                 encryptedSharedPreferences: true,
+                // Si el Keystore se corrompe (p.ej. tras restaurar el dispositivo),
+                // resetea el store en vez de lanzar y bloquear la app.
+                resetOnError: true,
               ),
               iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock,
+                // first_unlock_this_device = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly:
+                //   • ThisDeviceOnly → el ítem NO se incluye en backups (iCloud/iTunes)
+                //     ni se migra a otro dispositivo → el refresh token no es exfiltrable
+                //     vía backup ni restaurable en un equipo del atacante.
+                //   • AfterFirstUnlock → sigue accesible en segundo plano tras el primer
+                //     desbloqueo (necesario para refresh de sesión sin re-login).
+                accessibility: KeychainAccessibility.first_unlock_this_device,
               ),
             );
 

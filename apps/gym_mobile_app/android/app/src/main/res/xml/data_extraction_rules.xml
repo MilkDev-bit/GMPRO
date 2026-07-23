@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Reglas de extracción de datos (Android 12+ / API 31+).
+  Complementan android:allowBackup="false": excluyen TODO dato de la app tanto
+  del backup en la nube (Google Drive) como de la transferencia dispositivo-a-
+  dispositivo, para que el blob cifrado de tokens (EncryptedSharedPreferences)
+  nunca abandone el dispositivo donde se generó la clave del Keystore.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>
