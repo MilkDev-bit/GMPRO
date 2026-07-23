@@ -9,18 +9,26 @@ const { Router }       = require('express');
 const passkeyController = require('../controllers/passkeyController');
 const { createJwtVerifyMiddleware } = require('../../../../packages_shared/security/jwtVerify');
 
-const router = Router();
+/**
+ * Factory: recibe { redisClient } para que las rutas de registro de passkey
+ * (que requieren sesión activa) consulten la blacklist de tokens revocados.
+ * @param {{ redisClient?: import('ioredis').Redis|null }} [deps]
+ * @returns {import('express').Router}
+ */
+module.exports = function createPasskeyRoutes({ redisClient = null } = {}) {
+  const router = Router();
+  const jwtVerify = createJwtVerifyMiddleware({ redisClient });
 
 // ── Registro de una nueva llave biométrica (Requiere estar logeado previamente) ──
 router.post(
   '/register-options',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   passkeyController.registerOptions
 );
 
 router.post(
   '/verify-register',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   passkeyController.verifyRegister
 );
 
@@ -35,4 +43,5 @@ router.post(
   passkeyController.verifyLogin
 );
 
-module.exports = router;
+  return router;
+};

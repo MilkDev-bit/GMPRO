@@ -28,7 +28,23 @@ const INJECTION_PATTERNS = [
   /<\|im_end\|>/i,
   /###\s*System/i,
   /\[SYSTEM_DIRECTIVE\]/i,
+  // Prompt leaking / exfiltración del system prompt (modelo de amenaza: jailbreak).
+  /reveal\s+(your\s+)?(system\s+)?(prompt|instructions)/i,
+  /repeat\s+(the\s+)?(words|text|everything)\s+(above|before)/i,
+  /(muestra|revela|imprime)\s+(tu\s+|el\s+)?(prompt|instrucciones)\s+(de\s+)?(sistema|inicial)/i,
 ];
+
+/**
+ * Normaliza el texto para que los patrones NO se evadan con trucos Unicode:
+ *   • NFKC colapsa fullwidth/homoglifos (ｉｇｎｏｒｅ → ignore).
+ *   • Se eliminan caracteres zero-width (espacio/joiner/BOM) que parten palabras
+ *     invisiblemente (ig<ZWSP>nore) para burlar el regex.
+ * @param {string} s
+ * @returns {string}
+ */
+function normalizeForDetection(s) {
+  return s.normalize('NFKC').replace(/[\u200B-\u200D\u2060\uFEFF]/g, '');
+}
 
 /**
  * Sanitiza y valida la entrada del usuario antes de enviarla al LLM.
@@ -41,7 +57,10 @@ function sanitizeUserPrompt(rawInput) {
     return { sanitized: '', isValid: false, rejectionReason: 'El mensaje no puede estar vacío.' };
   }
 
-  const trimmed = rawInput.trim();
+  // Normalizar ANTES de cualquier chequeo: colapsa fullwidth/homoglifos y quita
+  // zero-width, de modo que los patrones no se evadan con trucos Unicode. El
+  // texto que sigue (y el que se envía al LLM) es la forma normalizada.
+  const trimmed = normalizeForDetection(rawInput.trim());
 
   // 1. Límite de caracteres (aprox 4 caracteres por token. Si max input tokens es 4096, máximo 16,000 chars)
   const maxChars = (env.AI_MAX_INPUT_TOKENS || 4096) * 4;
@@ -54,7 +73,7 @@ function sanitizeUserPrompt(rawInput) {
     };
   }
 
-  // 2. Detección de patrones de Prompt Injection / Jailbreak
+  // 2. Detección de patrones de Prompt Injection / Jailbreak (sobre texto normalizado)
   for (const pattern of INJECTION_PATTERNS) {
     if (pattern.test(trimmed)) {
       logger.warn('Intento de Prompt Injection / Jailbreak detectado y bloqueado', {

@@ -119,3 +119,42 @@ describe('Gestión de sesiones / dispositivos', () => {
     expect(refreshTokenModel.revokeAllForUser).toHaveBeenCalledWith('userA');
   });
 });
+
+// ── Blacklist de access tokens: revocación en logout SÍ se aplica ────────────
+// Regresión del bug: las rutas protegidas construían jwtVerify SIN redis, así
+// que un token "cerrado" en logout seguía válido. Ahora jwtVerify recibe redis
+// y consulta jwt:blacklist:<jti> en cada request.
+describe('Blacklist de access tokens (revocación real en logout)', () => {
+  const JTI_REVOCADO = 'jti-revocado-000';
+  const fakeRedis = {
+    get: jest.fn(async (key) => (key === `jwt:blacklist:${JTI_REVOCADO}` ? '1' : null)),
+  };
+
+  function appWithRedis() {
+    const a = express();
+    a.use(express.json());
+    const jwtVerify = createJwtVerifyMiddleware({ redisClient: fakeRedis });
+    a.get('/sessions', jwtVerify, sessionController.listSessions);
+    return a;
+  }
+  const signWithJti = (userId, jti) => jwt.sign(
+    { sub: userId, role: 'miembro', jti, email: `${userId}@x.com` },
+    process.env.JWT_SECRET, { algorithm: process.env.JWT_ALGORITHM, expiresIn: '5m' });
+
+  beforeEach(() => { refreshTokenModel.__reset(); jest.clearAllMocks(); });
+
+  test('token en blacklist (post-logout) → 401', async () => {
+    const res = await request(appWithRedis())
+      .get('/sessions')
+      .set('Authorization', `Bearer ${signWithJti('userA', JTI_REVOCADO)}`);
+    expect(res.status).toBe(401);
+    expect(fakeRedis.get).toHaveBeenCalledWith(`jwt:blacklist:${JTI_REVOCADO}`);
+  });
+
+  test('token no revocado → pasa (200)', async () => {
+    const res = await request(appWithRedis())
+      .get('/sessions')
+      .set('Authorization', `Bearer ${signWithJti('userA', 'jti-vigente-1')}`);
+    expect(res.status).toBe(200);
+  });
+});

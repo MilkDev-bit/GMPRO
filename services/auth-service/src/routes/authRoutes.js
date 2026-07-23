@@ -14,14 +14,25 @@ const { body, query, param, validationResult } = require('express-validator');
 const cookieParser       = require('cookie-parser');
 const authController     = require('../controllers/authController');
 const sessionController  = require('../controllers/sessionController');
-const passkeyRoutes      = require('./passkeyRoutes');
+const createPasskeyRoutes = require('./passkeyRoutes'); // factory({ redisClient })
 const { sanitizeFields } = require('../middlewares/inputSanitizer');
 const { createJwtVerifyMiddleware } = require('../../../../packages_shared/security/jwtVerify');
 
-const router = Router();
+/**
+ * Factory: recibe { redisClient } para que las rutas protegidas (logout, me,
+ * sessions) verifiquen la BLACKLIST de JTIs revocados. Sin redis, un token
+ * "cerrado" en logout seguiría siendo válido hasta su expiración natural.
+ * @param {{ redisClient?: import('ioredis').Redis|null }} [deps]
+ * @returns {import('express').Router}
+ */
+module.exports = function createAuthRoutes({ redisClient = null } = {}) {
+  const router = Router();
+
+  // jwtVerify CON redis → consulta jwt:blacklist:<jti> en cada request protegida.
+  const jwtVerify = createJwtVerifyMiddleware({ redisClient });
 
 // Montar subrutas de Passkeys nativos (Apple Enclave / Android StrongBox)
-router.use('/passkey', passkeyRoutes);
+router.use('/passkey', createPasskeyRoutes({ redisClient }));
 
 // Cookie parser para leer el refresh token de la cookie HttpOnly
 router.use(cookieParser());
@@ -122,7 +133,7 @@ router.post(
 // ─────────────────────────────────────────────────────────────────────────────
 router.post(
   '/logout',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   authController.logout
 );
 
@@ -139,7 +150,7 @@ router.post(
 // ─────────────────────────────────────────────────────────────────────────────
 router.get(
   '/me',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   authController.getMe
 );
 
@@ -163,19 +174,19 @@ router.get(
 // ─────────────────────────────────────────────────────────────────────────────
 router.get(
   '/sessions',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   sessionController.listSessions
 );
 
 router.delete(
   '/sessions',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   sessionController.revokeAllSessions
 );
 
 router.delete(
   '/sessions/:familyId',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   [
     param('familyId').isUUID(4).withMessage('Identificador de sesión inválido.'),
   ],
@@ -183,4 +194,5 @@ router.delete(
   sessionController.revokeSession
 );
 
-module.exports = router;
+  return router;
+};

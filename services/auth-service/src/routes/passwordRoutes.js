@@ -10,7 +10,16 @@ const { body, validationResult } = require('express-validator');
 const passwordController = require('../controllers/passwordController');
 const { createJwtVerifyMiddleware } = require('../../../../packages_shared/security/jwtVerify');
 
-const router = Router();
+/**
+ * Factory: recibe { redisClient } para que /change (JWT) consulte la blacklist
+ * de tokens revocados en logout. Sin redis, un token cerrado seguiría sirviendo
+ * para cambiar la contraseña hasta su expiración.
+ * @param {{ redisClient?: import('ioredis').Redis|null }} [deps]
+ * @returns {import('express').Router}
+ */
+module.exports = function createPasswordRoutes({ redisClient = null } = {}) {
+  const router = Router();
+  const jwtVerify = createJwtVerifyMiddleware({ redisClient });
 
 function validate(req, res, next) {
   const errors = validationResult(req);
@@ -52,7 +61,7 @@ router.post(
 // PUT /api/v1/auth/password/change  (JWT requerido)
 router.put(
   '/change',
-  createJwtVerifyMiddleware(),
+  jwtVerify,
   [
     body('currentPassword').notEmpty().withMessage('La contraseña actual es requerida.'),
     passwordRules,
@@ -61,4 +70,5 @@ router.put(
   passwordController.changePassword
 );
 
-module.exports = router;
+  return router;
+};
