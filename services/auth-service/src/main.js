@@ -36,8 +36,8 @@ if (missingEnv.length > 0) {
 }
 
 // ─── Imports de módulos del servicio ─────────────────────────────────────────
-const authRoutes    = require('./routes/authRoutes');
-const passwordRoutes = require('./routes/passwordRoutes');
+const createAuthRoutes = require('./routes/authRoutes'); // factory({ redisClient })
+const createPasswordRoutes = require('./routes/passwordRoutes'); // factory({ redisClient })
 
 // ─── Inicialización de la aplicación ─────────────────────────────────────────
 async function bootstrap() {
@@ -76,6 +76,14 @@ async function bootstrap() {
 
   // 1. Aplicar middlewares globales (Helmet, CORS, Rate Limit, Body Parser, Sanitización)
   security.applyGlobal(app);
+
+  // ─── Exponer Redis a controllers y rutas ──────────────────────────────────
+  // req.redisClient → usado por authController.logout para escribir la BLACKLIST
+  //   de access tokens (revocación en logout). Antes NO se inyectaba, así que la
+  //   revocación era código muerto: el token seguía válido tras el logout.
+  // app.set('redisClient') → usado por passkeyController (retos WebAuthn).
+  app.set('redisClient', redisClient);
+  app.use((req, _res, next) => { req.redisClient = redisClient; next(); });
 
   // ─── Endpoint de salud (Railway healthcheck) ──────────────────────────────
   // Sin autenticación. Sin rate limiting (excluido en la config).
@@ -144,10 +152,10 @@ async function bootstrap() {
   app.use('/api/v1/auth/login',    loginAccountRateLimiter);
 
   // Rutas públicas (sin JWT): rate limit anti-fuerza-bruta por IP (authRateLimiter)
-  app.use('/api/v1/auth', authRateLimiter, authRoutes);
+  app.use('/api/v1/auth', authRateLimiter, createAuthRoutes({ redisClient }));
 
   // Rutas protegidas (con JWT): rate limit por usuario
-  app.use('/api/v1/auth/password', userRateLimiter, passwordRoutes);
+  app.use('/api/v1/auth/password', userRateLimiter, createPasswordRoutes({ redisClient }));
 
   // 2. Aplicar middlewares finales (404 + error handler) — SIEMPRE AL FINAL
   security.applyFinal(app);

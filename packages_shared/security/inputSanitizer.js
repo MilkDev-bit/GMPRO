@@ -135,8 +135,19 @@ function detectNoSqlInjection(value) {
  * @param {string} path   - Ruta del campo (para logs: "body.email")
  * @returns {{ sanitized: *, threats: string[] }} - Valor sanitizado y amenazas detectadas
  */
-function sanitizeValue(value, path = 'root') {
+// Profundidad máxima de recursión. Un payload muy anidado (dentro del límite de
+// tamaño) podría desbordar el stack (CWE-674 Uncontrolled Recursion → DoS).
+// 32 niveles es holgado para JSON legítimo y corta cualquier anidamiento patológico.
+const MAX_SANITIZE_DEPTH = 32;
+
+function sanitizeValue(value, path = 'root', depth = 0) {
   const threats = [];
+
+  // ── Corte por profundidad (anti-DoS por anidamiento profundo) ──────────────
+  if (depth > MAX_SANITIZE_DEPTH) {
+    threats.push(`DEPTH_EXCEEDED:${path}`);
+    return { sanitized: null, threats }; // no seguir descendiendo
+  }
 
   if (value === null || value === undefined) {
     return { sanitized: value, threats };
@@ -144,7 +155,7 @@ function sanitizeValue(value, path = 'root') {
 
   if (Array.isArray(value)) {
     const sanitizedArr = value.map((item, i) => {
-      const result = sanitizeValue(item, `${path}[${i}]`);
+      const result = sanitizeValue(item, `${path}[${i}]`, depth + 1);
       threats.push(...result.threats);
       return result.sanitized;
     });
@@ -157,38 +168,47 @@ function sanitizeValue(value, path = 'root') {
       threats.push(`NOSQL_INJECTION:${path}`);
     }
 
-    const sanitizedObj = {};
+    // Objeto SIN prototipo → asignar una clave "__proto__" no contamina la cadena
+    // de prototipos (defensa en profundidad extra sobre el filtro de claves).
+    const sanitizedObj = Object.create(null);
     for (const [key, val] of Object.entries(value)) {
       // Sanitizar también las claves del objeto (previene prototype pollution)
       if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
         threats.push(`PROTOTYPE_POLLUTION:${path}.${key}`);
         continue; // Omitir esta clave completamente
       }
-      const result = sanitizeValue(val, `${path}.${key}`);
+      const result = sanitizeValue(val, `${path}.${key}`, depth + 1);
       threats.push(...result.threats);
       sanitizedObj[key] = result.sanitized;
     }
-    return { sanitized: sanitizedObj, threats };
+    // Devolver un objeto plano normal (con prototipo Object) ya poblado de forma segura.
+    return { sanitized: Object.assign({}, sanitizedObj), threats };
   }
 
   if (typeof value === 'string') {
-    // Paso 1: Detectar intentos de SQL injection (solo detectar, no modificar)
+    // Paso 0: Detectar intentos de SQL injection (solo detectar, no modificar)
     const sqlCheck = detectSqlInjection(value);
     if (sqlCheck.detected) {
       threats.push(`SQL_INJECTION:${path}`);
     }
 
-    // Paso 2: Limpiar XSS con la librería xss
-    const xssCleaned = xss(value, xssOptions);
+    // Paso 1: Normalizar Unicode (NFKC) PRIMERO. Colapsa lookalikes/fullwidth
+    //   (p.ej. ＜ U+FF1C → <) ANTES de limpiar/escapar. Si se hiciera al final,
+    //   ＜script＞ se convertiría en <script> DESPUÉS del escape → bypass XSS.
+    const normalized = value.normalize('NFKC');
 
-    // Paso 3: Escapar entidades HTML residuales
+    // Paso 2: Eliminar caracteres de control C0 y DEL (salvo \t \n \r) — null-byte
+    //   y compañía pueden engañar a la BD/cliente o inyectar líneas en logs.
+    // eslint-disable-next-line no-control-regex
+    const noControl = normalized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    // Paso 3: Limpiar XSS con la librería xss (ya ve <script> real, no ＜script＞)
+    const xssCleaned = xss(noControl, xssOptions);
+
+    // Paso 4: Escapar entidades HTML residuales (última barrera)
     const htmlEscaped = validator.escape(xssCleaned);
 
-    // Paso 4: Normalizar Unicode para prevenir bypass con caracteres lookalike
-    // Convierte caracteres como ＜ (U+FF1C) a < antes del escape
-    const normalized = htmlEscaped.normalize('NFKC');
-
-    return { sanitized: normalized, threats };
+    return { sanitized: htmlEscaped, threats };
   }
 
   // Números, booleanos: no modificar
