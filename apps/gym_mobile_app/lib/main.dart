@@ -19,6 +19,7 @@ import 'core/config/app_config.dart';
 import 'core/services/firebase_background_handler.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/toast_service.dart';
+import 'core/security/security_guard.dart';
 import 'core/navigation/app_shell.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
@@ -69,6 +70,13 @@ void main() async {
 
   // Inicializar canales nativos de notificación local y listeners en primer plano
   await NotificationServiceImpl.instance.initialize();
+
+  // ── RASP (root/jailbreak, emulador, debugger, Frida, tampering) ─────────────
+  // La advertencia no bloqueante se enruta al ToastService (global vía
+  // navigatorKey). Las amenazas activas cierran la app desde el propio guard.
+  await SecurityGuard.instance.initialize(
+    onWarning: (message) => ToastService.showWarningToast(message: message),
+  );
 
   // Configurar barra de estado superior y navegación translúcida (el tema dinámico gobierna el brillo)
   SystemChrome.setSystemUIOverlayStyle(

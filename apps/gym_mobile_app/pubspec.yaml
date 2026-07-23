@@ -25,6 +25,9 @@ dependencies:
   crypto: ^3.0.3                  # SHA-256 del SubjectPublicKeyInfo (pin SPKI)
   asn1lib: ^1.5.3                 # Parseo ASN.1/DER del cert para extraer el SPKI
 
+  # ── RASP (Runtime Application Self-Protection) ──────────────────────────────
+  freerasp: ^6.11.0               # Talsec: root/jailbreak, emulador, debugger, Frida, tampering
+
   # ── Gestión de Estado (Riverpod) ────────────────────────────────────────────
   flutter_riverpod: ^2.5.1        # Gestión de estado reactiva, segura ante tipos y modular
 
