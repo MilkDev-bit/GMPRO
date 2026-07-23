@@ -10,9 +10,10 @@
 'use strict';
 
 const { Router }         = require('express');
-const { body, query, validationResult } = require('express-validator');
+const { body, query, param, validationResult } = require('express-validator');
 const cookieParser       = require('cookie-parser');
 const authController     = require('../controllers/authController');
+const sessionController  = require('../controllers/sessionController');
 const passkeyRoutes      = require('./passkeyRoutes');
 const { sanitizeFields } = require('../middlewares/inputSanitizer');
 const { createJwtVerifyMiddleware } = require('../../../../packages_shared/security/jwtVerify');
@@ -152,6 +153,34 @@ router.get(
   ],
   validate,
   authController.verifyEmail
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gestión de sesiones / dispositivos (JWT requerido)
+//   GET    /sessions             → lista sesiones activas
+//   DELETE /sessions             → cierra TODAS las sesiones
+//   DELETE /sessions/:familyId   → cierra un dispositivo (protegido BOLA)
+// ─────────────────────────────────────────────────────────────────────────────
+router.get(
+  '/sessions',
+  createJwtVerifyMiddleware(),
+  sessionController.listSessions
+);
+
+router.delete(
+  '/sessions',
+  createJwtVerifyMiddleware(),
+  sessionController.revokeAllSessions
+);
+
+router.delete(
+  '/sessions/:familyId',
+  createJwtVerifyMiddleware(),
+  [
+    param('familyId').isUUID(4).withMessage('Identificador de sesión inválido.'),
+  ],
+  validate,
+  sessionController.revokeSession
 );
 
 module.exports = router;
