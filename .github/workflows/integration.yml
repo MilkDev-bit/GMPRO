@@ -6,9 +6,11 @@ name: CI — Integration (Postgres + Redis reales)
 
 on:
   push:
-    branches: [main]
+    # main (post-merge) y ramas de trabajo (para validar antes de mergear).
+    branches: [main, 'ci/**', 'feat/**', 'fix/**']
   pull_request:
     branches: [main]
+  workflow_dispatch:   # permite dispararlo manualmente desde la pestaña Actions
 
 jobs:
   integration:
