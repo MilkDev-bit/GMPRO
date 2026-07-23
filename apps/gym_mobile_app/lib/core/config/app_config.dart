@@ -120,4 +120,43 @@ class AppConfig {
 
   /// True si el host de destino pertenece a nuestro backend.
   static bool isBackendHost(String host) => backendHosts.contains(host);
+
+  // ───────────────────────────────────────────────────────────────────
+  // Certificate Pinning (SPKI)
+  // ───────────────────────────────────────────────────────────────────
+
+  /// KILL-SWITCH del SSL pinning. Default `true` (pinning activo). Ante una
+  /// rotación catastrófica de claves (se pierden AMBOS pines), se apaga por
+  /// build-time para que la app vuelva al TLS estándar del SO sin dejar a los
+  /// usuarios fuera:
+  ///   flutter build ... --dart-define=SSL_PINNING_ENABLED=false
+  ///
+  /// En debug/local el pinning se desactiva solo: el backend local es http y
+  /// no tiene certificado que pinnear.
+  static bool get isSSLPinningEnabled {
+    const forced = bool.fromEnvironment('SSL_PINNING_ENABLED', defaultValue: true);
+    return forced && !useLocalBackend;
+  }
+
+  /// Pines SPKI = SHA-256(SubjectPublicKeyInfo) en base64. Se acepta la conexión
+  /// si el cert del servidor coincide con CUALQUIERA (multi-pin).
+  ///
+  /// NOTA de diseño: `badCertificateCallback` de dart:io solo expone el cert
+  /// LEAF (no la cadena), así que ambos pines son a nivel LEAF:
+  ///   • Pin A = clave pública actual (leaf en producción).
+  ///   • Pin B = clave de RESPALDO pre-generada offline (para rotación segura).
+  /// Pinnear la CA intermedia NO es posible aquí; el backup-key es la práctica
+  /// recomendada por OWASP en su lugar.
+  ///
+  /// Generar el hash real de cada host:
+  ///   openssl s_client -connect <host>:443 -servername <host> < /dev/null 2>/dev/null \
+  ///     | openssl x509 -pubkey -noout \
+  ///     | openssl pkey -pubin -outform der \
+  ///     | openssl dgst -sha256 -binary | openssl enc -base64
+  static const Set<String> certificatePins = <String>{
+    // Pin A — clave pública ACTUAL (leaf). ⚠ REEMPLAZAR con el hash real.
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    // Pin B — clave de RESPALDO pre-generada (backup). ⚠ REEMPLAZAR.
+    'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+  };
 }

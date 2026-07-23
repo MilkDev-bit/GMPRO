@@ -10,6 +10,7 @@ import '../storage/secure_storage_service.dart';
 import 'auth_interceptor.dart';
 import 'cache_interceptor.dart';
 import 'retry_interceptor.dart';
+import 'ssl_pinning_adapter.dart';
 
 class ApiClient {
   late final Dio _dio;
@@ -30,6 +31,13 @@ class ApiClient {
         responseType: ResponseType.json,
       ),
     );
+
+    // Certificate Pinning (SPKI): solo en plataformas nativas (dart:io). En web
+    // no aplica ni existe IOHttpClientAdapter. El kill-switch/local se resuelve
+    // dentro del adapter (AppConfig.isSSLPinningEnabled).
+    if (!kIsWeb) {
+      _dio.httpClientAdapter = SSLPinningAdapter.build();
+    }
 
     // El orden de los interceptores es fundamental para la resiliencia:
     // 1. AuthInterceptor: Adjunta Bearer token y cabeceras de cliente

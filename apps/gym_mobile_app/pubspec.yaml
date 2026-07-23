@@ -21,6 +21,10 @@ dependencies:
   # ── Cliente HTTP y Red ──────────────────────────────────────────────────────
   dio: ^5.7.0                     # Cliente HTTP robusto con interceptores para JWT y reintentos
 
+  # ── Certificate Pinning (SPKI) ──────────────────────────────────────────────
+  crypto: ^3.0.3                  # SHA-256 del SubjectPublicKeyInfo (pin SPKI)
+  asn1lib: ^1.5.3                 # Parseo ASN.1/DER del cert para extraer el SPKI
+
   # ── Gestión de Estado (Riverpod) ────────────────────────────────────────────
   flutter_riverpod: ^2.5.1        # Gestión de estado reactiva, segura ante tipos y modular
 
