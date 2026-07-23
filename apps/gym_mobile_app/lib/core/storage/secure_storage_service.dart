@@ -41,6 +41,17 @@ class SecureStorageService {
     ]);
   }
 
+  /// Actualiza SOLO el par de tokens tras un refresh (preserva userData).
+  Future<void> updateTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await Future.wait([
+      _storage.write(key: AppConfig.keyAccessToken, value: accessToken),
+      _storage.write(key: AppConfig.keyRefreshToken, value: refreshToken),
+    ]);
+  }
+
   /// Obtiene el access token activo.
   Future<String?> getAccessToken() async {
     return await _storage.read(key: AppConfig.keyAccessToken);
