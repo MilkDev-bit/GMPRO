@@ -134,10 +134,72 @@ async function revokeAllForUser(userId) {
   return count;
 }
 
+/**
+ * Lista las sesiones ACTIVAS de un usuario, agregadas por familia. Cada familia
+ * tiene varios tokens (rotaciones); se colapsa a una entrada por sesión con sus
+ * metadatos de dispositivo. Un usuario tiene pocas familias/rotaciones, así que
+ * se agrega en memoria (evita depender de una RPC de GROUP BY en Postgres).
+ * @param {string} userId
+ * @returns {Promise<Array<{familyId,device,ip,started,lastActive,expiresAt}>>}
+ */
+async function listActiveSessionsForUser(userId) {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from(TABLE)
+    .select('family_id, device_info, ip_address, created_at, expires_at')
+    .eq('user_id', userId)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: false }); // más reciente primero
+
+  if (error) throw error;
+
+  const byFamily = new Map();
+  for (const row of data || []) {
+    const existing = byFamily.get(row.family_id);
+    if (!existing) {
+      // Primera fila vista (la más reciente) → representa la actividad actual.
+      byFamily.set(row.family_id, {
+        familyId:   row.family_id,
+        device:     row.device_info,
+        ip:         row.ip_address,
+        lastActive: row.created_at,
+        started:    row.created_at,
+        expiresAt:  row.expires_at,
+      });
+    } else if (row.created_at < existing.started) {
+      existing.started = row.created_at; // fila más antigua → inicio de la sesión
+    }
+  }
+  return Array.from(byFamily.values());
+}
+
+/**
+ * Revoca una familia SOLO si pertenece al usuario indicado (protección BOLA/IDOR).
+ * El filtro por user_id impide revocar la sesión de otra persona.
+ * @param {string} userId
+ * @param {string} familyId
+ * @returns {Promise<number>} nº de tokens revocados (0 = no existe o no es del usuario)
+ */
+async function revokeFamilyForUser(userId, familyId) {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from(TABLE)
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('user_id', userId)     // ← candado de propiedad: nunca toca familias ajenas
+    .eq('family_id', familyId)
+    .is('revoked_at', null)
+    .select('id');
+
+  if (error) throw error;
+  return Array.isArray(data) ? data.length : 0;
+}
+
 module.exports = {
   issue,
   findByHash,
   consumeAtomically,
   revokeFamily,
   revokeAllForUser,
+  listActiveSessionsForUser,
+  revokeFamilyForUser,
 };

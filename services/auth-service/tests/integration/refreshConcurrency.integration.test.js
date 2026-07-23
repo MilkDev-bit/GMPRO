@@ -82,6 +82,32 @@ jest.mock('../../src/models/refreshTokenModel', () => {
       );
       return r.rowCount;
     },
+    // Candado BOLA: revoca SOLO si la familia pertenece al userId.
+    revokeFamilyForUser: async (userId, familyId) => {
+      const r = await pool.query(
+        `UPDATE refresh_tokens SET revoked_at = NOW()
+         WHERE user_id = $1 AND family_id = $2 AND revoked_at IS NULL RETURNING id`,
+        [userId, familyId]
+      );
+      return r.rowCount;
+    },
+    listActiveSessionsForUser: async (userId) => {
+      const r = await pool.query(
+        `SELECT family_id, device_info, ip_address, created_at, expires_at
+         FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL
+         ORDER BY created_at DESC`, [userId]
+      );
+      const byFamily = new Map();
+      for (const row of r.rows) {
+        if (!byFamily.has(row.family_id)) {
+          byFamily.set(row.family_id, {
+            familyId: row.family_id, device: row.device_info, ip: row.ip_address,
+            started: row.created_at, lastActive: row.created_at, expiresAt: row.expires_at,
+          });
+        }
+      }
+      return [...byFamily.values()];
+    },
   };
 });
 
@@ -95,10 +121,36 @@ const express      = require('express');
 const cookieParser = require('cookie-parser');
 const request      = require('supertest');
 const crypto       = require('crypto');
+const jwt          = require('jsonwebtoken');
 
 // Nota: estos require se resuelven aunque HAS_DB sea false; el mock devuelve {}.
 const authController    = require('../../src/controllers/authController');
+const sessionController = require('../../src/controllers/sessionController');
 const refreshTokenModel = require('../../src/models/refreshTokenModel');
+const { createJwtVerifyMiddleware } = require('../../../../packages_shared/security/jwtVerify');
+
+// Pool compartido por todos los bloques; se cierra una sola vez al final.
+const pgPool = () => refreshTokenModel.__pool;
+async function ensureSchema() {
+  // DDL autocontenida (sin FK a usuarios; gen_random_uuid es core en PG13+).
+  await pgPool().query(`
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id     UUID NOT NULL,
+      family_id   UUID NOT NULL,
+      token_hash  VARCHAR(64) NOT NULL UNIQUE,
+      is_consumed BOOLEAN NOT NULL DEFAULT FALSE,
+      expires_at  TIMESTAMPTZ NOT NULL,
+      device_info VARCHAR(255),
+      ip_address  VARCHAR(64),
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      consumed_at TIMESTAMPTZ,
+      revoked_at  TIMESTAMPTZ
+    );`);
+}
+if (HAS_DB) {
+  afterAll(async () => { await pgPool().end(); }); // cierra el pool tras TODOS los bloques
+}
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -125,27 +177,8 @@ async function seedSession({ ttlMs = 30 * 24 * 60 * 60_000 } = {}) {
   let app;
   const pool = () => refreshTokenModel.__pool;
 
-  beforeAll(async () => {
-    // DDL autocontenida (sin FK a usuarios para aislar la carrera; gen_random_uuid
-    // es core en PG13+). Refleja la migración 2026-07-23_refresh_tokens_table_families.
-    await pool().query(`
-      CREATE TABLE IF NOT EXISTS refresh_tokens (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id     UUID NOT NULL,
-        family_id   UUID NOT NULL,
-        token_hash  VARCHAR(64) NOT NULL UNIQUE,
-        is_consumed BOOLEAN NOT NULL DEFAULT FALSE,
-        expires_at  TIMESTAMPTZ NOT NULL,
-        device_info VARCHAR(255),
-        ip_address  VARCHAR(64),
-        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        consumed_at TIMESTAMPTZ,
-        revoked_at  TIMESTAMPTZ
-      );`);
-  });
-
+  beforeAll(ensureSchema);
   beforeEach(async () => { await pool().query('TRUNCATE refresh_tokens'); app = buildApp(); });
-  afterAll(async () => { await pool().end(); });
 
   // ── DB puro: N consumos atómicos concurrentes del MISMO id → exactamente 1 ──
   test('consumeAtomically bajo carrera real: exactamente 1 gana de N concurrentes', async () => {
@@ -204,5 +237,86 @@ async function seedSession({ ttlMs = 30 * 24 * 60 * 60_000 } = {}) {
       [familyId]
     );
     expect(rows[0].activos).toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Candado BOLA/IDOR de gestión de sesiones contra Postgres REAL.
+// User B intenta revocar (DELETE) la familia de User A → 404 y, verificado a
+// nivel SQL, la sesión de A permanece INTACTA (revoked_at IS NULL).
+// ═══════════════════════════════════════════════════════════════════════════
+(HAS_DB ? describe : describe.skip)('INTEGRACIÓN — candado BOLA de sesiones (Postgres real)', () => {
+  let app;
+  const pool = () => refreshTokenModel.__pool;
+
+  const USER_A   = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const USER_B   = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const FAMILY_A = 'a1a1a1a1-1111-4111-8111-a1a1a1a1a1a1';
+  const FAMILY_B = 'b2b2b2b2-2222-4222-8222-b2b2b2b2b2b2';
+
+  function buildSessionApp() {
+    const a = express();
+    a.use(express.json());
+    const jwtVerify = createJwtVerifyMiddleware(); // verificación real de JWT
+    a.get('/sessions',              jwtVerify, sessionController.listSessions);
+    a.delete('/sessions/:familyId', jwtVerify, sessionController.revokeSession);
+    return a;
+  }
+  const signToken = (userId) => jwt.sign(
+    { sub: userId, role: 'miembro', jti: crypto.randomUUID(), email: `${userId}@x.com` },
+    process.env.JWT_SECRET, { algorithm: process.env.JWT_ALGORITHM, expiresIn: '5m' });
+  const bearer = (uid) => ({ Authorization: `Bearer ${signToken(uid)}` });
+
+  async function seed(userId, familyId) {
+    const token = crypto.randomBytes(64).toString('base64url');
+    const hash  = crypto.createHash('sha256').update(token).digest('hex');
+    await refreshTokenModel.issue({
+      userId, tokenHash: hash, familyId,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
+      deviceInfo: 'Test UA', ipAddress: '1.2.3.4',
+    });
+  }
+
+  beforeAll(ensureSchema);
+  beforeEach(async () => {
+    await pool().query('TRUNCATE refresh_tokens');
+    await seed(USER_A, FAMILY_A);   // sesión de A
+    await seed(USER_B, FAMILY_B);   // sesión de B
+    app = buildSessionApp();
+  });
+
+  test('IDOR: User B intenta revocar la familia de User A → 404 y sigue intacta en la BD', async () => {
+    const res = await request(app)
+      .delete(`/sessions/${FAMILY_A}`)
+      .set(bearer(USER_B))
+      .send();
+
+    expect(res.status).toBe(404); // el candado por user_id no encontró nada que revocar
+
+    // Verificación DIRECTA a nivel SQL: la sesión de A sigue ACTIVA.
+    const a = await pool().query('SELECT revoked_at FROM refresh_tokens WHERE family_id=$1', [FAMILY_A]);
+    expect(a.rows.length).toBeGreaterThan(0);
+    expect(a.rows.every((r) => r.revoked_at === null)).toBe(true);
+  });
+
+  test('control positivo: User A revoca su propia familia → 200; la de B nunca se toca', async () => {
+    const res = await request(app)
+      .delete(`/sessions/${FAMILY_A}`)
+      .set(bearer(USER_A))
+      .send();
+    expect(res.status).toBe(200);
+
+    const a = await pool().query('SELECT revoked_at FROM refresh_tokens WHERE family_id=$1', [FAMILY_A]);
+    expect(a.rows.every((r) => r.revoked_at !== null)).toBe(true);   // A revocada
+
+    const b = await pool().query('SELECT revoked_at FROM refresh_tokens WHERE family_id=$1', [FAMILY_B]);
+    expect(b.rows.every((r) => r.revoked_at === null)).toBe(true);   // B intacta
+  });
+
+  test('GET /sessions solo devuelve las sesiones del usuario autenticado', async () => {
+    const res = await request(app).get('/sessions').set(bearer(USER_A)).send();
+    expect(res.status).toBe(200);
+    expect(res.body.data.total).toBe(1);
+    expect(res.body.data.sessions[0].familyId).toBe(FAMILY_A);
   });
 });
