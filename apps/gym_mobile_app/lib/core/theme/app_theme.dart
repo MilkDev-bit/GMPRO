@@ -2,6 +2,7 @@
 /// @description Configuración completa de ThemeData con instancias estáticas
 /// darkTheme y lightTheme que responden automáticamente al System Theme del dispositivo.
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app_colors.dart';
@@ -10,10 +11,28 @@ import 'app_typography.dart';
 class AppTheme {
   AppTheme._();
 
+  /// Transiciones de página GLOBALES (Regla 3: se aplican vía theme, sin tocar
+  /// los Navigator.push/pop). Se usa "Fade Through" (Material Motion) en Android,
+  /// web y escritorio; en iOS/macOS se conserva Cupertino para NO perder el
+  /// gesto nativo de swipe-back. Para hacerlo 100% global, sustituye también
+  /// iOS/macOS por FadeThroughPageTransitionsBuilder().
+  /// Alternativa Shared Axis:
+  ///   SharedAxisPageTransitionsBuilder(transitionType: SharedAxisTransitionType.horizontal)
+  static const PageTransitionsTheme _pageTransitions = PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: FadeThroughPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.windows: FadeThroughPageTransitionsBuilder(),
+      TargetPlatform.linux: FadeThroughPageTransitionsBuilder(),
+    },
+  );
+
   // ── 1. DARK THEME (Neon Sport Obsidian) ────────────────────────────────────
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
+      pageTransitionsTheme: _pageTransitions,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.darkBackground,
       primaryColor: AppColors.neonPink,
@@ -110,6 +129,7 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      pageTransitionsTheme: _pageTransitions,
       brightness: Brightness.light,
       scaffoldBackgroundColor: AppColors.lightBackground,
       primaryColor: AppColors.lightNeonPink,
