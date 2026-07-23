@@ -112,9 +112,16 @@ function normalizeError(err) {
   // ─── Error con statusCode explícito (errores propios del negocio) ─────────
   if (err.status || err.statusCode) {
     const code = err.status || err.statusCode;
+    // CWE-209 (defensa en profundidad): un error 5xx que traiga .statusCode
+    // (p.ej. de una librería) NO debe reflejar su mensaje interno en producción.
+    // Los 4xx sí conservan el mensaje: son errores de negocio intencionales y
+    // legibles para el cliente (validación, autorización, etc.).
+    const leaksInternal = code >= 500 && isProduction;
     return {
       statusCode: code,
-      clientMessage: err.message || 'Error al procesar la solicitud.',
+      clientMessage: leaksInternal
+        ? 'Ocurrió un error interno. Por favor, intenta más tarde.'
+        : (err.message || 'Error al procesar la solicitud.'),
       logData: { type: 'APP_ERROR', originalMessage: err.message },
     };
   }

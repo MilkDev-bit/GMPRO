@@ -46,7 +46,12 @@ const logger = createServiceLogger('rate-limiter');
 // EXACTAMENTE el nº de proxies delante (1 en Railway). Si se añade otro proxy o
 // CDN por delante, hay que subir ese número; si el servicio se expusiera SIN
 // proxy, 'trust proxy' debe ser false (si no, req.ip volvería a ser spoofeable).
-const getRealIp = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
+//
+// Depende ÚNICA Y EXCLUSIVAMENTE de req.ip (Express ya lo deriva del socket
+// respetando trust proxy). El `|| 'unknown'` es solo un null-guard para no
+// devolver undefined al keyGenerator; NO es una fuente alternativa de IP ni
+// parsea ninguna cabecera.
+const getRealIp = (req) => req.ip || 'unknown';
 
 // ─── Extractor de User ID desde JWT ya verificado ─────────────────────────────
 // Este extractor se usa DESPUÉS del middleware de verificación JWT.
