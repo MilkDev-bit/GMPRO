@@ -143,7 +143,8 @@ CREATE TABLE IF NOT EXISTS auth_service_db.usuarios (
   contacto_emergencia   JSONB,                               -- e.g.: {"nombre":"...", "telefono":"...", "relacion":"..."}
 
   -- ─── Control de sesión y tokens ───────────────────────────────────────────
-  refresh_token_hash    VARCHAR(64),                         -- SHA-256 del último refresh token emitido
+  -- El estado de sesión (refresh tokens) vive en auth_service_db.refresh_tokens
+  -- (multi-dispositivo + reuse detection). Aquí solo bookkeeping de login.
   ultimo_login          TIMESTAMPTZ,
   intentos_fallidos     SMALLINT        NOT NULL DEFAULT 0   CHECK (intentos_fallidos >= 0),
   bloqueado_hasta       TIMESTAMPTZ,                         -- Null = no bloqueado (OWASP A7: Brute Force)
@@ -200,6 +201,40 @@ COMMENT ON COLUMN auth_service_db.usuarios.historial_clinico IS
   'JSONB encriptado AES-256 por auth-service antes de persistir. El schema no interpreta su contenido.';
 COMMENT ON COLUMN auth_service_db.usuarios.password_hash IS
   'Hash bcrypt con work factor >= 12. Nunca almacenar texto plano.';
+
+
+-- ---------------------------------------------------------------------------
+-- TABLA: auth_service_db.refresh_tokens
+-- Refresh tokens opacos con ROTACIÓN, FAMILIAS de sesión (multi-dispositivo) y
+-- REUSE DETECTION. Cada login abre una familia; cada refresh consume el token
+-- actual y emite el siguiente en la misma familia. Reusar un token consumido
+-- revoca la familia completa (mitiga robo). El texto plano solo vive en la
+-- cookie HttpOnly del cliente; aquí solo el SHA-256.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS auth_service_db.refresh_tokens (
+  id            UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id       UUID         NOT NULL REFERENCES auth_service_db.usuarios(id) ON DELETE CASCADE,
+  family_id     UUID         NOT NULL,
+  token_hash    VARCHAR(64)  NOT NULL,
+  is_consumed   BOOLEAN      NOT NULL DEFAULT FALSE,
+  expires_at    TIMESTAMPTZ  NOT NULL,
+  device_info   VARCHAR(255),
+  ip_address    VARCHAR(64),
+  created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  consumed_at   TIMESTAMPTZ,
+  revoked_at    TIMESTAMPTZ                                   -- NULL = vigente
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash
+  ON auth_service_db.refresh_tokens (token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family_id
+  ON auth_service_db.refresh_tokens (family_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id
+  ON auth_service_db.refresh_tokens (user_id);
+
+COMMENT ON TABLE auth_service_db.refresh_tokens IS
+  'Refresh tokens opacos con rotación, familias de sesión (multi-dispositivo) y reuse detection.';
 
 
 -- ---------------------------------------------------------------------------

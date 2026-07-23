@@ -90,3 +90,6 @@ services/*/.env.bak.*
 
 # Archivos efímeros generados por Flutter (rutas de build, sin secretos)
 apps/*/ios/Flutter/ephemeral/
+
+# Caché generado por la herramienta de grafo de código (no versionar)
+graphify-out/

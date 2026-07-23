@@ -19,6 +19,7 @@ const bcrypt  = require('bcrypt');
 const crypto  = require('crypto');
 const env     = require('../config/environment');
 const { getSupabaseClient } = require('../config/database');
+const refreshTokenModel = require('./refreshTokenModel');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('auth-service:userModel');
@@ -33,8 +34,9 @@ const SAFE_COLUMNS = [
   'pin_terminal',  // PIN numérico asignado a la terminal biométrica ZKTeco
 ].join(', ');
 
-// Columnas para autenticación (incluye el hash para comparar)
-const AUTH_COLUMNS = `${SAFE_COLUMNS}, password_hash, refresh_token_hash`;
+// Columnas para autenticación (incluye el hash para comparar). El estado de
+// sesión ya no vive aquí: está en la tabla refresh_tokens.
+const AUTH_COLUMNS = `${SAFE_COLUMNS}, password_hash`;
 
 /**
  * Busca un usuario por email. Solo para usuarios activos y no eliminados.
@@ -139,11 +141,13 @@ async function create(userData) {
  * Actualiza el último login y limpia el contador de intentos fallidos.
  * Llamada después de un login exitoso.
  *
+ * Solo bookkeeping de login: el estado de sesión (refresh tokens) vive en la
+ * tabla refresh_tokens, gestionada por refreshTokenModel.
+ *
  * @param {string} id - UUID del usuario
- * @param {string} refreshTokenHash - SHA-256 del nuevo refresh token
  * @returns {Promise<void>}
  */
-async function recordSuccessfulLogin(id, refreshTokenHash) {
+async function recordSuccessfulLogin(id) {
   const db = getSupabaseClient();
 
   const { error } = await db
@@ -152,7 +156,6 @@ async function recordSuccessfulLogin(id, refreshTokenHash) {
       ultimo_login:       new Date().toISOString(),
       intentos_fallidos:  0,
       bloqueado_hasta:    null,   // Limpiar bloqueo si existía
-      refresh_token_hash: refreshTokenHash,
     })
     .eq('id', id);
 
@@ -230,14 +233,18 @@ async function updatePassword(id, newPasswordHash) {
     .from('usuarios')
     .update({
       password_hash:      newPasswordHash,
-      refresh_token_hash: null,    // Invalidar todas las sesiones activas
       intentos_fallidos:  0,
       bloqueado_hasta:    null,
     })
     .eq('id', id);
 
   if (error) throw error;
-  logger.info('Contraseña actualizada', { userId: id });
+
+  // Invalidar TODAS las sesiones activas (todos los dispositivos) tras cambiar
+  // la contraseña: revoca cada familia de refresh tokens del usuario.
+  await refreshTokenModel.revokeAllForUser(id);
+
+  logger.info('Contraseña actualizada y sesiones revocadas', { userId: id });
 }
 
 /**
@@ -355,12 +362,15 @@ async function softDelete(id) {
     .update({
       eliminado_en:       new Date().toISOString(),
       activo:             false,
-      refresh_token_hash: null,   // Invalida todas las sesiones
     })
     .eq('id', id);
 
   if (error) throw error;
-  logger.info('Usuario eliminado (soft delete)', { userId: id });
+
+  // Invalida todas las sesiones activas del usuario dado de baja.
+  await refreshTokenModel.revokeAllForUser(id);
+
+  logger.info('Usuario eliminado (soft delete) y sesiones revocadas', { userId: id });
 }
 
 /**

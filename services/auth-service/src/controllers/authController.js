@@ -15,12 +15,49 @@
 const bcrypt       = require('bcrypt');
 const crypto       = require('crypto');
 const userModel    = require('../models/userModel');
+const refreshTokenModel = require('../models/refreshTokenModel');
 const tokenService = require('../services/tokenService');
 const emailService = require('../services/emailService');
 const env          = require('../config/environment');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('auth-service:authController');
+
+// ── Sesión / refresh token (familias, multi-dispositivo) ─────────────────────
+const REFRESH_COOKIE = 'refreshToken';
+const REFRESH_PATH   = '/api/v1/auth/refresh';
+
+function refreshCookieOptions() {
+  const ttlDays = parseInt(process.env.REFRESH_TOKEN_TTL_DAYS || '30', 10);
+  return {
+    httpOnly: true,
+    secure:   env.IS_PRODUCTION,   // solo HTTPS en prod
+    sameSite: 'strict',            // previene CSRF
+    maxAge:   ttlDays * 24 * 60 * 60_000,
+    path:     REFRESH_PATH,        // cookie solo enviada en /refresh
+  };
+}
+
+/**
+ * Abre una NUEVA familia de sesión (un dispositivo): genera el refresh token,
+ * lo persiste en refresh_tokens y setea la cookie HttpOnly. Devuelve el token
+ * en texto plano (para clientes móviles que lo guardan en secure storage).
+ * @returns {Promise<string>} refresh token en texto plano
+ */
+async function startSession(req, res, user) {
+  const familyId = crypto.randomUUID();
+  const { token, hash, expiresAt } = tokenService.generateRefreshToken();
+  await refreshTokenModel.issue({
+    userId:     user.id,
+    tokenHash:  hash,
+    familyId,
+    expiresAt,
+    deviceInfo: req.headers['user-agent'] || null,
+    ipAddress:  req.ip || null,
+  });
+  res.cookie(REFRESH_COOKIE, token, refreshCookieOptions());
+  return token;
+}
 
 // ── POST /api/v1/auth/register ─────────────────────────────────────────────────
 /**
@@ -146,24 +183,10 @@ async function login(req, res, next) {
       });
     }
 
-    // 5. Generar tokens
-    const accessToken              = tokenService.generateAccessToken(user);
-    const { token: refreshToken,
-            hash:  refreshTokenHash } = tokenService.generateRefreshToken();
-
-    // 6. Guardar hash del refresh token en DB y actualizar último login
-    await userModel.recordSuccessfulLogin(user.id, refreshTokenHash);
-
-    // 7. Enviar refresh token como cookie HttpOnly (inaccesible desde JS)
-    // secure: solo se envía por HTTPS en producción
-    // sameSite: 'strict' previene CSRF
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure:   env.IS_PRODUCTION,
-      sameSite: 'strict',
-      maxAge:   30 * 24 * 60 * 60_000,  // 30 días en ms
-      path:     '/api/v1/auth/refresh',  // Cookie solo enviada en la ruta de refresh
-    });
+    // 5. Access token + abrir familia de sesión (nuevo dispositivo)
+    const accessToken = tokenService.generateAccessToken(user);
+    await userModel.recordSuccessfulLogin(user.id);   // bookkeeping: ultimo_login, resetea intentos
+    await startSession(req, res, user);                // emite refresh + cookie HttpOnly
 
     logger.info('Login exitoso', { userId: user.id, rol: user.rol });
 
@@ -224,20 +247,11 @@ async function oauthLogin(req, res, next) {
       });
     }
 
-    // 3. Generar tokens personalizados de GymPro
+    // 3. Access token + abrir familia de sesión (nuevo dispositivo)
     const accessToken = tokenService.generateAccessToken(user);
-    const { token: refreshToken, hash: refreshTokenHash } = tokenService.generateRefreshToken();
-
-    await userModel.recordSuccessfulLogin(user.id, refreshTokenHash);
-
-    // Enviar cookie también por compatibilidad web, y retornar refresh token en JSON para almacenamiento seguro móvil
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure:   env.IS_PRODUCTION,
-      sameSite: 'strict',
-      maxAge:   30 * 24 * 60 * 60_000,
-      path:     '/api/v1/auth/refresh',
-    });
+    await userModel.recordSuccessfulLogin(user.id);
+    // startSession setea la cookie (web) y devuelve el token para el móvil (secure storage).
+    const refreshToken = await startSession(req, res, user);
 
     logger.info('OAuth Login nativo exitoso', { userId: user.id, provider, rol: user.rol });
 
@@ -282,11 +296,19 @@ async function logout(req, res, next) {
       await tokenService.revokeAccessToken(jti, decoded.exp, req.redisClient);
     }
 
-    // Limpiar refresh token de la DB
-    await userModel.recordSuccessfulLogin(userId, null);  // null invalida el hash guardado
+    // Revocar SOLO la familia de ESTE dispositivo (multi-dispositivo: no cierra
+    // las demás sesiones del usuario). Se identifica por el refresh de la cookie.
+    const rt = req.cookies?.refreshToken;
+    if (rt) {
+      const rtHash = crypto.createHash('sha256').update(rt).digest('hex');
+      const row = await refreshTokenModel.findByHash(rtHash);
+      if (row && row.user_id === userId) {
+        await refreshTokenModel.revokeFamily(row.family_id);
+      }
+    }
 
     // Limpiar cookie del cliente
-    res.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
 
     logger.info('Logout exitoso', { userId });
 
@@ -322,52 +344,85 @@ async function refreshToken(req, res, next) {
       .update(refreshTokenFromCookie)
       .digest('hex');
 
-    // Buscar usuario por refresh token hash
-    // Nota: esta query requiere un índice en refresh_token_hash (agregar en migración SQL)
-    const { getSupabaseClient } = require('../config/database');
-    const db = getSupabaseClient();
-    const { data: user, error } = await db
-      .from('usuarios')
-      .select('id, email, rol, activo, email_verificado')
-      .eq('refresh_token_hash', incomingHash)
-      .is('eliminado_en', null)
-      .single();
+    // 1. Localizar el token por su hash en la tabla de familias.
+    const tokenRow = await refreshTokenModel.findByHash(incomingHash);
 
-    if (error || !user) {
-      res.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
-      return res.status(401).json({
-        success: false, data: null,
-        error: 'Token de sesión inválido o expirado.',
-      });
+    const reject401 = (msg) => {
+      res.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
+      return res.status(401).json({ success: false, data: null, error: msg });
+    };
+
+    // 2. Token inexistente → inválido (no revela si expiró o nunca existió).
+    if (!tokenRow) {
+      return reject401('Token de sesión inválido o expirado.');
     }
 
+    // 3. Familia ya revocada (por reuse previo, logout o cambio de contraseña).
+    if (tokenRow.revoked_at) {
+      return reject401('La sesión fue revocada. Por favor inicia sesión de nuevo.');
+    }
+
+    // 4. ── REUSE / REPLAY DETECTION ──────────────────────────────────────────
+    // Si el token YA estaba consumido, alguien está reusando un token rotado:
+    // señal de robo. Política estricta: revocar TODA la familia (mata la sesión
+    // del atacante Y del usuario legítimo → re-login forzado). RFC 6819 / OAuth BCP.
+    if (tokenRow.is_consumed) {
+      await refreshTokenModel.revokeFamily(tokenRow.family_id);
+      logger.warn('REUSE DE REFRESH TOKEN detectado — familia revocada', {
+        event: 'REFRESH_TOKEN_REUSE', userId: tokenRow.user_id, familyId: tokenRow.family_id,
+      });
+      return reject401('Actividad sospechosa detectada. Por seguridad, inicia sesión de nuevo.');
+    }
+
+    // 5. Expiración server-side (autoridad real, no la cookie). Vencido → revoca familia.
+    if (new Date(tokenRow.expires_at) < new Date()) {
+      await refreshTokenModel.revokeFamily(tokenRow.family_id);
+      return reject401('La sesión ha expirado. Por favor inicia sesión de nuevo.');
+    }
+
+    // 6. Consumo ATÓMICO del token actual. Si otra request concurrente lo consumió
+    //    primero, esta pierde la carrera → se trata como reuse y se revoca la familia.
+    const consumed = await refreshTokenModel.consumeAtomically(tokenRow.id);
+    if (!consumed) {
+      await refreshTokenModel.revokeFamily(tokenRow.family_id);
+      logger.warn('Carrera de consumo de refresh token — familia revocada', {
+        event: 'REFRESH_TOKEN_RACE', userId: tokenRow.user_id, familyId: tokenRow.family_id,
+      });
+      return reject401('Actividad sospechosa detectada. Por seguridad, inicia sesión de nuevo.');
+    }
+
+    // 7. Cargar el usuario (para el nuevo access token y validar estado).
+    const user = await userModel.findById(tokenRow.user_id);
+    if (!user || user.eliminado_en) {
+      await refreshTokenModel.revokeFamily(tokenRow.family_id);
+      return reject401('Token de sesión inválido o expirado.');
+    }
     if (!user.activo) {
-      return res.status(403).json({
-        success: false, data: null,
-        error: 'Cuenta desactivada.',
-      });
+      await refreshTokenModel.revokeFamily(tokenRow.family_id);
+      return res.status(403).json({ success: false, data: null, error: 'Cuenta desactivada.' });
     }
 
-    // Rotation: generar nuevos tokens
-    const newAccessToken              = tokenService.generateAccessToken(user);
-    const { token: newRefreshToken,
-            hash:  newRefreshHash }   = tokenService.generateRefreshToken();
+    // 8. Rotación: emitir el SIGUIENTE token en la MISMA familia + nuevo access token.
+    const newAccessToken = tokenService.generateAccessToken(user);
+    const { token: newRefreshToken, hash: newRefreshHash, expiresAt: newExpiresAt } =
+      tokenService.generateRefreshToken();
 
-    await userModel.recordSuccessfulLogin(user.id, newRefreshHash);
-
-    // Actualizar cookie con el nuevo refresh token
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure:   env.IS_PRODUCTION,
-      sameSite: 'strict',
-      maxAge:   30 * 24 * 60 * 60_000,
-      path:     '/api/v1/auth/refresh',
+    await refreshTokenModel.issue({
+      userId:     user.id,
+      tokenHash:  newRefreshHash,
+      familyId:   tokenRow.family_id,   // ← misma familia: la sesión continúa
+      expiresAt:  newExpiresAt,
+      deviceInfo: req.headers['user-agent'] || null,
+      ipAddress:  req.ip || null,
     });
+
+    res.cookie(REFRESH_COOKIE, newRefreshToken, refreshCookieOptions());
 
     return res.status(200).json({
       success: true,
       data: {
         accessToken: newAccessToken,
+        refreshToken: newRefreshToken,  // para clientes móviles (secure storage)
         tokenType:   'Bearer',
         expiresIn:   env.JWT_EXPIRES_IN,
       },
