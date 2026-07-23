@@ -235,9 +235,53 @@ function createAiRateLimiter({ redisClient, max = 10, windowMs = 60_000, prefix 
   });
 }
 
+/**
+ * Crea un limitador POR CUENTA, keyed por un campo del body (por defecto email).
+ * Complementa al limiter por IP: cierra la fuerza bruta DISTRIBUIDA, donde un
+ * atacante prueba muchas contraseñas contra UNA cuenta rotando IPs (botnet/proxy).
+ * El límite por IP no lo detiene; este sí, porque agrupa por la cuenta objetivo.
+ *
+ * skipSuccessfulRequests: solo cuenta intentos FALLIDOS, así el dueño legítimo
+ * que teclea bien su contraseña nunca queda bloqueado por este limitador.
+ *
+ * TRADE-OFF (lockout-DoS): si un atacante martillea la cuenta de una víctima, el
+ * contador por-cuenta puede bloquear temporalmente los logins de ESA cuenta desde
+ * cualquier IP. Por eso el umbral por defecto es holgado (10 fallos/hora) y la
+ * alternativa sin DoS —CAPTCHA/desafío progresivo— queda como mejora futura. El
+ * key usa 'acct:' + email normalizado; si no hay email en el body, cae a IP para
+ * no crear un bucket único compartido por todas las requests sin email.
+ *
+ * @param {object} options
+ * @param {import('ioredis').Redis|null} options.redisClient
+ * @param {number} [options.max=10]                 - Fallos por cuenta por ventana
+ * @param {number} [options.windowMs=3600000]       - 1 hora por defecto
+ * @param {string} [options.prefix='rl:account:']
+ * @param {string} [options.field='email']          - Campo del body para el key
+ * @returns {import('express').RequestHandler}
+ */
+function createAccountRateLimiter({ redisClient, max = 10, windowMs = 60 * 60_000, prefix = 'rl:account:', field = 'email' } = {}) {
+  const store = buildRedisStore(redisClient, prefix);
+
+  return rateLimit({
+    windowMs,
+    max,
+    keyGenerator: (req) => {
+      const v = String(req.body?.[field] || '').trim().toLowerCase();
+      return v ? `acct:${v}` : `ip:${getRealIp(req)}`;
+    },
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    // Solo penaliza fallos: un login correcto del dueño no consume cuota.
+    skipSuccessfulRequests: true,
+    handler: rateLimitHandler,
+    ...(store ? { store } : {}),
+  });
+}
+
 module.exports = {
   createIpRateLimiter,
   createAuthRateLimiter,
   createUserRateLimiter,
   createAiRateLimiter,
+  createAccountRateLimiter,
 };

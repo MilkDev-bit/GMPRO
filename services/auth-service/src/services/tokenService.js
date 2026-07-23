@@ -52,14 +52,22 @@ function generateAccessToken(user) {
  * Al ser opaco, no contiene información en texto plano.
  * Se almacena su SHA-256 en la DB; el texto plano se envía al cliente.
  *
- * @returns {{ token: string, hash: string }}
- *   token → texto plano (enviar al cliente en cookie HttpOnly)
- *   hash  → SHA-256 (almacenar en DB)
+ * Incluye expiresAt: la EXPIRACIÓN SERVER-SIDE es la autoridad. Antes solo
+ * existía el maxAge de la cookie (lado cliente), así que un hash exfiltrado de
+ * la DB o una cookie robada era válido en el servidor INDEFINIDAMENTE hasta
+ * rotarse. Ahora el servidor rechaza el refresh si ya venció.
+ *
+ * @returns {{ token: string, hash: string, expiresAt: string }}
+ *   token     → texto plano (enviar al cliente en cookie HttpOnly)
+ *   hash      → SHA-256 (almacenar en DB)
+ *   expiresAt → ISO timestamp de expiración (almacenar en DB)
  */
 function generateRefreshToken() {
   const token = crypto.randomBytes(64).toString('base64url');  // URL-safe, sin padding
   const hash  = crypto.createHash('sha256').update(token).digest('hex');
-  return { token, hash };
+  const ttlDays   = parseInt(process.env.REFRESH_TOKEN_TTL_DAYS || '30', 10);
+  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60_000).toISOString();
+  return { token, hash, expiresAt };
 }
 
 /**

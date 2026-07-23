@@ -65,35 +65,105 @@ echo "  INTER_SERVICE_SECRET: ${#ISS} caracteres"
 echo
 
 # ---------------------------------------------------------------------
-# Propagar
+# Propagar — ATÓMICO (todo-o-nada) con rollback
+#
+# Antes: sed -i.tmp editaba cada .env en el sitio, uno por uno. Si el 3.º
+# fallaba, los servicios 1-2 quedaban con el secreto NUEVO y 3-5 con el
+# VIEJO → partición de la malla (401 entre servicios). Además dejaba
+# copias .bak.* con los secretos VIEJOS en claro dispersas por el árbol.
+#
+# Ahora:
+#   1. Se preparan TODOS los .env en un stage (copias temporales editadas).
+#   2. Solo si los 5 se editaron bien, se mueven de golpe sobre los reales.
+#   3. Backups (con secretos viejos) van a un dir temporal con permisos 600
+#      y se BORRAN al terminar con éxito; si algo falla, se restauran.
+# El secreto nunca se imprime; los ficheros intermedios nunca son legibles
+# por otros usuarios.
 # ---------------------------------------------------------------------
-set_var() {
-  local file="$1" key="$2" value="$3"
-  if grep -qE "^[[:space:]]*${key}=" "$file"; then
-    # Se usa | como delimitador y se escapa: los secretos en hex no lo
-    # contienen, pero así el script no se rompe con otros valores.
-    local esc=${value//|/\\|}
-    sed -i.tmp "s|^[[:space:]]*${key}=.*|${key}=${value}|" "$file" && rm -f "$file.tmp"
-  else
-    printf '\n%s=%s\n' "$key" "$value" >> "$file"
-  fi
+
+# Directorio temporal seguro (solo el dueño puede leerlo).
+STAGE="$(mktemp -d "${TMPDIR:-/tmp}/gympro-secrets.XXXXXX")"
+chmod 700 "$STAGE"
+# Limpieza garantizada del stage pase lo que pase (evita secretos en disco).
+trap 'rm -rf "$STAGE"' EXIT
+
+# Reemplaza o añade una clave en un archivo, escribiendo a stdout.
+# No usa `sed -i`: escribe el resultado por completo, sin ficheros .tmp
+# residuales con el secreto.
+render_env() {
+  local file="$1" ; shift
+  # pares clave/valor: k1 v1 k2 v2 ...
+  awk -v k1="$1" -v v1="$2" -v k2="$3" -v v2="$4" '
+    function setline(line,   key) {
+      key = line; sub(/=.*/, "", key); gsub(/^[[:space:]]+/, "", key)
+      if (key == k1) { print k1 "=" v1; done1=1; return 1 }
+      if (key == k2) { print k2 "=" v2; done2=1; return 1 }
+      return 0
+    }
+    /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { if (setline($0)) next }
+    { print }
+    END {
+      if (!done1) print k1 "=" v1
+      if (!done2) print k2 "=" v2
+    }
+  ' "$file"
 }
 
+FILES=()
 for d in "$ROOT"/services/*/; do
-  s=$(basename "$d")
-  f="$d/.env"
-  [ -f "$f" ] || continue
-
-  if [ "$DRY_RUN" = "1" ]; then
-    echo "  [dry-run] actualizaría $s"
-    continue
-  fi
-
-  cp "$f" "$f.bak.$(date +%Y%m%d%H%M%S)"
-  set_var "$f" JWT_SECRET "$JWT"
-  set_var "$f" INTER_SERVICE_SECRET "$ISS"
-  echo -e "  ${G}✓${N} $s actualizado (copia en $(basename "$f").bak.*)"
+  f="$d/.env"; [ -f "$f" ] || continue; FILES+=("$f")
 done
+
+if [ "$DRY_RUN" = "1" ]; then
+  for f in "${FILES[@]}"; do echo "  [dry-run] actualizaría $(basename "$(dirname "$f")")"; done
+else
+  # ── Fase 1: preparar TODO en el stage ──────────────────────────────
+  i=0
+  for f in "${FILES[@]}"; do
+    staged="$STAGE/staged.$i.env"
+    ( umask 077; render_env "$f" JWT_SECRET "$JWT" INTER_SERVICE_SECRET "$ISS" > "$staged" )
+    # Verificación por archivo: ambos valores quedaron exactamente escritos.
+    if [ "$(read_env "$staged" JWT_SECRET)" != "$JWT" ] || \
+       [ "$(read_env "$staged" INTER_SERVICE_SECRET)" != "$ISS" ]; then
+      echo -e "  ${Y}✗${N} Falló la preparación de $(basename "$(dirname "$f")"). Abortado, NADA se modificó."
+      exit 1
+    fi
+    i=$((i+1))
+  done
+
+  # ── Fase 2: backup seguro + commit atómico ─────────────────────────
+  # Backups con secretos VIEJOS al stage (600), no dispersos por el repo.
+  i=0
+  for f in "${FILES[@]}"; do
+    ( umask 077; cp "$f" "$STAGE/backup.$i.env" )
+    i=$((i+1))
+  done
+
+  i=0
+  for f in "${FILES[@]}"; do
+    if ! mv "$STAGE/staged.$i.env" "$f"; then
+      echo -e "  ${Y}✗${N} Fallo escribiendo $f. Restaurando TODO desde backup…"
+      j=0
+      for g in "${FILES[@]}"; do cp "$STAGE/backup.$j.env" "$g" 2>/dev/null || true; j=$((j+1)); done
+      exit 1
+    fi
+    echo -e "  ${G}✓${N} $(basename "$(dirname "$f")") actualizado"
+    i=$((i+1))
+  done
+
+  # ── Fase 3: verificación de consistencia transversal ───────────────
+  # Los 5 deben tener EXACTAMENTE el mismo par de secretos, o la malla
+  # se particiona. Se comprueba por huella (sin exponer el valor).
+  jwt_fp=$(printf '%s' "$JWT" | sha256sum | cut -c1-8)
+  iss_fp=$(printf '%s' "$ISS" | sha256sum | cut -c1-8)
+  bad=0
+  for f in "${FILES[@]}"; do
+    a=$(printf '%s' "$(read_env "$f" JWT_SECRET)"          | sha256sum | cut -c1-8)
+    b=$(printf '%s' "$(read_env "$f" INTER_SERVICE_SECRET)" | sha256sum | cut -c1-8)
+    [ "$a" = "$jwt_fp" ] && [ "$b" = "$iss_fp" ] || { echo -e "  ${Y}✗ inconsistente: $f${N}"; bad=1; }
+  done
+  [ "$bad" = "0" ] && echo -e "  ${G}✓ los 5 servicios comparten el mismo par de secretos${N}"
+fi
 
 # ---------------------------------------------------------------------
 # Credenciales de terceros que hay que poner a mano

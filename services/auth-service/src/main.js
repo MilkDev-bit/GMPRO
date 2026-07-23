@@ -19,7 +19,7 @@
 
 const express = require('express');
 const { createSecurityMiddleware } = require('../../../packages_shared/security');
-const { createAuthRateLimiter, createUserRateLimiter } = require('../../../packages_shared/security/rateLimiter');
+const { createAuthRateLimiter, createUserRateLimiter, createIpRateLimiter, createAccountRateLimiter } = require('../../../packages_shared/security/rateLimiter');
 
 // ─── Validación de entorno (fail-fast) ────────────────────────────────────────
 // Si faltan variables críticas, el proceso debe fallar inmediatamente
@@ -109,8 +109,41 @@ async function bootstrap() {
     prefix: 'rl:auth:user:',
   });
 
+  // ─── Limiter dedicado para /register (cuenta TODAS las requests) ───────────
+  // authRateLimiter usa skipSuccessfulRequests:true (correcto para login: no
+  // penaliza al que acierta la contraseña). Pero para /register eso deja el
+  // control APAGADO justo para el abuso a frenar: un registro EXITOSO (201) no
+  // cuenta, así que un atacante crea cuentas en masa con emails únicos →
+  // contaminación de BD + email-bombing (cada alta dispara correo de verificación).
+  // createIpRateLimiter NO omite las exitosas: cuenta todo. Umbral generoso para
+  // no romper altas legítimas desde una wifi compartida (NAT del gimnasio).
+  const registerRateLimiter = createIpRateLimiter({
+    redisClient,
+    max:      parseInt(process.env.RATE_LIMIT_REGISTER_MAX || '10', 10),
+    windowMs: parseInt(process.env.RATE_LIMIT_REGISTER_WINDOW_MINUTES || '60', 10) * 60_000,
+    prefix:   'rl:auth:register:',
+  });
+
+  // ─── Limiter POR CUENTA para /login (anti-fuerza-bruta distribuida) ────────
+  // authRateLimiter limita por IP; no detiene a un atacante que rota IPs contra
+  // UNA cuenta. Este limiter agrupa por email (10 fallos/hora por cuenta,
+  // independiente de la IP) y solo cuenta fallos, así el dueño legítimo no se
+  // bloquea al teclear bien. Defensa en profundidad: /login recibe ambos.
+  const loginAccountRateLimiter = createAccountRateLimiter({
+    redisClient,
+    max:      parseInt(process.env.RATE_LIMIT_LOGIN_ACCOUNT_MAX || '10', 10),
+    windowMs: parseInt(process.env.RATE_LIMIT_LOGIN_ACCOUNT_WINDOW_MINUTES || '60', 10) * 60_000,
+    prefix:   'rl:auth:account:',
+    field:    'email',
+  });
+
   // ─── Montar rutas ─────────────────────────────────────────────────────────
-  // Rutas públicas (sin JWT): solo rate limit por IP (authRateLimiter)
+  // Los limiters de path específico se montan ANTES del grupo; Express evalúa
+  // los app.use en orden y el path más específico corre primero.
+  app.use('/api/v1/auth/register', registerRateLimiter);
+  app.use('/api/v1/auth/login',    loginAccountRateLimiter);
+
+  // Rutas públicas (sin JWT): rate limit anti-fuerza-bruta por IP (authRateLimiter)
   app.use('/api/v1/auth', authRateLimiter, authRoutes);
 
   // Rutas protegidas (con JWT): rate limit por usuario
