@@ -29,24 +29,39 @@ const { createServiceLogger } = require('./logger');
 const logger = createServiceLogger('rate-limiter');
 
 // ─── Resolución de IP real detrás de proxies ───────────────────────────────────
-// Railway y la mayoría de PaaS colocan el IP real en X-Forwarded-For.
-// PELIGRO: Solo confiar en este header si el servidor está DETRÁS de un proxy
-// conocido. Si se expone directamente a internet, un cliente puede falsificar este header.
-const getRealIp = (req) => {
-  // Confiar solo en el primer valor de X-Forwarded-For (más cercano al cliente)
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.ip || req.connection.remoteAddress;
-};
+// Usa req.ip, que respeta `app.set('trust proxy', 1)` (configurado en el main.js
+// de los 5 servicios). Con 1 hop de confianza, Express toma la IP que el edge de
+// Railway añade a X-Forwarded-For y descarta lo que el cliente haya puesto.
+//
+// ┌─ VULNERABILIDAD CORREGIDA (CWE-348: Use of Less Trusted Source) ───────────┐
+// │ El código anterior hacía `x-forwarded-for.split(',')[0]`, es decir tomaba  │
+// │ el valor MÁS A LA IZQUIERDA del header. Ese extremo lo controla el cliente:│
+// │ Railway ANEXA la IP real a la derecha → `XFF: <falsa-cliente>, <ip-real>`. │
+// │ Tomar [0] devolvía la IP falsa, permitiendo evadir el rate limiter por IP  │
+// │ (fuerza bruta de login, DoS) simplemente rotando el header en cada request.│
+// │ req.ip con trust proxy=1 NO es falsificable de esta forma.                 │
+// └────────────────────────────────────────────────────────────────────────────┘
+//
+// NOTA DE DESPLIEGUE: la corrección DEPENDE de que 'trust proxy' esté fijado en
+// EXACTAMENTE el nº de proxies delante (1 en Railway). Si se añade otro proxy o
+// CDN por delante, hay que subir ese número; si el servicio se expusiera SIN
+// proxy, 'trust proxy' debe ser false (si no, req.ip volvería a ser spoofeable).
+const getRealIp = (req) => req.ip || req.socket?.remoteAddress || 'unknown';
 
 // ─── Extractor de User ID desde JWT ya verificado ─────────────────────────────
 // Este extractor se usa DESPUÉS del middleware de verificación JWT.
 // Si el token no fue verificado, req.user será undefined → fallback a IP.
 const getUserIdentifier = (req) => {
-  // req.user.id es inyectado por el middleware jwtVerify.js
-  return req.user?.id || getRealIp(req);
+  // req.user.id es inyectado por el middleware jwtVerify.js. Este extractor
+  // SOLO devuelve el id de usuario si el JWT ya fue verificado ANTES en la
+  // cadena; de lo contrario cae a IP. Por eso las rutas por-usuario deben
+  // montar jwtVerify/staffOnly ANTES que este limitador.
+  //
+  // Se prefijan las claves ('usr:' / 'ip:') para que un id de usuario nunca
+  // colisione con una IP en el mismo bucket de Redis y para dejar explícito
+  // en los logs SIEM bajo qué dimensión se aplicó el límite.
+  if (req.user?.id) return `usr:${req.user.id}`;
+  return `ip:${getRealIp(req)}`;
 };
 
 /**

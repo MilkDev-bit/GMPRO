@@ -14,6 +14,7 @@
 
 const crypto                  = require('crypto');
 const accessModel             = require('../models/accessModel');
+const env                     = require('../config/environment');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('access-service:ticketController');
@@ -26,6 +27,35 @@ async function createTicket(req, res, next) {
   try {
     const { usuario_id = null, vigencia_horas = 24, notas = null, prefijo = 'GP' } = req.body;
 
+    // ── BOLA / autorización horizontal (OWASP API #1) ────────────────────────
+    // Este endpoint emite un pase de acceso físico (bearer credential para el
+    // torniquete) y estampa `usuario_id` en el ticket y en el historial de
+    // accesos. Bajo `jwtVerify` (cualquier rol), un socio podía suministrar el
+    // usuario_id de OTRA persona → generar pases atribuidos a un tercero
+    // (log-poisoning / suplantación) y emitir pases indiscriminadamente.
+    //
+    // Regla: solo 'admin'/'recepcion' (staff) pueden emitir un pase para un
+    // usuario_id ESPECÍFICO distinto del propio. Cualquier otro caller queda
+    // limitado a: (a) pase de invitado genérico (usuario_id = null) o (b) un
+    // pase para SÍ MISMO. Nunca puede estampar el id de otro socio.
+    // Roles internos externalizados (env.STAFF_ROLES, fallback 'staff','admin').
+    // Se compara en minúsculas para tolerar variaciones de configuración.
+    const isStaff = env.STAFF_ROLES.includes(String(req.user?.role || '').toLowerCase());
+    const targetUsuarioId =
+      usuario_id && usuario_id !== req.user.id
+        ? (isStaff ? usuario_id : undefined)
+        : usuario_id; // null (invitado) o el propio id: siempre permitido
+
+    if (targetUsuarioId === undefined) {
+      logger.warn('Intento de emitir ticket a nombre de otro usuario sin rol staff', {
+        callerId: req.user.id, callerRole: req.user?.role, usuarioIdSolicitado: usuario_id,
+      });
+      return res.status(403).json({
+        success: false, data: null,
+        error: 'No autorizado para emitir un pase a nombre de otro usuario.',
+      });
+    }
+
     // 1. Generar token aleatorio criptográficamente seguro (alta entropía, fácil de leer y escanear)
     // Ejemplo de formato: GP-8F3A9D1B4E2C o un string hexadecimal puros
     const randomBytes  = crypto.randomBytes(8).toString('hex').toUpperCase();
@@ -36,7 +66,7 @@ async function createTicket(req, res, next) {
 
     // 2. Registrar en la base de datos con estado estrictamente 'active' y usado_at: null
     const ticket = await accessModel.createTicketRecord({
-      usuario_id:    usuario_id,
+      usuario_id:    targetUsuarioId, // validado contra req.user.id / rol staff
       codigo_ticket: codigoTicket,
       expira_en:     expiraEn,
       notas:         notas,

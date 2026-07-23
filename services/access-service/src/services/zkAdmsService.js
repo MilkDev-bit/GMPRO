@@ -129,13 +129,33 @@ async function enqueueSyncUser({
   numeroTarjeta = '',
   serialNumber = 'ALL',
 }, redisClient = null) {
-  const pinStr = String(pin).trim();
-  const cleanName = String(nombre || 'Socio GymPro').replace(/[\t\n\r]/g, ' ');
+  // ── Sanitización del protocolo ADMS (CWE-93: inyección de argumentos) ──────
+  // El protocolo ZKTeco delimita campos con TAB y comandos/registros con
+  // \n / \r. Un valor que contenga cualquiera de esos caracteres puede
+  // inyectar campos ADICIONALES en el comando USERINFO —por ejemplo Pri=14
+  // (administrador del terminal) o alterar TZ/Grp (horario y grupo de
+  // acceso)— comprometiendo el control de acceso FÍSICO al gimnasio.
+  //
+  // ANTES solo se limpiaba `nombre`. `pin` y `numeroTarjeta` entraban sin
+  // filtrar pese a ir al mismo string delimitado por TAB. Se sanea TODO
+  // campo que se interpole en el comando, en el sink (defensa en el punto
+  // exacto donde importa, independiente de lo que valide la ruta).
+  const stripCtrl = (v) => String(v ?? '').replace(/[\t\n\r]/g, ' ').trim();
+
+  // PIN y tarjeta deben ser, además, alfanuméricos: el protocolo no admite
+  // otra cosa y así cerramos cualquier vector de inyección de forma estricta.
+  const pinStr = stripCtrl(pin).replace(/[^A-Za-z0-9]/g, '');
+  const cleanCard = stripCtrl(numeroTarjeta).replace(/[^A-Za-z0-9]/g, '');
+  const cleanName = stripCtrl(nombre) || 'Socio GymPro';
+
+  if (!pinStr) {
+    throw new Error('PIN inválido: debe ser alfanumérico y no vacío tras sanitizar.');
+  }
 
   // 1. Comando USERINFO: Crea o actualiza los datos básicos en la tabla USER_INFO de SQLite de la terminal
   // TZ=0000000100000000 otorga acceso 24/7 (o zona horaria 1 de la terminal)
   const userCommandId = generateCommandId();
-  const cmdUserInfo = `C:${userCommandId}:DATA UPDATE USERINFO PIN=${pinStr}\tName=${cleanName}\tPri=0\tPasswd=\tCard=${numeroTarjeta}\tGrp=1\tTZ=0000000100000000`;
+  const cmdUserInfo = `C:${userCommandId}:DATA UPDATE USERINFO PIN=${pinStr}\tName=${cleanName}\tPri=0\tPasswd=\tCard=${cleanCard}\tGrp=1\tTZ=0000000100000000`;
 
   await _pushCommandToQueue(serialNumber, userCommandId, cmdUserInfo, {
     usuarioId, pin: pinStr, tipo: 'UPDATE_USERINFO',
@@ -149,8 +169,16 @@ async function enqueueSyncUser({
   // Type=9 es el identificador de Plantilla Biométrica de Rostro (SpeedFace / ZKPalm / Visible Light)
   let bioCommandId = null;
   if (biometricTemplateBase64) {
+    // La plantilla se interpola en el campo Tmp del comando BIODATA. Debe
+    // ser Base64 puro; cualquier otro carácter (incluido TAB) permitiría
+    // inyectar campos, igual que en USERINFO. Se valida el alfabeto Base64
+    // estrictamente y se rechaza lo que no lo cumpla.
+    const tmpl = String(biometricTemplateBase64).trim();
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(tmpl)) {
+      throw new Error('Plantilla biométrica inválida: no es Base64 válido.');
+    }
     bioCommandId = generateCommandId();
-    const cmdBioData = `C:${bioCommandId}:DATA UPDATE BIODATA Pin=${pinStr}\tNo=0\tIndex=0\tType=9\tDuress=0\tTmp=${biometricTemplateBase64}`;
+    const cmdBioData = `C:${bioCommandId}:DATA UPDATE BIODATA Pin=${pinStr}\tNo=0\tIndex=0\tType=9\tDuress=0\tTmp=${tmpl}`;
 
     await _pushCommandToQueue(serialNumber, bioCommandId, cmdBioData, {
       usuarioId, pin: pinStr, tipo: 'UPDATE_BIODATA_FACE',
@@ -182,7 +210,13 @@ async function enqueueDeleteUser({
   pin,
   serialNumber = 'ALL',
 }, redisClient = null) {
-  const pinStr = String(pin).trim();
+  // Mismo saneado estricto que en enqueueSyncUser: el PIN se interpola en
+  // comandos DELETE delimitados por TAB. Sin esto, un PIN con \t podría
+  // inyectar campos y, p.ej., borrar biométricos de OTRO usuario.
+  const pinStr = String(pin ?? '').replace(/[\t\n\r]/g, '').replace(/[^A-Za-z0-9]/g, '').trim();
+  if (!pinStr) {
+    throw new Error('PIN inválido: debe ser alfanumérico y no vacío tras sanitizar.');
+  }
 
   // 1. Primero borramos la plantilla facial (Type=9) y biométricos asociados
   const deleteBioCmdId = generateCommandId();

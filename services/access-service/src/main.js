@@ -11,7 +11,7 @@
 'use strict';
 
 // ── 1. Cargar y validar entorno temprano ──────────────────────────────────────
-require('./config/environment');
+const env = require('./config/environment');
 
 const express = require('express');
 const { createSecurityMiddleware }    = require('../../../packages_shared/security');
@@ -20,7 +20,7 @@ const { createJwtVerifyMiddleware }   = require('../../../packages_shared/securi
 const { requireTurnstileApiKey }      = require('./middlewares/turnstileAuth');
 
 const qrRoutes         = require('./routes/qrRoutes');
-const ticketRoutes     = require('./routes/ticketRoutes');
+const createTicketRoutes = require('./routes/ticketRoutes'); // factory({ redisClient })
 const accessRoutes     = require('./routes/accessRoutes');
 const internalRoutes   = require('./routes/internalRoutes');
 const zkAdmsRoutes     = require('./routes/zkAdmsRoutes');
@@ -73,7 +73,9 @@ async function bootstrap() {
   // ── Rate limiters y Auth Middlewares ──────────────────────────────────────
   const qrRateLimiter = createUserRateLimiter({
     redisClient,
-    max:      parseInt(process.env.RATE_LIMIT_QR_MAX || '12', 10), // 12 QRs/min por usuario
+    // Máx 10 QRs/min por usuario. El QR rota con vigencia corta; generarlos
+    // en ráfaga no es un uso legítimo. Devuelve 429 al superar el umbral.
+    max:      env.RATE_LIMIT_QR_MAX,
     windowMs: 60_000,
     prefix:   'rl:access:qr:',
   });
@@ -87,14 +89,32 @@ async function bootstrap() {
 
   const jwtVerify = createJwtVerifyMiddleware({ redisClient });
 
+  // RBAC: /create-ticket es SOLO para personal interno (staff/admin). Los
+  // socios ('miembro') usan /generate-qr, no emiten pases físicos. Este
+  // verificador responde 403 si el rol no está autorizado.
+  const staffOnlyVerify = createJwtVerifyMiddleware({
+    redisClient,
+    requiredRoles: env.STAFF_ROLES, // externalizado (STAFF_ROLES), fallback staff,admin
+  });
+
+  // Anti emisión masiva de pases: 30/min por usuario (staff), Redis-backed, 429.
+  const ticketCreateRateLimiter = createUserRateLimiter({
+    redisClient,
+    max:      env.RATE_LIMIT_TICKET_MAX,
+    windowMs: 60_000,
+    prefix:   'rl:access:ticket:',
+  });
+
   // ── 1. Endpoints directos requeridos por Tareas 3.2 y 3.3 ─────────────────
   // Tarea 3.2: /generate-qr (GET)
   app.get('/generate-qr',        jwtVerify, qrRateLimiter, qrController.generateQr);
   app.get('/api/v1/generate-qr', jwtVerify, qrRateLimiter, qrController.generateQr);
 
-  // Tarea 3.3: /create-ticket (POST) -> Requiere JWT de recepcionista o usuario
-  app.post('/create-ticket',        jwtVerify, ticketController.createTicket);
-  app.post('/api/v1/create-ticket', jwtVerify, ticketController.createTicket);
+  // /create-ticket (POST) -> SOLO staff/admin + rate limit anti-emisión masiva.
+  // ORDEN CRÍTICO: staffOnlyVerify ANTES del limitador para que este keye por
+  // req.user.id (por-usuario) y no por IP. Ver nota en ticketRoutes.js.
+  app.post('/create-ticket',        staffOnlyVerify, ticketCreateRateLimiter, ticketController.createTicket);
+  app.post('/api/v1/create-ticket', staffOnlyVerify, ticketCreateRateLimiter, ticketController.createTicket);
 
   // Tarea 3.3: /validate-ticket (POST) -> Protegido por API Key del torniquete + Rate Limiter
   app.post('/validate-ticket',        validateRateLimiter, requireTurnstileApiKey, ticketController.validateTicket);
@@ -102,7 +122,7 @@ async function bootstrap() {
 
   // ── 2. Rutas modulares agrupadas /api/v1/... ──────────────────────────────
   app.use('/api/v1/qr',      qrRateLimiter,       qrRoutes);
-  app.use('/api/v1/tickets', ticketRoutes);
+  app.use('/api/v1/tickets', createTicketRoutes({ redisClient }));
   // Rutas internas (payment-service → access-service). Montadas ANTES de
   // /api/v1/access para no heredar el rate limiter del torniquete ni la API Key.
   app.use('/api/v1/access/internal', internalRoutes);

@@ -9,6 +9,19 @@ const {
 } = require("../../../../packages_shared/security/logger");
 const logger = createServiceLogger("fitness-service:config");
 
+/**
+ * Valida una API key de Supabase detectando truncamiento.
+ * Formatos vigentes: 'sb_secret_...'/'sb_publishable_...' (~40+ chars) o el
+ * JWT legacy 'eyJ...' (200+). Antes: `v.length > 30`, que aceptaba cualquier
+ * cadena de 31 caracteres — no detectaba una key cortada.
+ */
+function isValidSupabaseKey(v) {
+  if (!v) return false;
+  if (v.startsWith("sb_secret_") || v.startsWith("sb_publishable_")) return v.length >= 20;
+  if (v.startsWith("eyJ")) return v.length > 100;
+  return false;
+}
+
 const ENV_SCHEMA = [
   {
     key: "NODE_ENV",
@@ -24,7 +37,7 @@ const ENV_SCHEMA = [
   {
     key: "SUPABASE_SERVICE_ROLE_KEY",
     required: true,
-    validate: (v) => v.length > 30,
+    validate: isValidSupabaseKey,
   },
   { key: "SUPABASE_DB_SCHEMA", required: true },
   { key: "JWT_SECRET", required: true, validate: (v) => v.length >= 64 },

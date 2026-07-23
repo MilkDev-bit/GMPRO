@@ -400,8 +400,11 @@ async function handleInvoicePaymentFailed(event) {
  *   • Se cancela manualmente desde el Dashboard de Stripe
  *   • Se llama a stripe.subscriptions.cancel() desde el código
  *
- * A partir de este momento, el acceso debe revocarse cuando valido_hasta expire.
- * NO revocar acceso inmediatamente — el período pagado sigue siendo válido.
+ * REVOCACIÓN FACIAL: la retira el cron processExpiredFacialRevocation en
+ * growthRetentionWorker el día que valido_hasta queda en el pasado
+ * (grace period = 0), NO este evento. Aquí igualmente disparamos
+ * notifyBiometricDelete como red de seguridad: si el cron ya revocó, el
+ * DELETE al terminal es un no-op inocuo (borrar un usuario ya ausente).
  */
 async function handleSubscriptionDeleted(event) {
   const subscription   = event.data.object;
