@@ -30,69 +30,112 @@ async function registerCashPayment(req, res, next) {
   try {
     const {
       usuario_id,
-      plan_nombre = 'Membresía Mensual Efectivo',
-      plan_duracion_dias = 30,
-      monto,
+      plan_id,
+      monto_cobrado,
       metodo_pago = 'cash',   // 'cash' | 'card_terminal' | 'transfer'
       notas = null,
     } = req.body;
 
     const receptionistId = req.receptionista?.id || 'reception_unknown';
 
-    // 1. Validar si el usuario existe en el auth-service / DB de usuarios
-    // (Por robustez relacional inter-esquemas via service role client o consulta API)
-    const db = getSupabaseClient();
-    const { data: usuario, error: userError } = await db
-      .from('auth_service_db.usuarios')
-      .select('id, email, nombre, apellido_paterno')
-      .eq('id', usuario_id)
-      .is('eliminado_en', null)
-      .single();
-
-    // Nota: Si el esquema de Supabase no permite la consulta inter-esquema directa via service role,
-    // o el usuario no se encuentra, registramos el pago con el ID proporcionado para no bloquear en recepción,
-    // pero logueamos advertencia.
-    if (userError || !usuario) {
-      logger.warn('Registrando pago en efectivo para ID de usuario no verificado localmente o externo', {
-        usuario_id, receptionistId, userError: userError?.message,
+    // ── Idempotencia (2.2): la clave viene por header o body ─────────────────
+    const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotency_key;
+    if (!idempotencyKey || String(idempotencyKey).length < 8) {
+      return res.status(400).json({
+        success: false, data: null,
+        error: 'Idempotency-Key requerida (header Idempotency-Key o body idempotency_key, mín. 8 caracteres).',
       });
     }
 
-    // 2. Registrar o renovar suscripción en payment_service_db
-    const { subscription, action } = await subscriptionModel.registerCashPayment({
-      usuarioId:        usuario_id,
-      planNombre:       plan_nombre,
-      planDuracionDias: Number(plan_duracion_dias),
-      monto:            Number(monto),
-      receptionistaId:  receptionistId,
-      notas,
-    });
+    // ── Verificación REAL de usuario (2.2b): schema correcto + corte a 400 ───
+    // Antes: db.from('auth_service_db.usuarios') — string con punto que NO
+    // resuelve como schema.tabla; la verificación nunca bloqueaba. Ahora se
+    // usa .schema('auth_service_db').from('usuarios') y se CORTA si no existe.
+    const db = getSupabaseClient();
+    const { data: usuario, error: userError } = await db
+      .schema('auth_service_db')
+      .from('usuarios')
+      .select('id, email, nombre, apellido_paterno')
+      .eq('id', usuario_id)
+      .is('eliminado_en', null)
+      .maybeSingle();
 
-    // 3. Acuñar pase de cortesía del día en access-service (best-effort).
-    //    Su codigo_ticket se imprime en el ticket térmico para ingreso inmediato.
+    if (userError) {
+      logger.error('Error verificando usuario para pago en efectivo', {
+        usuario_id, receptionistId, error: userError.message,
+      });
+      return res.status(502).json({
+        success: false, data: null,
+        error: 'No se pudo verificar el usuario. Intenta de nuevo.',
+      });
+    }
+    if (!usuario) {
+      logger.warn('Pago en efectivo rechazado: usuario inexistente', { usuario_id, receptionistId });
+      return res.status(400).json({
+        success: false, data: null,
+        error: 'El usuario indicado no existe o está dado de baja.',
+      });
+    }
+
+    // Folio del recibo (se genera aquí y se pasa a la RPC para atomicidad).
+    const numeroRecibo = paymentHistoryModel.generateReceiptFolio(metodo_pago);
+
+    // ── Registro ATÓMICO e IDEMPOTENTE (2.2 + 2.3) ───────────────────────────
+    // La RPC deriva la duración del PLAN (no del cliente), calcula la
+    // variacion_precio contra el precio de referencia, extiende/crea la
+    // suscripción e inserta el asiento en una sola transacción.
+    let result;
+    try {
+      result = await subscriptionModel.registerCashPayment({
+        usuarioId:       usuario_id,
+        planId:          plan_id,
+        montoCobrado:    Number(monto_cobrado),
+        metodoPago:      metodo_pago,
+        receptionistaId: receptionistId,
+        idempotencyKey:  String(idempotencyKey),
+        numeroRecibo,
+        notas,
+      });
+    } catch (err) {
+      if (err.code === 'PLAN_NOT_FOUND') {
+        return res.status(400).json({
+          success: false, data: null,
+          error: 'El plan indicado no existe o no está activo.',
+        });
+      }
+      throw err;
+    }
+
+    const { subscription, pago, action, yaProcesado } = result;
+
+    // Reintento idempotente: el pago ya se había procesado. NO se re-acuña
+    // cortesía ni se re-extiende nada; se devuelve el registro existente.
+    if (yaProcesado) {
+      logger.info('Pago en efectivo idempotente: se devuelve el registro existente', {
+        usuario_id, receptionistId, historialPagoId: pago?.id,
+      });
+      return res.status(200).json({
+        success: true,
+        data: {
+          idempotente:       true,
+          suscripcion_id:    subscription?.id,
+          historial_pago_id: pago?.id,
+          numero_recibo:     pago?.numero_recibo,
+          valido_hasta:      subscription?.valido_hasta,
+        },
+        error: null,
+      });
+    }
+
+    // Efectos posteriores SOLO en primer procesamiento.
     const cortesia = await accessSyncService.mintCourtesyPass(usuario_id);
 
-    // 4. Registrar el asiento inmutable en el ledger historial_pagos.
-    const asiento = await paymentHistoryModel.recordCashPayment({
-      usuarioId:          usuario_id,
-      suscripcionId:      subscription.id,
-      monto:              Number(monto),
-      metodoPago:         metodo_pago,
-      planNombre:         subscription.plan_nombre,
-      planDuracionDias:   Number(plan_duracion_dias),
-      periodoDesde:       subscription.valido_desde,
-      periodoHasta:       subscription.valido_hasta,
-      paseCortesiaCodigo: cortesia?.codigo_ticket || null,
-      receptionistId,
-      notas,
-    });
-
-    // 5. Sincronización INMEDIATA: invalidar/pre-calentar la caché de vigencia en
-    //    access-service para que el torniquete conceda el paso al instante.
     await accessSyncService.invalidateMembershipCache(
       usuario_id,
       subscription.valido_hasta,
     );
+
+    const asiento = pago;
 
     logger.info('Pago presencial registrado, suscripción activada y acceso sincronizado', {
       action,
@@ -115,8 +158,8 @@ async function registerCashPayment(req, res, next) {
       tipo:            'pago_presencial',
       user_name:       nombreSocio,
       numero_recibo:   asiento.numero_recibo,
-      monto:           Number(monto),
-      moneda:          'MXN',
+      monto:           Number(asiento.monto),
+      moneda:          asiento.moneda || 'MXN',
       metodo_pago:     metodo_pago,
       plan_nombre:     subscription.plan_nombre,
       valido_hasta:    subscription.valido_hasta,
@@ -141,7 +184,8 @@ async function registerCashPayment(req, res, next) {
         valido_desde:      subscription.valido_desde,
         valido_hasta:      subscription.valido_hasta,
         atendido_por:      receptionistId,
-        monto_pagado:      Number(monto),
+        monto_pagado:      Number(asiento.monto),
+        variacion_precio:  asiento.variacion_precio != null ? Number(asiento.variacion_precio) : null,
         acceso_sincronizado: true,
         pase_cortesia:     cortesia || null,
         // Objeto listo para enviar a la impresora térmica local (POST /print-ticket).

@@ -13,12 +13,22 @@
 const axios                   = require('axios');
 const { getSupabaseClient }   = require('../config/database');
 const emailService            = require('./emailService');
+const { notifyBiometricDelete } = require('./biometricNotificationService');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('payment-service:growthWorker');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:3004';
-const TURNSTILE_KEY  = process.env.TURNSTILE_API_KEY || 'turnstile_secret_key_prod_2026';
+// ⚠ CWE-798: antes había aquí una API key de producción hardcodeada como
+// fallback ('turnstile_secret_key_prod_2026'). Eliminada: si falta la
+// variable, se deja vacío y la llamada M2M fallará con 401 de forma
+// controlada, en lugar de operar con un secreto conocido y versionado.
+const TURNSTILE_KEY  = process.env.TURNSTILE_API_KEY || '';
+
+// Zona horaria del gimnasio para el corte por fecha. `valido_hasta` es un
+// DATE sin hora ni zona; "hoy" debe evaluarse en la TZ del negocio, no en
+// UTC, o se revocaría/renovaría con hasta un día de desfase. Configurable.
+const BUSINESS_TZ = process.env.BUSINESS_TIMEZONE || 'America/Mexico_City';
 
 /**
  * ── 1. RECUPERACIÓN DE MEMBRESÍA (`past_due`) ───────────────────────────────
@@ -251,10 +261,151 @@ async function processInactivityAlerts() {
  * ── 3. ORQUESTADOR Y TAREA CRON ─────────────────────────────────────────────
  * Ejecuta un ciclo completo de verificación.
  */
+/**
+ * ── 3. REVOCACIÓN DE ACCESO FACIAL POR VENCIMIENTO (grace period = 0) ───────
+ *
+ * Audita 2.3: el acceso facial ZKTeco decide localmente en el dispositivo
+ * (TZ=24/7) y solo se borraba en customer.subscription.deleted (fin del
+ * dunning de Stripe, 7-14 días después del vencimiento). Este proceso cierra
+ * esa ventana: revoca el acceso facial en cuanto `valido_hasta` queda en el
+ * pasado, equiparando la estrictez del camino QR (que valida vigencia en vivo).
+ *
+ * CRITERIO DE CORTE (operador `<`, no `<=`):
+ *   valido_hasta es la ÚLTIMA fecha válida (inclusive). Un socio "válido
+ *   hasta el 28" conserva acceso el día 28 y se revoca el 29. Por eso la
+ *   condición es `valido_hasta < hoy`: un valido_hasta futuro nunca entra;
+ *   el propio día de vencimiento tampoco (aún es válido).
+ *
+ * DESFASE TEMPORAL (limitación conocida, no bug): el worker corre por
+ * setInterval cada ~6h sobre el uptime del proceso, no como cron a hora
+ * fija. Entre el vencimiento real (medianoche TZ del negocio) y la
+ * revocación efectiva pueden pasar hasta ~6h. Para revocación instantánea
+ * al minuto exacto haría falta un trigger por evento, no un barrido
+ * periódico — fuera del alcance de esta corrección.
+ *
+ * IDEMPOTENCIA: se filtra `acceso_facial_revocado_en IS NULL` y se sella al
+ * revocar con éxito. Un usuario ya revocado NO recibe un DELETE nuevo cada
+ * corrida. El flag se limpia al reactivar (subscriptionModel.activateAfterPayment).
+ *
+ * FALLOS POR USUARIO: si notifyBiometricDelete falla (terminal offline,
+ * timeout), NO se sella el flag y NO se aborta el lote: se registra y se
+ * continúa. Al quedar sin sellar, el siguiente ciclo (~6h) lo reintenta
+ * automáticamente. No requiere intervención manual.
+ */
+async function processExpiredFacialRevocation() {
+  const db = getSupabaseClient();
+
+  // "Hoy" en la zona horaria del negocio, como fecha pura YYYY-MM-DD, para
+  // comparar contra el DATE `valido_hasta` sin arrastrar hora ni UTC.
+  const hoyLocal = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date()); // en-CA => 'YYYY-MM-DD'
+
+  logger.info('🔒 [GrowthWorker] Escaneo de revocación facial por vencimiento…', {
+    corteAntesDe: hoyLocal, tz: BUSINESS_TZ,
+  });
+
+  // Estados en INGLÉS: son los que el código realmente escribe
+  // (active/past_due/cancelled). Se excluye 'active' y 'free_pass' —el socio
+  // vigente o de pase libre no se toca— y se exige que el período pagado ya
+  // haya terminado.
+  const { data: vencidas, error } = await db
+    .from('suscripciones')
+    .select('id, usuario_id, valido_hasta, estado')
+    .lt('valido_hasta', hoyLocal)               // operador `<` (ver criterio arriba)
+    .not('estado', 'in', '("active","free_pass")')
+    .is('acceso_facial_revocado_en', null)      // idempotencia: no reprocesar
+    .limit(500);
+
+  if (error) {
+    logger.error('Error consultando suscripciones vencidas para revocación facial', {
+      error: error.message,
+    });
+    return;
+  }
+  if (!vencidas || vencidas.length === 0) {
+    logger.info('✅ Ninguna membresía vencida pendiente de revocación facial.');
+    return;
+  }
+
+  logger.warn(`🚨 ${vencidas.length} membresía(s) vencida(s) con acceso facial por revocar.`);
+
+  let revocadas = 0;
+  let fallidas  = 0;
+
+  for (const sub of vencidas) {
+    try {
+      // pin_terminal vive en usuarios (mismo patrón que getUserBiometricInfo).
+      const { data: user, error: userErr } = await db
+        .from('usuarios')
+        .select('id, pin_terminal')
+        .eq('id', sub.usuario_id)
+        .single();
+
+      if (userErr || !user) {
+        // Sin usuario no hay a quién revocar en el terminal. Se sella igual
+        // para no reintentar indefinidamente sobre un registro huérfano.
+        logger.warn('Usuario no encontrado para revocación facial; se sella sin DELETE', {
+          suscripcionId: sub.id, usuarioId: sub.usuario_id,
+        });
+        await _sellarRevocacion(db, sub.id);
+        continue;
+      }
+
+      if (!user.pin_terminal) {
+        // Nunca tuvo acceso facial (sin PIN de terminal). Nada que borrar;
+        // se sella para excluirlo de futuros barridos.
+        logger.info('Usuario sin pin_terminal; no hay acceso facial que revocar', {
+          usuarioId: sub.usuario_id,
+        });
+        await _sellarRevocacion(db, sub.id);
+        continue;
+      }
+
+      // DELETE al terminal. notifyBiometricDelete lanza si la llamada M2M
+      // falla; en ese caso NO sellamos (se reintenta al próximo ciclo).
+      await notifyBiometricDelete(sub.usuario_id, user.pin_terminal);
+      await _sellarRevocacion(db, sub.id);
+      revocadas++;
+
+      logger.warn('Acceso facial revocado por vencimiento', {
+        usuarioId: sub.usuario_id, validoHasta: sub.valido_hasta, estado: sub.estado,
+      });
+    } catch (err) {
+      fallidas++;
+      // Un fallo por usuario NO aborta el lote. Al no sellarse, el próximo
+      // ciclo (~6h) lo reintenta automáticamente.
+      logger.error('Fallo revocando acceso facial; se reintentará el próximo ciclo', {
+        suscripcionId: sub.id, usuarioId: sub.usuario_id, error: err.message,
+      });
+    }
+  }
+
+  logger.info('🔒 Revocación facial completada', {
+    total: vencidas.length, revocadas, fallidas,
+  });
+}
+
+/** Sella la marca de idempotencia tras revocar (o descartar) un usuario. */
+async function _sellarRevocacion(db, suscripcionId) {
+  const { error } = await db
+    .from('suscripciones')
+    .update({ acceso_facial_revocado_en: new Date().toISOString() })
+    .eq('id', suscripcionId);
+  if (error) {
+    // Si no se puede sellar, se reintentará (no rompe el flujo): mejor un
+    // DELETE repetido —inocuo en el terminal— que dejar de revocar.
+    logger.warn('No se pudo sellar acceso_facial_revocado_en', {
+      suscripcionId, error: error.message,
+    });
+  }
+}
+
 async function runGrowthCycle() {
   logger.info('🚀 [GrowthRetentionWorker] Iniciando ciclo de retención y monitoreo en Supabase...');
   await processPastDueRecovery();
   await processInactivityAlerts();
+  await processExpiredFacialRevocation();
   logger.info('🏁 [GrowthRetentionWorker] Ciclo completado.');
 }
 
@@ -292,6 +443,7 @@ if (require.main === module) {
 module.exports = {
   processPastDueRecovery,
   processInactivityAlerts,
+  processExpiredFacialRevocation,
   runGrowthCycle,
   startCronDaemon,
 };

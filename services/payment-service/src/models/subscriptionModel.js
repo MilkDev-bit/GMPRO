@@ -165,6 +165,11 @@ async function activateAfterPayment({
       ultimo_pago_en:         ahora.toISOString(),
       proximo_pago_en:        proximoPagoEn,
       cancelado_en:           null,        // Limpiar si había sido cancelada
+      // Re-habilita al usuario para el cron de revocación facial: si había
+      // sido revocado por vencimiento y ahora vuelve a pagar, el flag se
+      // limpia para que el alta biométrica (invoice.paid → notifyBiometricSync)
+      // no quede bloqueada y una futura expiración vuelva a revocar.
+      acceso_facial_revocado_en: null,
       stripe_event_id_ultimo: stripeEventId,
       actualizado_en:         ahora.toISOString(),
     })
@@ -255,98 +260,82 @@ async function markPaymentFailed({ stripeSubscriptionId, stripeEventId, failureR
 }
 
 /**
- * Registra un pago en efectivo creando o renovando una suscripción.
- * El campo stripe_subscription_id queda null (no hay suscripción en Stripe).
+ * Registra un pago en efectivo de forma ATÓMICA e IDEMPOTENTE vía la RPC
+ * payment_service_db.registrar_pago_efectivo.
+ *
+ * La duración del acceso la determina el PLAN (tabla `planes`), no el
+ * cliente (fix 2.3). La extensión de `valido_hasta` y el asiento en el
+ * ledger ocurren en una sola transacción, con la Idempotency-Key como
+ * guard de concurrencia (fix 2.2).
  *
  * @param {object} params
  * @param {string} params.usuarioId
- * @param {string} params.planNombre
- * @param {number} params.planDuracionDias  - Días de vigencia
- * @param {number} params.monto             - Monto en pesos MXN
- * @param {string} params.receptionistaId   - ID del recepcionista que registra
- * @param {string} [params.notas]           - Notas adicionales del recepcionista
- * @returns {Promise<object>} Suscripción creada/actualizada
+ * @param {string} params.planId             - UUID del plan canónico
+ * @param {number} params.montoCobrado       - Monto realmente cobrado (MXN)
+ * @param {string} params.metodoPago         - 'cash' | 'card_terminal' | 'transfer'
+ * @param {string} params.receptionistaId
+ * @param {string} params.idempotencyKey
+ * @param {string} params.numeroRecibo       - Folio generado en el servicio
+ * @param {string} [params.paseCortesiaCodigo]
+ * @param {string} [params.notas]
+ * @returns {Promise<{ yaProcesado: boolean, action: string, subscription: object, pago: object }>}
+ * @throws  {Error} err.code === 'PLAN_NOT_FOUND' si el plan no existe/está inactivo.
  */
 async function registerCashPayment({
   usuarioId,
-  planNombre,
-  planDuracionDias = 30,
-  monto,
+  planId,
+  montoCobrado,
+  metodoPago = 'cash',
   receptionistaId,
+  idempotencyKey,
+  numeroRecibo,
+  paseCortesiaCodigo = null,
   notas = null,
 }) {
-  const db          = getSupabaseClient();
-  const ahora       = new Date();
-  const validoHasta = new Date(ahora);
-  validoHasta.setDate(validoHasta.getDate() + planDuracionDias);
+  const db = getSupabaseClient();
 
-  // Verificar si el usuario ya tiene una suscripción activa para renovarla
-  const existing = await findActiveByUserId(usuarioId);
+  const { data, error } = await db.rpc('registrar_pago_efectivo', {
+    p_usuario_id:           usuarioId,
+    p_plan_id:              planId,
+    p_monto_cobrado:        montoCobrado,
+    p_metodo_pago:          metodoPago,
+    p_receptionist_id:      receptionistaId,
+    p_idempotency_key:      idempotencyKey,
+    p_numero_recibo:        numeroRecibo,
+    p_pase_cortesia_codigo: paseCortesiaCodigo,
+    p_notas:                notas,
+  });
 
-  if (existing) {
-    // RENOVACIÓN: Si ya tiene suscripción activa, extender desde valido_hasta actual
-    // (no desde ahora, para no perder días restantes)
-    const baseDate = new Date(existing.valido_hasta) > ahora
-      ? new Date(existing.valido_hasta)
-      : ahora;
-    const nuevaFecha = new Date(baseDate);
-    nuevaFecha.setDate(nuevaFecha.getDate() + planDuracionDias);
-
-    const { data, error } = await db
-      .from('suscripciones')
-      .update({
-        plan_nombre:       planNombre,
-        plan_duracion_dias: planDuracionDias,
-        monto,
-        metodo_pago:       'cash',
-        estado:            'active',
-        valido_hasta:      nuevaFecha.toISOString(),
-        ultimo_pago_en:    ahora.toISOString(),
-        receptionist_id:   receptionistaId,
-        notas_internas:    notas,
-        cancelado_en:      null,
-        actualizado_en:    ahora.toISOString(),
-      })
-      .eq('id', existing.id)
-      .select(SAFE_COLUMNS)
-      .single();
-
-    if (error) throw error;
-    logger.info('Suscripción cash renovada', {
-      id: data.id, userId: data.usuario_id,
-      validoHasta: nuevaFecha.toISOString(), receptionistaId,
+  if (error) {
+    // La RPC lanza P0002 ('PLAN_NOT_FOUND') si el plan no existe/está inactivo.
+    if (error.code === 'P0002' || /PLAN_NOT_FOUND/.test(error.message || '')) {
+      const e = new Error('PLAN_NOT_FOUND');
+      e.code = 'PLAN_NOT_FOUND';
+      throw e;
+    }
+    logger.error('Error en RPC registrar_pago_efectivo', {
+      usuarioId, planId, receptionistaId, code: error.code, error: error.message,
     });
-    return { subscription: data, action: 'renewed' };
+    throw error;
   }
 
-  // NUEVA SUSCRIPCIÓN: El usuario no tiene una activa
-  const { data, error } = await db
-    .from('suscripciones')
-    .insert({
-      usuario_id:             usuarioId,
-      stripe_customer_id:     null,
-      stripe_subscription_id: null,
-      plan_nombre:            planNombre,
-      plan_duracion_dias:     planDuracionDias,
-      monto,
-      moneda:                 'MXN',
-      metodo_pago:            'cash',
-      estado:                 'active',
-      valido_desde:           ahora.toISOString(),
-      valido_hasta:           validoHasta.toISOString(),
-      ultimo_pago_en:         ahora.toISOString(),
-      receptionist_id:        receptionistaId,
-      notas_internas:         notas,
-    })
-    .select(SAFE_COLUMNS)
-    .single();
+  const result = {
+    yaProcesado:  data.ya_procesado === true,
+    action:       data.accion,
+    subscription: data.suscripcion,
+    pago:         data.pago,
+  };
 
-  if (error) throw error;
-  logger.info('Suscripción cash creada', {
-    id: data.id, userId: data.usuario_id,
-    validoHasta: validoHasta.toISOString(), receptionistaId,
+  logger.info('Pago efectivo procesado (RPC atómica)', {
+    usuarioId,
+    action: result.action,
+    yaProcesado: result.yaProcesado,
+    suscripcionId: result.subscription?.id,
+    validoHasta: result.subscription?.valido_hasta,
+    receptionistaId,
   });
-  return { subscription: data, action: 'created' };
+
+  return result;
 }
 
 /**

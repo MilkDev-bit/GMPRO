@@ -1,0 +1,66 @@
+name: CI — Tests (Node services)
+
+# Ejecuta la suite de cada microservicio Node con un contenedor efímero de
+# Redis, de modo que el rate limiter use el RedisStore REAL (estado compartido
+# entre réplicas) y no el MemoryStore por-proceso. Ver ticketFlow.test.js:
+# si REDIS_URL está presente, el test instancia ioredis contra este servicio.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: ${{ matrix.service }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # reception-hardware-controller queda fuera: es un servicio mixto
+        # (python/node) sin package.json en raíz, no testeable vía npm.
+        service:
+          - access-service
+          - ai-service
+          - auth-service
+          - fitness-service
+          - payment-service
+
+    # ── Contenedor efímero de Redis para el rate limiter Redis-backed ──────────
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # El test lee REDIS_URL; presente → usa Redis real, ausente → MemoryStore.
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/${{ matrix.service }}
+        run: npm ci
+
+      - name: Run tests
+        working-directory: services/${{ matrix.service }}
+        # --passWithNoTests: los servicios sin suite aún no fallan el pipeline;
+        # se irán llenando de tests progresivamente (access-service ya tiene E2E).
+        run: npm test -- --passWithNoTests

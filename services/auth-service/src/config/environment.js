@@ -14,6 +14,17 @@ const {
 } = require("../../../../packages_shared/security/logger");
 const logger = createServiceLogger("auth-service:config");
 
+/**
+ * Valida una API key de Supabase detectando truncamiento (mismo criterio que
+ * access/ai/payment). 'sb_secret_'/'sb_publishable_' ≥20, o JWT legacy 'eyJ' >100.
+ */
+function isValidSupabaseKey(v) {
+  if (!v) return false;
+  if (v.startsWith("sb_secret_") || v.startsWith("sb_publishable_")) return v.length >= 20;
+  if (v.startsWith("eyJ")) return v.length > 100;
+  return false;
+}
+
 // ── Definición del schema de variables ────────────────────────────────────────
 // Cada entrada describe una variable: obligatoria, tipo y validación opcional.
 const ENV_SCHEMA = [
@@ -38,7 +49,10 @@ const ENV_SCHEMA = [
   {
     key: "SUPABASE_SERVICE_ROLE_KEY",
     required: true,
-    validate: (v) => v.startsWith("sb_secret_") || v.length > 100,
+    // Antes: startsWith('sb_secret_') || length>100 — aceptaba una key
+    // truncada tipo 'sb_secret_ab'. Ahora exige longitud mínima por formato
+    // para detectar truncamiento (mismo criterio en los 5 servicios).
+    validate: isValidSupabaseKey,
   },
   { key: "SUPABASE_DB_SCHEMA", required: true },
 

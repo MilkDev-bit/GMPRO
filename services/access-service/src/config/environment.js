@@ -87,6 +87,20 @@ module.exports = {
   REDIS_URL:                  process.env.REDIS_URL || null,
   CORS_ALLOWED_ORIGINS:       process.env.CORS_ALLOWED_ORIGINS || '',
   QR_TTL_SECONDS:             parseInt(process.env.QR_TTL_SECONDS || '30', 10),
+
+  // ── RBAC: roles internos autorizados para operaciones de mostrador ──────────
+  // Antes 'staff'/'admin' estaban hardcodeados en main.js, ticketRoutes.js y el
+  // controlador. Se externaliza: STAFF_ROLES = lista separada por comas, con
+  // fallback seguro. Añadir un rol (p.ej. 'gerente') ya no requiere tocar código.
+  // Se normaliza a minúsculas/trim para tolerar variaciones de configuración.
+  STAFF_ROLES: (process.env.STAFF_ROLES || 'staff,admin')
+    .split(',')
+    .map((r) => r.trim().toLowerCase())
+    .filter(Boolean),
+
+  // Límites de emisión (env-overridable) para rutas sensibles de acceso.
+  RATE_LIMIT_TICKET_MAX:      parseInt(process.env.RATE_LIMIT_TICKET_MAX || '30', 10),
+  RATE_LIMIT_QR_MAX:          parseInt(process.env.RATE_LIMIT_QR_MAX || '10', 10),
   // ── Autenticación de terminales ZKTeco ADMS (/iclock/*) ────────────────────
   // ZK_ALLOWED_SERIALS: lista separada por comas de números de serie autorizados.
   // ZK_PUSH_KEY: clave compartida que la terminal envía (header x-adms-key o ?key=).
