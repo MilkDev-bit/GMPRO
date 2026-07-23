@@ -27,6 +27,15 @@ import 'features/auth/presentation/screens/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ── Contención global de logs en RELEASE (CWE-532 móvil) ────────────
+  // `debugPrint` NO se elimina solo en release; cualquier debugPrint disperso
+  // (payloads de push, tokens FCM, cuerpos de respuesta) llegaría a Logcat/
+  // Consola en producción. Aquí se anula en release: los diagnósticos deben ir
+  // por AppLogger (que redacta) o por el crash reporter, nunca a la consola.
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   // ── Firebase ────────────────────────────────────────────────────────
   // Se inicializa con `DefaultFirebaseOptions.currentPlatform` (generado
   // por `flutterfire configure` en lib/firebase_options.dart) en vez de

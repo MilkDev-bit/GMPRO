@@ -105,4 +105,19 @@ class AppConfig {
   static const String keyAccessToken = 'gympro_access_token';
   static const String keyRefreshToken = 'gympro_refresh_token';
   static const String keyUserData = 'gympro_user_json';
+
+  /// Conjunto de HOSTS propios del backend (derivado de las base URLs).
+  /// Úsalo para decidir a quién se le adjunta el Bearer token: NUNCA se debe
+  /// enviar el JWT a un host que no esté aquí (evita token leakage a terceros
+  /// —analytics, CDN, imágenes— si comparten la instancia de Dio).
+  static Set<String> get backendHosts => <String>{
+        Uri.parse(authServiceBaseUrl).host,
+        Uri.parse(accessServiceBaseUrl).host,
+        Uri.parse(paymentServiceBaseUrl).host,
+        Uri.parse(fitnessServiceBaseUrl).host,
+        Uri.parse(aiServiceBaseUrl).host,
+      };
+
+  /// True si el host de destino pertenece a nuestro backend.
+  static bool isBackendHost(String host) => backendHosts.contains(host);
 }
