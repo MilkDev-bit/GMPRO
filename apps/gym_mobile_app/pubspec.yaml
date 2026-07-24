@@ -24,6 +24,11 @@ dependencies:
   audioplayers: ^6.1.0            # Feedback sonoro corto (éxito/error/clic) sincronizado con háptica
   animations: ^2.0.11             # Transiciones Material Motion (Fade Through / Shared Axis)
 
+  # ── Offline-First (Isar) ────────────────────────────────────────────────────
+  isar: ^3.1.0+1                  # Base de datos local NoSQL reactiva (Single Source of Truth)
+  isar_flutter_libs: ^3.1.0+1    # Binarios nativos de Isar para Flutter
+  connectivity_plus: ^6.1.0       # Escucha de cambios de red para disparar la sincronización
+
   # ── Cliente HTTP y Red ──────────────────────────────────────────────────────
   dio: ^5.7.0                     # Cliente HTTP robusto con interceptores para JWT y reintentos
 
@@ -33,6 +38,9 @@ dependencies:
 
   # ── RASP (Runtime Application Self-Protection) ──────────────────────────────
   freerasp: ^6.11.0               # Talsec: root/jailbreak, emulador, debugger, Frida, tampering
+
+  # ── Navegación ──────────────────────────────────────────────────────────────
+  go_router: ^14.6.2              # Routing declarativo + intercepción nativa de deep links
 
   # ── Gestión de Estado (Riverpod) ────────────────────────────────────────────
   flutter_riverpod: ^2.5.1        # Gestión de estado reactiva, segura ante tipos y modular
@@ -61,6 +69,10 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   # Mock del adapter HTTP de Dio para tests de red sin sockets reales.
   http_mock_adapter: ^0.6.1
+  # Codegen de Isar (genera los *.g.dart de las @Collection).
+  #   Tras añadir/editar colecciones ejecuta:  dart run build_runner build --delete-conflicting-outputs
+  isar_generator: ^3.1.0+1
+  build_runner: ^2.4.13
 
 flutter:
   uses-material-design: true
