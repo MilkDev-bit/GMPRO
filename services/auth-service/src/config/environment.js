@@ -73,9 +73,6 @@ const ENV_SCHEMA = [
     validate: (v) => +v >= 10 && +v <= 15,
   },
 
-  // Cifrado AES
-  { key: "ENCRYPTION_KEY", required: true, validate: (v) => v.length === 64 },
-
   // Email
   { key: "RESEND_API_KEY", required: false }, // Opcional en desarrollo
   { key: "EMAIL_FROM", required: false },
@@ -137,7 +134,6 @@ module.exports = {
   JWT_ALGORITHM: process.env.JWT_ALGORITHM,
 
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS, 10),
-  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
 
   RESEND_API_KEY: process.env.RESEND_API_KEY || null,
   EMAIL_FROM: process.env.EMAIL_FROM || "noreply@gympro.app",
