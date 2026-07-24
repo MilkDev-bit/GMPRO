@@ -1,0 +1,110 @@
+name: Android Release (Play Store)
+
+# Se dispara manualmente o al crear un tag de versión (v1.0.0, v1.2.3…).
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Track de Play (internal | alpha | beta | production)'
+        default: 'internal'
+        required: true
+  push:
+    tags: ['v*']
+
+# Directorio del proyecto Flutter (monorepo).
+defaults:
+  run:
+    working-directory: apps/gym_mobile_app
+
+jobs:
+  android:
+    name: Build & Deploy AAB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Setup Ruby (Fastlane)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: apps/gym_mobile_app/android
+
+      # ── Decodificación de secretos (Base64 → archivos en el runner) ──────────
+      # Ninguno de estos archivos vive en git; se materializan solo en CI.
+      - name: Decode secrets
+        env:
+          ANDROID_KEYSTORE_BASE64:        ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES_BASE64:  ${{ secrets.ANDROID_KEY_PROPERTIES_BASE64 }}
+          PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+          GOOGLE_SERVICES_JSON_BASE64:    ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          DART_DEFINE_PROD_BASE64:        ${{ secrets.DART_DEFINE_PROD_BASE64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p env android/fastlane
+          # Keystore de firma release (.jks)
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          # key.properties: storeFile=upload-keystore.jks, storePassword, keyAlias, keyPassword
+          echo "$ANDROID_KEY_PROPERTIES_BASE64" | base64 -d > android/key.properties
+          # Service Account de Google Play (fastlane supply)
+          echo "$PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d > android/fastlane/play-service-account.json
+          # google-services.json de Firebase (gitignored)
+          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
+          # Variables de entorno de PRODUCCIÓN (RASP hashes, SSL pins, endpoints…)
+          # → se inyectan con --dart-define-from-file (nunca en el código fuente).
+          echo "$DART_DEFINE_PROD_BASE64" | base64 -d > env/prod.json
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Codegen (Isar)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      # ── Build del App Bundle OFUSCADO ────────────────────────────────────────
+      # --obfuscate + --split-debug-info: ofusca el Dart y saca los símbolos a un
+      # directorio aparte (necesarios para des-ofuscar stack traces luego).
+      - name: Build AAB (release, obfuscated)
+        run: |
+          flutter build appbundle --release \
+            --obfuscate \
+            --split-debug-info=build/symbols \
+            --dart-define-from-file=env/prod.json
+
+      - name: Fastlane deploy → Play Store
+        working-directory: apps/gym_mobile_app/android
+        env:
+          PLAY_TRACK: ${{ github.event.inputs.track || 'internal' }}
+        run: bundle exec fastlane deploy
+
+      # Los símbolos de ofuscación se guardan como artefacto para des-ofuscar
+      # crash reports en producción (no se publican en la store).
+      - name: Upload debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-symbols
+          path: apps/gym_mobile_app/build/symbols
+          retention-days: 90
+
+      # ── CERO FILTRACIONES: borrar los secretos decodificados SIEMPRE ─────────
+      - name: Cleanup secrets
+        if: always()
+        run: |
+          rm -f android/app/upload-keystore.jks \
+                android/key.properties \
+                android/fastlane/play-service-account.json \
+                android/app/google-services.json \
+                env/prod.json
+          echo "Secretos decodificados eliminados."

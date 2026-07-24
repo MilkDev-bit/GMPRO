@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Opciones de exportación del IPA para App Store / TestFlight.
+  ⚠ REEMPLAZA:
+    • REEMPLAZAR_TEAM_ID    → tu Apple Developer Team ID (10 chars).
+    • NOMBRE_DEL_PERFIL     → el "name" del provisioning profile de distribución
+                              (el mismo que subes en IOS_PROVISION_PROFILE_BASE64).
+  El bundle id debe coincidir con app_identifier del Appfile (com.gympro.mobile).
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>teamID</key>
+    <string>REEMPLAZAR_TEAM_ID</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.gympro.mobile</key>
+        <string>NOMBRE_DEL_PERFIL</string>
+    </dict>
+</dict>
+</plist>

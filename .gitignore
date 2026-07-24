@@ -93,3 +93,29 @@ apps/*/ios/Flutter/ephemeral/
 
 # Caché generado por la herramienta de grafo de código (no versionar)
 graphify-out/
+
+# ── CI/CD móvil: secretos y artefactos decodificados en el runner ──────────────
+# NUNCA versionar keystores, certificados, perfiles, service accounts ni el .env
+# de producción que el pipeline materializa desde GitHub Secrets (Base64).
+apps/*/env/
+# Android (nombres pelados → matchean en cualquier subdirectorio)
+*.jks
+*.keystore
+key.properties
+google-services.json
+play-service-account.json
+# iOS
+GoogleService-Info.plist
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.certSigningRequest
+# Fastlane (locales/temporales)
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/*.log
+**/fastlane/private_keys/
+**/fastlane/certs/
+apps/*/ios/certs/
+apps/*/ios/private_keys/

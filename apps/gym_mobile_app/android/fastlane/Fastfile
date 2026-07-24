@@ -1,0 +1,20 @@
+# android/fastlane/Fastfile
+# El AAB ya lo compila Flutter (con --obfuscate) en el workflow; aquí solo se sube.
+default_platform(:android)
+
+platform :android do
+  desc "Sube el App Bundle release a Google Play"
+  lane :deploy do
+    upload_to_play_store(
+      package_name: "com.gympro.mobile",
+      track: ENV["PLAY_TRACK"] || "internal",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      json_key: "fastlane/play-service-account.json",
+      release_status: "draft",           # 'completed' para publicar directo
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+    )
+  end
+end

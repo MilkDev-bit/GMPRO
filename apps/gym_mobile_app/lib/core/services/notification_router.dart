@@ -1,44 +1,91 @@
 /// @file lib/core/services/notification_router.dart
-/// @description Enrutamiento interno (Deep Linking) al tocar una notificación.
-/// Desacoplado de la UI (R1): navega vía el navigatorKey global ya existente
-/// (ToastService.navigatorKey), sin recibir BuildContext.
+/// @description Enrutamiento interno (Deep Linking de Push) DELEGADO a go_router.
+/// Unifica Universal/App Links y notificaciones FCM bajo el mismo árbol de rutas.
 ///
-/// Convención de payload (FCM `data` o payload del local notification):
-///   { "route": "workout" | "streak" | "payment" | "profile", "id": "<opcional>" }
-/// El backend controla el enrutamiento poniendo esos campos en `data`.
+/// Diseño (R2 del prompt: invocación global segura):
+///   Las notificaciones pueden llegar en segundo plano o con la app terminada,
+///   FUERA del árbol de widgets. Por eso NO dependemos de un BuildContext:
+///   guardamos una referencia al `ProviderContainer` de Riverpod y obtenemos el
+///   `GoRouter` para llamar a `router.go(location)`, que NO requiere context.
+///   Si el router aún no está listo (arranque desde estado terminado), se guarda
+///   el destino pendiente y se aplica en `attach()`.
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../navigation/app_router.dart';
 import 'toast_service.dart';
 
 class NotificationRouter {
   NotificationRouter._();
 
-  /// Registro de destinos: route → builder de pantalla. Se rellena en el
-  /// arranque para no acoplar este archivo con las vistas concretas.
-  static final Map<String, Widget Function(String? id)> _routes = {};
+  static ProviderContainer? _container;
 
-  /// Registra los destinos disponibles (llamar una vez en main, tras montar la app).
-  static void register(Map<String, Widget Function(String? id)> routes) {
-    _routes
-      ..clear()
-      ..addAll(routes);
+  /// Deep link recibido ANTES de que el contenedor/router estuvieran listos
+  /// (típico en cold-start desde una notificación con la app terminada).
+  static String? _pendingLocation;
+
+  /// Inyecta el contenedor de Riverpod (llamar en main, antes de runApp).
+  /// Aplica cualquier deep link que hubiera quedado pendiente.
+  static void attach(ProviderContainer container) {
+    _container = container;
+    final pending = _pendingLocation;
+    if (pending != null) {
+      _pendingLocation = null;
+      _navigate(pending);
+    }
   }
 
-  /// Procesa el `data` de un mensaje/notificación y navega si corresponde.
-  /// Tolerante: si falta la ruta o no está registrada, no hace nada (no crashea).
+  /// Punto de entrada: recibe el `data` de la notificación (FCM o local),
+  /// lo traduce a una ruta de go_router y navega. Tolerante a fallos (R3).
   static void handle(Map<String, dynamic>? data) {
-    if (data == null) return;
+    final location = _resolveLocation(data);
+    if (location == null) return; // ruta desconocida → ignorar sin crashear
+    _navigate(location);
+  }
+
+  /// Mapeo DECLARATIVO payload → ubicación de go_router.
+  ///   {"route":"workout"|"routine","id":"123"} → /routine/123
+  ///   {"route":"payment"}                       → /stripe/return
+  ///   {"route":"home"}                          → /
+  static String? _resolveLocation(Map<String, dynamic>? data) {
+    if (data == null) return null;
     final route = data['route']?.toString();
-    if (route == null || route.isEmpty) return;
-
-    final builder = _routes[route];
-    if (builder == null) return; // ruta desconocida → ignorar en silencio
-
-    final navigator = ToastService.navigatorKey.currentState;
-    if (navigator == null) return; // app aún sin árbol de navegación
-
     final id = data['id']?.toString();
-    navigator.push(MaterialPageRoute(builder: (_) => builder(id)));
+
+    switch (route) {
+      case 'workout':
+      case 'routine':
+        // Falta el id requerido → fallback suave a Home (R3), no ruta rota.
+        if (id == null || id.isEmpty) return '/';
+        return '/routine/${Uri.encodeComponent(id)}';
+      case 'payment':
+        return '/stripe/return';
+      case 'home':
+        return '/';
+      default:
+        return null; // ruta desconocida → se ignora
+    }
+  }
+
+  /// Navega vía GoRouter (sin BuildContext). Con doble red de seguridad.
+  static void _navigate(String location) {
+    final container = _container;
+    if (container == null) {
+      // Aún no hay router: guardamos el destino para aplicarlo en attach().
+      _pendingLocation = location;
+      return;
+    }
+    try {
+      // GoRouter.go(location) NO necesita context → seguro fuera del árbol.
+      container.read(goRouterProvider).go(location);
+    } catch (_) {
+      // Último recurso: usar el context del navigatorKey global si existe.
+      try {
+        ToastService.navigatorKey.currentContext?.go(location);
+      } catch (_) {
+        // Nunca romper la experiencia por un deep link (R3).
+      }
+    }
   }
 }

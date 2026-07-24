@@ -19,6 +19,7 @@ import 'core/config/app_config.dart';
 import 'core/services/firebase_background_handler.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/toast_service.dart';
+import 'core/services/notification_router.dart';
 import 'core/security/security_guard.dart';
 import 'core/navigation/app_shell.dart';
 import 'core/theme/app_theme.dart';
@@ -86,9 +87,16 @@ void main() async {
     ),
   );
 
+  // Contenedor de Riverpod EXPLÍCITO para compartirlo con código fuera del árbol
+  // de widgets (NotificationRouter → GoRouter). Se pasa a UncontrolledProviderScope
+  // para que la app y el router de push usen el MISMO contenedor.
+  final container = ProviderContainer();
+  NotificationRouter.attach(container);
+
   runApp(
-    const ProviderScope(
-      child: GymProApp(),
+    UncontrolledProviderScope(
+      container: container,
+      child: const GymProApp(),
     ),
   );
 }
