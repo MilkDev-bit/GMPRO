@@ -1,0 +1,66 @@
+# =============================================================================
+# .dockerignore — RAÍZ del monorepo GymPro
+# =============================================================================
+# CRÍTICO: los servicios se construyen con `context: .` (raíz del repo), ver
+# docker-compose.yml y railway/*.json. Docker SOLO aplica el .dockerignore que
+# está en la raíz del contexto de build; por eso este archivo debe vivir aquí
+# (el antiguo services/.dockerignore NO se aplicaba → hallazgo A02-1).
+#
+# Objetivo principal: que NINGÚN secreto (.env/.env.bak) entre al contexto de
+# build ni, por tanto, a las capas intermedias de la imagen.
+# =============================================================================
+
+# ── Secretos y entorno (NUNCA deben entrar al contexto/imagen) ───────────────
+**/.env
+**/.env.*
+**/*.env.bak.*
+
+# ── Dependencias (se reinstalan con `npm ci` en el stage deps) ───────────────
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+
+# ── Tests, mocks y cobertura (no deben ir a la imagen de runtime) ────────────
+**/*.test.js
+**/*.spec.js
+**/__tests__/
+**/__mocks__/
+**/tests/
+**/coverage/
+**/.nyc_output/
+
+# ── Componentes NO backend (no forman parte de las imágenes de servicio) ─────
+apps/
+graphify-out/
+docs/
+scripts/
+railway/
+
+# ── Git / CI / editores ──────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Docker / compose (no necesarios dentro de la imagen) ─────────────────────
+docker-compose*.yml
+**/Dockerfile*
+**/.dockerignore
+
+# ── Documentación y logs ─────────────────────────────────────────────────────
+**/*.md
+**/logs/
+**/*.log
+
+# ── Artefactos de build previos ──────────────────────────────────────────────
+**/dist/
+**/build/
+**/.cache/
