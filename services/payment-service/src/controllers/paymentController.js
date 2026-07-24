@@ -9,6 +9,7 @@ const { getStripeClient } = require('../config/stripe');
 const env                 = require('../config/environment');
 const subscriptionModel   = require('../models/subscriptionModel');
 const paymentHistoryModel = require('../models/paymentHistoryModel');
+const offerModel          = require('../models/offerModel');
 const accessSyncService   = require('../services/accessSyncService');
 const { generateReceiptPdf } = require('../services/pdfService');
 const { getSupabaseClient } = require('../config/database');
@@ -199,18 +200,89 @@ async function registerCashPayment(req, res, next) {
   }
 }
 
+// ── Canje de cupones: validación en BD + mapeo a Stripe ───────────────────────
+
+/**
+ * Valida una oferta contra la BD (existencia, estado, vigencia y cupo).
+ * @returns {Promise<{offer: object}|{error: string}>}
+ */
+async function validateOffer(offerCode) {
+  const offer = await offerModel.findByCodigo(offerCode);
+  if (!offer)         return { error: 'El código promocional no existe.' };
+  if (!offer.activa)  return { error: 'El código promocional no está activo.' };
+
+  const now = Date.now();
+  if (new Date(offer.valido_desde).getTime() > now)
+    return { error: 'El código promocional aún no está vigente.' };
+  if (new Date(offer.valido_hasta).getTime() < now)
+    return { error: 'El código promocional ha expirado.' };
+  if (offer.max_usos != null && Number(offer.usos) >= Number(offer.max_usos))
+    return { error: 'El código promocional ha alcanzado su límite de usos.' };
+
+  return { offer };
+}
+
+/**
+ * Garantiza que exista un Coupon de Stripe cuyo id sea el código de la oferta,
+ * creándolo "al vuelo" (idempotente) a partir de tipo/valor de la oferta:
+ *   • porcentaje  → percent_off (duration: once)
+ *   • monto_fijo  → amount_off en centavos + currency (duration: once)
+ *   • meses_gratis→ percent_off 100, duration repeating N meses
+ * @returns {Promise<string>} el id del cupón de Stripe (== offer.codigo)
+ */
+async function ensureStripeCoupon(stripe, offer) {
+  const couponId = offer.codigo;
+  try {
+    await stripe.coupons.retrieve(couponId);
+    return couponId; // Ya existe → reutilizar
+  } catch (e) {
+    if (e.statusCode !== 404 && e.code !== 'resource_missing') throw e;
+  }
+
+  const params = { id: couponId, name: offer.nombre };
+  if (offer.tipo === 'porcentaje') {
+    params.percent_off = Number(offer.valor);
+    params.duration    = 'once';
+  } else if (offer.tipo === 'monto_fijo') {
+    params.amount_off = Math.round(Number(offer.valor) * 100);
+    params.currency   = (process.env.STRIPE_DEFAULT_CURRENCY || 'usd').toLowerCase();
+    params.duration   = 'once';
+  } else { // meses_gratis
+    params.percent_off        = 100;
+    params.duration           = 'repeating';
+    params.duration_in_months = Math.max(1, Math.round(Number(offer.valor)));
+  }
+
+  await stripe.coupons.create(params, { idempotencyKey: `gympro:coupon:${couponId}` });
+  return couponId;
+}
+
 // ── POST /api/v1/payments/create-checkout-session ─────────────────────────────
 /**
  * Crea una sesión de Stripe Checkout para pago en línea (tarjeta).
- * Requiere JWT de usuario.
+ * Acepta `offerCode` opcional (cupón promocional). Requiere JWT de usuario.
  */
 async function createCheckoutSession(req, res, next) {
   try {
-    const { priceId, successUrl, cancelUrl } = req.body;
+    const { priceId, successUrl, cancelUrl, offerCode } = req.body;
     const userId    = req.user.id;
     const userEmail = req.user.email;
 
     const stripe = getStripeClient();
+
+    // 0. Canje de cupón (opcional): validar en BD y mapear a un cupón de Stripe.
+    //    El descuento NO se consume aquí; el contador de usos se incrementa en el
+    //    webhook checkout.session.completed (solo cuando el pago se completa).
+    let couponId = null;
+    let offerCodeNormalized = null;
+    if (offerCode) {
+      const result = await validateOffer(offerCode);
+      if (result.error) {
+        return res.status(400).json({ success: false, data: null, error: result.error });
+      }
+      offerCodeNormalized = result.offer.codigo;
+      couponId = await ensureStripeCoupon(stripe, result.offer);
+    }
 
     // 1. Verificar si el usuario ya tiene o tuvo suscripción con stripe_customer_id
     const history = await subscriptionModel.getHistoryByUserId(userId, 1);
@@ -234,26 +306,39 @@ async function createCheckoutSession(req, res, next) {
     // Idempotency-Key por (usuario, plan, ventana de 30s): los dobles clics rápidos
     // colapsan en UNA sola sesión de checkout → evita cobros/sesiones duplicadas.
     const idemBucket = Math.floor(Date.now() / 30_000);
-    const session = await stripe.checkout.sessions.create(
-      {
-        customer:     customerId,
-        payment_method_types: ['card'],
-        mode:         'subscription',
-        line_items:   [{ price: priceId, quantity: 1 }],
-        success_url:  successUrl || 'https://app.gympro.com/payment/success?session_id={CHECKOUT_SESSION_ID}',
-        cancel_url:   cancelUrl  || 'https://app.gympro.com/payment/cancel',
-        subscription_data: {
-          metadata: { gympro_user_id: userId },
-        },
+    const sessionParams = {
+      customer:     customerId,
+      payment_method_types: ['card'],
+      mode:         'subscription',
+      line_items:   [{ price: priceId, quantity: 1 }],
+      success_url:  successUrl || 'https://app.gympro.com/payment/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url:   cancelUrl  || 'https://app.gympro.com/payment/cancel',
+      subscription_data: {
         metadata: { gympro_user_id: userId },
       },
-      { idempotencyKey: `gympro:checkout:${userId}:${priceId}:${idemBucket}` },
+      metadata: { gympro_user_id: userId },
+    };
+
+    // Inyectar el descuento y registrar el código en metadata para que el
+    // webhook (checkout.session.completed) pueda contabilizar el canje.
+    if (couponId) {
+      sessionParams.discounts = [{ coupon: couponId }];
+      sessionParams.metadata.offer_code = offerCodeNormalized;
+      sessionParams.subscription_data.metadata.offer_code = offerCodeNormalized;
+    }
+
+    const session = await stripe.checkout.sessions.create(
+      sessionParams,
+      // El código entra en la idem-key: un reintento con distinto cupón NO colapsa
+      // en una sesión previa sin descuento.
+      { idempotencyKey: `gympro:checkout:${userId}:${priceId}:${offerCodeNormalized || 'none'}:${idemBucket}` },
     );
 
     logger.info('Stripe Checkout Session creada', {
       sessionId: session.id,
       userId,
       customerId,
+      offerCode: offerCodeNormalized || null,
     });
 
     return res.status(200).json({

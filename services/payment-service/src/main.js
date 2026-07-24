@@ -33,6 +33,7 @@ const subscriptionRoutes  = require('./routes/subscriptionRoutes');
 const paymentRoutes       = require('./routes/paymentRoutes');
 const cashPaymentRoutes   = require('./routes/cashPaymentRoutes');
 const webhookRoutes       = require('./routes/webhookRoutes');
+const createAdminRoutes   = require('./routes/adminRoutes'); // factory({ redisClient })
 const { startCronDaemon } = require('./services/growthRetentionWorker');
 
 async function bootstrap() {
@@ -98,6 +99,10 @@ async function bootstrap() {
   });
 
   const jwtVerify = createJwtVerifyMiddleware({ redisClient });
+
+  // Panel de administración financiera (staff/admin). Las rutas aplican su
+  // propio RBAC (STAFF_ROLES) + blacklist; se les pone rate limit por usuario.
+  app.use('/api/v1/admin', paymentRateLimiter, createAdminRoutes({ redisClient }));
 
   // ── 1. Rutas de pagos en efectivo / recepción (API Key requerida, SIN JWT) ─
   // Se montan en ambas rutas para máxima flexibilidad con el frontend de panel

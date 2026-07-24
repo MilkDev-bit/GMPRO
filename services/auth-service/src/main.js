@@ -38,6 +38,7 @@ if (missingEnv.length > 0) {
 // ─── Imports de módulos del servicio ─────────────────────────────────────────
 const createAuthRoutes = require('./routes/authRoutes'); // factory({ redisClient })
 const createPasswordRoutes = require('./routes/passwordRoutes'); // factory({ redisClient })
+const createAdminRoutes = require('./routes/adminRoutes'); // factory({ redisClient })
 
 // ─── Inicialización de la aplicación ─────────────────────────────────────────
 async function bootstrap() {
@@ -156,6 +157,9 @@ async function bootstrap() {
 
   // Rutas protegidas (con JWT): rate limit por usuario
   app.use('/api/v1/auth/password', userRateLimiter, createPasswordRoutes({ redisClient }));
+
+  // Panel de administración (staff/admin): gestión de miembros.
+  app.use('/api/v1/auth/admin', userRateLimiter, createAdminRoutes({ redisClient }));
 
   // 2. Aplicar middlewares finales (404 + error handler) — SIEMPRE AL FINAL
   security.applyFinal(app);

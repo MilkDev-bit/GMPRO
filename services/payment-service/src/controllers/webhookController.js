@@ -18,6 +18,7 @@
  * ╚════════════════════════════════════════════════════════════════════════════╝
  *
  * Eventos manejados:
+ *   • checkout.session.completed       → Contabilizar canje de cupón (offer_code)
  *   • invoice.paid                     → Renovar/activar suscripción
  *   • invoice.payment_failed           → Marcar como past_due
  *   • customer.subscription.deleted    → Cancelar suscripción
@@ -36,6 +37,7 @@ const { createClient }           = require('@supabase/supabase-js');
 const { getStripeClient }        = require('../config/stripe');
 const env                        = require('../config/environment');
 const subscriptionModel          = require('../models/subscriptionModel');
+const offerModel                 = require('../models/offerModel');
 const { notifyBiometricSync,
         notifyBiometricDelete }  = require('../services/biometricNotificationService');
 const { createServiceLogger }    = require('../../../../packages_shared/security/logger');
@@ -189,6 +191,10 @@ async function handleStripeWebhook(req, res) {
   try {
     switch (eventType) {
 
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(stripeEvent);
+        break;
+
       case 'invoice.paid':
         await handleInvoicePaid(stripeEvent);
         break;
@@ -242,6 +248,43 @@ async function handleStripeWebhook(req, res) {
 // ─────────────────────────────────────────────────────────────────────────────
 // HANDLERS ESPECÍFICOS POR TIPO DE EVENTO
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * checkout.session.completed — El checkout finalizó con éxito.
+ *
+ * Si la sesión llevaba un cupón (lo registramos en metadata.offer_code al crear
+ * la sesión), contabilizamos el canje incrementando ATÓMICAMENTE `usos` en la
+ * tabla ofertas. Se ejecuta bajo service_role (offerModel → RPC SECURITY DEFINER),
+ * saltando el RLS deny-all de la tabla.
+ *
+ * Idempotencia: este handler corre bajo el claim atómico del event_id, por lo que
+ * cada checkout.session.completed se procesa una sola vez → un único incremento.
+ */
+async function handleCheckoutCompleted(event) {
+  const session   = event.data.object;
+  const offerCode = session.metadata?.offer_code;
+
+  if (!offerCode) {
+    logger.info('checkout.session.completed sin offer_code (sin cupón), nada que canjear', {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const nuevosUsos = await offerModel.incrementOfferUsage(offerCode);
+
+  if (nuevosUsos == null) {
+    // El código ya no existe (p.ej. eliminado tras crear la sesión). No es crítico.
+    logger.warn('checkout.session.completed: offer_code no encontrado al canjear', {
+      sessionId: session.id, offerCode,
+    });
+    return;
+  }
+
+  logger.info('Canje de cupón contabilizado', {
+    sessionId: session.id, offerCode, nuevosUsos,
+  });
+}
 
 /**
  * invoice.paid — Pago exitoso (nuevo o renovación).

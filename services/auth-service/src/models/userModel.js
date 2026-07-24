@@ -426,6 +426,51 @@ async function assignPinTerminal(usuarioId) {
   return data;
 }
 
+// ── ADMIN: listado y gestión de miembros (panel staff/admin) ─────────────────
+/**
+ * Lista miembros con búsqueda opcional por nombre/email. El término de búsqueda
+ * se SANEA para no romper la sintaxis del filtro .or de PostgREST (evita
+ * inyección de operadores en el filtro).
+ * @param {{ search?: string, limit?: number }} [opts]
+ * @returns {Promise<object[]>}
+ */
+async function listMembers({ search = '', limit = 100 } = {}) {
+  const db = getSupabaseClient();
+  let query = db
+    .from('usuarios')
+    .select(SAFE_COLUMNS)
+    .is('eliminado_en', null)
+    .order('creado_en', { ascending: false })
+    .limit(Math.min(limit, 200));
+
+  const safe = String(search).replace(/[^a-zA-Z0-9@._\-\s]/g, '').trim().slice(0, 60);
+  if (safe) {
+    query = query.or(`email.ilike.%${safe}%,nombre.ilike.%${safe}%`);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Activa/suspende un miembro (soft-lock). Al suspender NO borra la cuenta.
+ * @param {string} id
+ * @param {boolean} activo
+ * @returns {Promise<object>}
+ */
+async function setActive(id, activo) {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from('usuarios')
+    .update({ activo })
+    .eq('id', id)
+    .is('eliminado_en', null)
+    .select(SAFE_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 module.exports = {
   findByEmailForAuth,
   findById,
@@ -439,4 +484,6 @@ module.exports = {
   softDelete,
   findPinTerminalByUserId,
   assignPinTerminal,
+  listMembers,
+  setActive,
 };

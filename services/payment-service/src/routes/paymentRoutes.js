@@ -29,6 +29,8 @@ router.post(
     body('priceId').notEmpty().withMessage('El priceId de Stripe es requerido.'),
     body('successUrl').optional().isURL().withMessage('URL de éxito inválida.'),
     body('cancelUrl').optional().isURL().withMessage('URL de cancelación inválida.'),
+    body('offerCode').optional({ nullable: true }).isString().trim()
+      .matches(/^[A-Za-z0-9_-]{3,40}$/).withMessage('Código promocional inválido.'),
   ],
   validate,
   paymentController.createCheckoutSession

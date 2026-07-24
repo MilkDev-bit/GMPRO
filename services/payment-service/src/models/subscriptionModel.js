@@ -403,6 +403,99 @@ async function releaseWebhookEvent(eventId) {
   }
 }
 
+// ── ADMIN (panel staff/admin) ────────────────────────────────────────────────
+/** Busca una suscripción por su id local. */
+async function findById(id) {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from('suscripciones')
+    .select(SAFE_COLUMNS + ', stripe_subscription_id')
+    .eq('id', id)
+    .limit(1)
+    .single();
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return data;
+}
+
+/** Lista suscripciones para el panel, opcionalmente filtradas por estado. */
+async function listForAdmin({ estado = null, limit = 200 } = {}) {
+  const db = getSupabaseClient();
+  let query = db
+    .from('suscripciones')
+    .select(SAFE_COLUMNS)
+    .order('creado_en', { ascending: false })
+    .limit(Math.min(limit, 500));
+  if (estado) query = query.eq('estado', estado);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+/** Resumen financiero para el dashboard. `ingresosMes` = MRR de las activas
+ *  (proxy recurrente); para caja real del mes, sumar la tabla de pagos. */
+async function financeSummary() {
+  const db = getSupabaseClient();
+  const startMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
+  const countBy = async (apply) => {
+    const { count, error } = await apply(
+      db.from('suscripciones').select('id', { count: 'exact', head: true }),
+    );
+    if (error) throw error;
+    return count || 0;
+  };
+
+  const suscripcionesActivas = await countBy((q) => q.eq('estado', 'active'));
+  const suscripcionesPastDue = await countBy((q) => q.eq('estado', 'past_due'));
+  const altasMes = await countBy((q) => q.gte('creado_en', startMonth));
+  const bajasMes = await countBy((q) => q.eq('estado', 'cancelled').gte('cancelado_en', startMonth));
+
+  const { data: actives, error } = await db
+    .from('suscripciones').select('monto, moneda').eq('estado', 'active');
+  if (error) throw error;
+  const ingresosMes = (actives || []).reduce((a, s) => a + (Number(s.monto) || 0), 0);
+  const moneda = actives?.[0]?.moneda || 'MXN';
+
+  return { ingresosMes, moneda, suscripcionesActivas, suscripcionesPastDue, altasMes, bajasMes };
+}
+
+/** Cancela una suscripción por id (marca estado y fecha). */
+async function cancelById(id) {
+  const db = getSupabaseClient();
+  const { data, error } = await db
+    .from('suscripciones')
+    .update({ estado: 'cancelled', cancelado_en: new Date().toISOString() })
+    .eq('id', id)
+    .select(SAFE_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Otorga cortesía/extensión: suma `dias` a valido_hasta (desde hoy o desde el
+ *  vencimiento actual, el que sea mayor) y reactiva la suscripción. */
+async function extendById(id, dias) {
+  const db = getSupabaseClient();
+  const { data: sub, error: e1 } = await db
+    .from('suscripciones').select('valido_hasta').eq('id', id).limit(1).single();
+  if (e1) throw e1;
+
+  const base = Math.max(sub.valido_hasta ? new Date(sub.valido_hasta).getTime() : 0, Date.now());
+  const nuevoValidoHasta = new Date(base + dias * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await db
+    .from('suscripciones')
+    .update({ estado: 'active', valido_hasta: nuevoValidoHasta })
+    .eq('id', id)
+    .select(SAFE_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 module.exports = {
   findActiveByUserId,
   findByStripeSubscriptionId,
@@ -416,4 +509,9 @@ module.exports = {
   markPaymentFailed,
   registerCashPayment,
   getHistoryByUserId,
+  findById,
+  listForAdmin,
+  financeSummary,
+  cancelById,
+  extendById,
 };

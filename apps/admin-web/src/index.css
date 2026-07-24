@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { color-scheme: light dark; }
+
+body {
+  @apply bg-gray-50 text-gray-800 antialiased font-sans;
+  @apply dark:bg-gray-900 dark:text-gray-200;
+  margin: 0;
+}
+
+/* Scrollbar sutil acorde al tema TailAdmin */
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+.dark * { scrollbar-color: #334155 transparent; }
