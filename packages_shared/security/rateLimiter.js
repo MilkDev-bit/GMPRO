@@ -16,8 +16,18 @@
  * Arquitectura de Rate Limiting:
  *   1. CAPA IP:    Limita requests por dirección IP (protege de DDoS y scraping)
  *   2. CAPA JWT:   Limita requests por usuario autenticado (abuso de cuenta)
- *   3. FALLBACK:   Si Redis no está disponible, usa MemoryStore en proceso
- *                  (acepta falsos negativos en el arranque; prefiere disponibilidad)
+ *
+ * A10-1 (FAIL-CLOSED): el store principal es Redis (estado compartido entre
+ * réplicas). Antes, si Redis no estaba disponible, se caía SILENCIOSAMENTE a
+ * MemoryStore por-proceso → el límite se multiplicaba por réplica (fail-open) y
+ * la protección anti-fuerza-bruta se debilitaba sin que nadie lo notara. Ahora:
+ *   • En PRODUCCIÓN sin Redis → NO hay MemoryStore: el endpoint afectado responde
+ *     503 (fail-closed) y se emite el evento RATE_LIMITER_STORE_UNAVAILABLE para
+ *     alertar. /health y /ready NO se bloquean → el servicio sigue vivo (no es un
+ *     apagón total, solo se cierra el endpoint que no puede aplicar el límite).
+ *   • Error de Redis EN RUNTIME → `passOnStoreError: false` (fail-closed): la
+ *     request no evade el límite (se corta con error, no se deja pasar).
+ *   • En DESARROLLO sin Redis → MemoryStore (una sola instancia; cómodo y seguro).
  */
 
 'use strict';
@@ -27,6 +37,8 @@ const { RedisStore }  = require('rate-limit-redis');
 const { createServiceLogger } = require('./logger');
 
 const logger = createServiceLogger('rate-limiter');
+
+const isProduction = () => process.env.NODE_ENV === 'production';
 
 // ─── Resolución de IP real detrás de proxies ───────────────────────────────────
 // Usa req.ip, que respeta `app.set('trust proxy', 1)` (configurado en el main.js
@@ -46,71 +58,106 @@ const logger = createServiceLogger('rate-limiter');
 // EXACTAMENTE el nº de proxies delante (1 en Railway). Si se añade otro proxy o
 // CDN por delante, hay que subir ese número; si el servicio se expusiera SIN
 // proxy, 'trust proxy' debe ser false (si no, req.ip volvería a ser spoofeable).
-//
-// Depende ÚNICA Y EXCLUSIVAMENTE de req.ip (Express ya lo deriva del socket
-// respetando trust proxy). El `|| 'unknown'` es solo un null-guard para no
-// devolver undefined al keyGenerator; NO es una fuente alternativa de IP ni
-// parsea ninguna cabecera.
 const getRealIp = (req) => req.ip || 'unknown';
 
 // ─── Extractor de User ID desde JWT ya verificado ─────────────────────────────
-// Este extractor se usa DESPUÉS del middleware de verificación JWT.
-// Si el token no fue verificado, req.user será undefined → fallback a IP.
 const getUserIdentifier = (req) => {
   // req.user.id es inyectado por el middleware jwtVerify.js. Este extractor
   // SOLO devuelve el id de usuario si el JWT ya fue verificado ANTES en la
-  // cadena; de lo contrario cae a IP. Por eso las rutas por-usuario deben
-  // montar jwtVerify/staffOnly ANTES que este limitador.
-  //
-  // Se prefijan las claves ('usr:' / 'ip:') para que un id de usuario nunca
-  // colisione con una IP en el mismo bucket de Redis y para dejar explícito
-  // en los logs SIEM bajo qué dimensión se aplicó el límite.
+  // cadena; de lo contrario cae a IP.
   if (req.user?.id) return `usr:${req.user.id}`;
   return `ip:${getRealIp(req)}`;
 };
 
 /**
- * Configura una instancia de RedisStore si hay conexión Redis disponible.
- * Retorna null si Redis no está configurado (se usará MemoryStore como fallback).
- *
- * @param {import('ioredis').Redis|null} redisClient - Cliente Redis ya conectado
- * @param {string} prefix - Prefijo de clave para este limitador (ej: 'rl:login:')
+ * Configura un RedisStore si hay cliente Redis; si no, retorna null.
+ * El manejo del caso null (fail-closed en prod / MemoryStore en dev) lo hace
+ * `makeLimiter`, no este helper.
  * @returns {RedisStore|null}
  */
 function buildRedisStore(redisClient, prefix) {
-  if (!redisClient) {
-    logger.warn('Redis no configurado para rate limiting. Usando MemoryStore.', {
-      note: 'MemoryStore no comparte estado entre instancias — usar solo en desarrollo',
-    });
-    return null; // express-rate-limit usará MemoryStore por defecto
-  }
-
+  if (!redisClient) return null;
   return new RedisStore({
-    // sendCommand: adaptador que conecta rate-limit-redis con ioredis
     sendCommand: (...args) => redisClient.call(...args),
     prefix, // Previene colisiones entre limitadores distintos en la misma DB Redis
   });
 }
 
+// Throttle del log de "store no disponible" para no saturar (1 vez / 30s / prefijo).
+const _lastUnavailableLog = new Map();
+function logStoreUnavailable(prefix, extra = {}) {
+  const now = Date.now();
+  const last = _lastUnavailableLog.get(prefix) || 0;
+  if (now - last < 30_000) return;
+  _lastUnavailableLog.set(prefix, now);
+  logger.error('Rate limiter sin store Redis → fail-closed (endpoint no disponible)', {
+    event: 'RATE_LIMITER_STORE_UNAVAILABLE',
+    prefix,
+    ...extra,
+  });
+}
+
+/**
+ * Middleware fail-closed: se usa en PRODUCCIÓN cuando no hay store Redis. Responde
+ * 503 en los endpoints afectados (para NO evadir el límite) pero deja pasar
+ * /health y /ready → el orquestador ve el servicio vivo y no lo mata en cascada.
+ */
+function failClosedMiddleware(prefix) {
+  return (req, res, next) => {
+    if (req.path === '/health' || req.path === '/ready') return next();
+    logStoreUnavailable(prefix, { path: req.path, method: req.method });
+    return res.status(503).json({
+      success: false,
+      data: null,
+      error: 'Servicio temporalmente no disponible (control de tasa). Reintenta en unos momentos.',
+      retryAfter: 30,
+    });
+  };
+}
+
+/**
+ * Fábrica central: construye el limitador con la política de A10-1.
+ * @param {object} rlConfig  - config de express-rate-limit (sin `store`).
+ * @param {import('ioredis').Redis|null} redisClient
+ * @param {string} prefix
+ * @returns {import('express').RequestHandler}
+ */
+function makeLimiter(rlConfig, redisClient, prefix) {
+  const store = buildRedisStore(redisClient, prefix);
+
+  if (!store) {
+    if (isProduction()) {
+      // Sin Redis en prod → fail-closed (no MemoryStore silencioso).
+      logStoreUnavailable(prefix, { phase: 'startup' });
+      return failClosedMiddleware(prefix);
+    }
+    logger.warn('Redis no configurado; usando MemoryStore (solo desarrollo).', { prefix });
+  }
+
+  return rateLimit({
+    ...rlConfig,
+    // A10-1: ante un error del store en runtime, NO dejar pasar la request
+    // (evita que una caída de Redis abra un bypass del límite).
+    passOnStoreError: false,
+    ...(store ? { store } : {}),
+  });
+}
+
 /**
  * Manejador de respuesta estándar cuando se supera el límite.
- * OWASP: No revelar información de implementación interna en el mensaje.
- * Sí revelar el tiempo de espera para mejorar UX (no es info sensible).
  */
 function rateLimitHandler(req, res, _next, options) {
   const identifier = getUserIdentifier(req);
 
-  // Log de seguridad: registro del intento bloqueado para análisis SIEM
   logger.warn('Rate limit alcanzado', {
     event: 'RATE_LIMIT_EXCEEDED',
-    identifier: identifier.substring(0, 50), // Truncar para no saturar logs
+    identifier: identifier.substring(0, 50),
     path: req.path,
     method: req.method,
     userAgent: req.headers['user-agent']?.substring(0, 200),
     retryAfter: Math.ceil(options.windowMs / 1000),
   });
 
-  // Respuesta estándar de la API (mismo formato que apiResponse.d.ts)
   res.status(429).json({
     success: false,
     data: null,
@@ -120,154 +167,71 @@ function rateLimitHandler(req, res, _next, options) {
 }
 
 /**
- * Crea el limitador GLOBAL por IP para endpoints no autenticados.
- * Se aplica como primer middleware en la cadena (antes de parsear el body).
- *
- * Propósito: Prevenir DoS y reducir carga de procesamiento para IPs abusivas.
- *
- * @param {object} options
- * @param {import('ioredis').Redis|null} options.redisClient
- * @param {number} [options.max=100]              - Máximo de requests permitidos
- * @param {number} [options.windowMs=60000]       - Ventana de tiempo en ms
- * @param {string} [options.prefix='rl:global:']  - Prefijo de clave Redis
- * @returns {import('express').RequestHandler}
+ * Limitador GLOBAL por IP para endpoints no autenticados (DoS/scraping).
  */
 function createIpRateLimiter({ redisClient, max = 100, windowMs = 60_000, prefix = 'rl:global:' } = {}) {
-  const store = buildRedisStore(redisClient, prefix);
-
-  return rateLimit({
+  return makeLimiter({
     windowMs,
     max,
-    // Identificar al cliente por IP real (no por IP del proxy de Railway)
     keyGenerator: getRealIp,
-    // Incluir headers estándar RFC 6585 en la respuesta
-    // X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
     standardHeaders: 'draft-7',
-    // Deshabilitar headers legacy (X-RateLimit-*) para evitar info redundante
     legacyHeaders: false,
-    // No contar las respuestas exitosas hacia el límite (solo errores)
-    // skipSuccessfulRequests: false, ← contar TODOS los requests (default)
     handler: rateLimitHandler,
-    // Omitir rutas de salud para no bloquear healthchecks de Railway/Docker
     skip: (req) => req.path === '/health' || req.path === '/ready',
-    ...(store ? { store } : {}),
-  });
+  }, redisClient, prefix);
 }
 
 /**
- * Crea el limitador ESTRICTO por JWT para endpoints de login/registro.
- * Se aplica SOLO en rutas de autenticación (mayor riesgo de fuerza bruta).
- *
- * OWASP A07: Previene ataques de fuerza bruta sobre contraseñas.
- * El límite es por IP (antes de tener JWT) ya que el atacante no tiene token.
- *
- * @param {object} options
- * @param {import('ioredis').Redis|null} options.redisClient
- * @param {number} [options.max=5]                    - Intentos de login permitidos
- * @param {number} [options.windowMs=900000]          - 15 minutos por defecto
- * @param {string} [options.prefix='rl:auth:']
- * @returns {import('express').RequestHandler}
+ * Limitador ESTRICTO por IP para login/registro (fuerza bruta, OWASP A07).
  */
 function createAuthRateLimiter({ redisClient, max = 5, windowMs = 15 * 60_000, prefix = 'rl:auth:' } = {}) {
-  const store = buildRedisStore(redisClient, prefix);
-
-  return rateLimit({
+  return makeLimiter({
     windowMs,
     max,
     keyGenerator: getRealIp,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    // Contar SOLO los intentos fallidos (4xx/5xx). Los logins exitosos no penalizan.
-    // Esto mejora UX: usuarios legítimos no se bloquean por usar bien el servicio.
+    // Cuenta SOLO los intentos fallidos: un login correcto no penaliza.
     skipSuccessfulRequests: true,
     handler: rateLimitHandler,
-    ...(store ? { store } : {}),
-  });
+  }, redisClient, prefix);
 }
 
 /**
- * Crea el limitador por USUARIO AUTENTICADO (basado en JWT user ID).
- * Se aplica en endpoints protegidos DESPUÉS de verificar el JWT.
- *
- * OWASP A04: Una cuenta comprometida con VPN no puede abusar la API
- * cambiando de IP, ya que el limitador usa el user ID del token.
- *
- * @param {object} options
- * @param {import('ioredis').Redis|null} options.redisClient
- * @param {number} [options.max=200]                  - Requests por usuario por ventana
- * @param {number} [options.windowMs=60000]           - 1 minuto por defecto
- * @param {string} [options.prefix='rl:user:']
- * @returns {import('express').RequestHandler}
+ * Limitador por USUARIO AUTENTICADO (JWT user ID). OWASP A04.
  */
 function createUserRateLimiter({ redisClient, max = 200, windowMs = 60_000, prefix = 'rl:user:' } = {}) {
-  const store = buildRedisStore(redisClient, prefix);
-
-  return rateLimit({
+  return makeLimiter({
     windowMs,
     max,
-    // Usa user ID del JWT verificado; si no hay JWT, usa IP (failsafe)
     keyGenerator: getUserIdentifier,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     handler: rateLimitHandler,
     skip: (req) => req.path === '/health',
-    ...(store ? { store } : {}),
-  });
+  }, redisClient, prefix);
 }
 
 /**
- * Crea el limitador ULTRA-ESTRICTO para endpoints de IA (control de costos).
- * Limita por usuario para evitar abuso de tokens de LLM.
- *
- * @param {object} options
- * @param {import('ioredis').Redis|null} options.redisClient
- * @param {number} [options.max=10]                   - Requests de IA por minuto
- * @param {number} [options.windowMs=60000]
- * @param {string} [options.prefix='rl:ai:']
- * @returns {import('express').RequestHandler}
+ * Limitador ULTRA-ESTRICTO para IA (control de costos LLM).
  */
 function createAiRateLimiter({ redisClient, max = 10, windowMs = 60_000, prefix = 'rl:ai:' } = {}) {
-  const store = buildRedisStore(redisClient, prefix);
-
-  return rateLimit({
+  return makeLimiter({
     windowMs,
     max,
     keyGenerator: getUserIdentifier,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     handler: rateLimitHandler,
-    ...(store ? { store } : {}),
-  });
+  }, redisClient, prefix);
 }
 
 /**
- * Crea un limitador POR CUENTA, keyed por un campo del body (por defecto email).
- * Complementa al limiter por IP: cierra la fuerza bruta DISTRIBUIDA, donde un
- * atacante prueba muchas contraseñas contra UNA cuenta rotando IPs (botnet/proxy).
- * El límite por IP no lo detiene; este sí, porque agrupa por la cuenta objetivo.
- *
- * skipSuccessfulRequests: solo cuenta intentos FALLIDOS, así el dueño legítimo
- * que teclea bien su contraseña nunca queda bloqueado por este limitador.
- *
- * TRADE-OFF (lockout-DoS): si un atacante martillea la cuenta de una víctima, el
- * contador por-cuenta puede bloquear temporalmente los logins de ESA cuenta desde
- * cualquier IP. Por eso el umbral por defecto es holgado (10 fallos/hora) y la
- * alternativa sin DoS —CAPTCHA/desafío progresivo— queda como mejora futura. El
- * key usa 'acct:' + email normalizado; si no hay email en el body, cae a IP para
- * no crear un bucket único compartido por todas las requests sin email.
- *
- * @param {object} options
- * @param {import('ioredis').Redis|null} options.redisClient
- * @param {number} [options.max=10]                 - Fallos por cuenta por ventana
- * @param {number} [options.windowMs=3600000]       - 1 hora por defecto
- * @param {string} [options.prefix='rl:account:']
- * @param {string} [options.field='email']          - Campo del body para el key
- * @returns {import('express').RequestHandler}
+ * Limitador POR CUENTA (keyed por email del body) contra fuerza bruta DISTRIBUIDA.
+ * skipSuccessfulRequests: solo cuenta fallos → el dueño legítimo nunca se bloquea.
  */
 function createAccountRateLimiter({ redisClient, max = 10, windowMs = 60 * 60_000, prefix = 'rl:account:', field = 'email' } = {}) {
-  const store = buildRedisStore(redisClient, prefix);
-
-  return rateLimit({
+  return makeLimiter({
     windowMs,
     max,
     keyGenerator: (req) => {
@@ -276,11 +240,9 @@ function createAccountRateLimiter({ redisClient, max = 10, windowMs = 60 * 60_00
     },
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    // Solo penaliza fallos: un login correcto del dueño no consume cuota.
     skipSuccessfulRequests: true,
     handler: rateLimitHandler,
-    ...(store ? { store } : {}),
-  });
+  }, redisClient, prefix);
 }
 
 module.exports = {
@@ -289,4 +251,6 @@ module.exports = {
   createUserRateLimiter,
   createAiRateLimiter,
   createAccountRateLimiter,
+  // Exportados para tests:
+  _internal: { makeLimiter, failClosedMiddleware, buildRedisStore },
 };

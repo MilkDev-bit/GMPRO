@@ -1,0 +1,55 @@
+# A03-3 — Actualización automática de dependencias (auto-PRs) + alertas.
+# Dependabot abre PRs cuando hay versiones nuevas o CVEs; el escaneo bloqueante
+# vive en security-scan.yml (report-only al principio, ver remediation-fase2.md).
+version: 2
+updates:
+  # ── Microservicios Node (uno por directorio con package.json) ──────────────
+  - package-ecosystem: "npm"
+    directory: "/services/auth-service"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "security"]
+  - package-ecosystem: "npm"
+    directory: "/services/access-service"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "security"]
+  - package-ecosystem: "npm"
+    directory: "/services/payment-service"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "security"]
+  - package-ecosystem: "npm"
+    directory: "/services/fitness-service"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "security"]
+  - package-ecosystem: "npm"
+    directory: "/services/ai-service"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "security"]
+  - package-ecosystem: "npm"
+    directory: "/packages_shared"
+    schedule: { interval: "weekly" }
+    labels: ["dependencies", "security"]
+  # ── Panel web (React/Vite) ─────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/apps/admin-web"
+    schedule: { interval: "weekly" }
+    labels: ["dependencies", "security"]
+  # ── App móvil (Flutter/Dart) ───────────────────────────────────────────────
+  - package-ecosystem: "pub"
+    directory: "/apps/gym_mobile_app"
+    schedule: { interval: "weekly" }
+    labels: ["dependencies", "security"]
+  # ── GitHub Actions (mantiene los pins de A03-2 al día) ─────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    labels: ["ci", "security"]
+  # ── Imágenes base Docker (mantiene el digest de CLD-2 al día) ──────────────
+  - package-ecosystem: "docker"
+    directory: "/services/auth-service"
+    schedule: { interval: "weekly" }
+    labels: ["docker", "security"]

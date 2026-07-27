@@ -161,6 +161,9 @@ function createServiceLogger(serviceName) {
         // En producción, solo errores van a stderr; el resto a stdout
         stderrLevels: ['error'],
       }),
+      // A09-3/CLD-7: reenvío de eventos de seguridad a Sentry. Devuelve null si
+      // no hay SENTRY_DSN → no se añade nada (no-op, sin dependencia en runtime).
+      ...([require('./sentry').createSentryTransport(serviceName)].filter(Boolean)),
     ],
     ...(isFirst
       ? {
