@@ -11,6 +11,10 @@ on:
   pull_request:
     branches: [main]
 
+# Mínimo privilegio: el token solo lee el repo (checkout). No publica ni escribe.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: ${{ matrix.service }}

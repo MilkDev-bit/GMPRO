@@ -27,6 +27,7 @@ const express = require('express');
 const { createSecurityMiddleware }    = require('../../../packages_shared/security');
 const { createUserRateLimiter }       = require('../../../packages_shared/security/rateLimiter');
 const { createJwtVerifyMiddleware }   = require('../../../packages_shared/security/jwtVerify');
+const { createDeprecationNotice }     = require('../../../packages_shared/security/deprecation');
 const { requireApiKey }               = require('./middlewares/apiKeyAuth');
 
 const subscriptionRoutes  = require('./routes/subscriptionRoutes');
@@ -105,8 +106,16 @@ async function bootstrap() {
   app.use('/api/v1/admin', paymentRateLimiter, createAdminRoutes({ redisClient }));
 
   // ── 1. Rutas de pagos en efectivo / recepción (API Key requerida, SIN JWT) ─
-  // Se montan en ambas rutas para máxima flexibilidad con el frontend de panel
+  // API9: la ruta canónica es /api/v1/payments/cash-payment (namespace de pagos;
+  // es la que usa reception-hardware-controller). El alias /api/v1/cash-payment
+  // queda DEPRECADO (headers Deprecation/Sunset + log) pero SIGUE FUNCIONANDO.
+  // Retiro planificado: ver docs/security/remediation-fase1-api.md. Sunset: 2027-01-24.
   app.use('/api/v1/cash-payment',
+    createDeprecationNotice({
+      logger: security.logger,
+      successor: '/api/v1/payments/cash-payment',
+      sunset: 'Sun, 24 Jan 2027 00:00:00 GMT',
+    }),
     requireApiKey,
     paymentRateLimiter,
     cashPaymentRoutes

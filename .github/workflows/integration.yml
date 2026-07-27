@@ -12,6 +12,10 @@ on:
     branches: [main]
   workflow_dispatch:   # permite dispararlo manualmente desde la pestaña Actions
 
+# Mínimo privilegio: solo lectura del repo.
+permissions:
+  contents: read
+
 jobs:
   integration:
     name: ${{ matrix.service }} integration

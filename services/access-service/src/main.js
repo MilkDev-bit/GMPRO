@@ -17,6 +17,7 @@ const express = require('express');
 const { createSecurityMiddleware }    = require('../../../packages_shared/security');
 const { createUserRateLimiter }       = require('../../../packages_shared/security/rateLimiter');
 const { createJwtVerifyMiddleware }   = require('../../../packages_shared/security/jwtVerify');
+const { createDeprecationNotice }     = require('../../../packages_shared/security/deprecation');
 const { requireTurnstileApiKey }      = require('./middlewares/turnstileAuth');
 
 const qrRoutes         = require('./routes/qrRoutes');
@@ -106,18 +107,27 @@ async function bootstrap() {
   });
 
   // ── 1. Endpoints directos requeridos por Tareas 3.2 y 3.3 ─────────────────
+  // API9: existen variantes SIN versión (legacy) y CON versión /api/v1. Las
+  // versionadas son las canónicas; las NO versionadas quedan DEPRECADAS (headers
+  // Deprecation/Sunset + log DEPRECATED_ROUTE_USED) pero SIGUEN FUNCIONANDO para
+  // no romper clientes ya publicados (p. ej. reception-hardware-controller node
+  // llama /validate-ticket sin versión). Retiro planificado: ver
+  // docs/security/remediation-fase1-api.md. Sunset objetivo: 2027-01-24.
+  const SUNSET = 'Sun, 24 Jan 2027 00:00:00 GMT';
+  const deprecated = (successor) => createDeprecationNotice({ logger: security.logger, successor, sunset: SUNSET });
+
   // Tarea 3.2: /generate-qr (GET)
-  app.get('/generate-qr',        jwtVerify, qrRateLimiter, qrController.generateQr);
+  app.get('/generate-qr',        deprecated('/api/v1/generate-qr'), jwtVerify, qrRateLimiter, qrController.generateQr);
   app.get('/api/v1/generate-qr', jwtVerify, qrRateLimiter, qrController.generateQr);
 
   // /create-ticket (POST) -> SOLO staff/admin + rate limit anti-emisión masiva.
   // ORDEN CRÍTICO: staffOnlyVerify ANTES del limitador para que este keye por
   // req.user.id (por-usuario) y no por IP. Ver nota en ticketRoutes.js.
-  app.post('/create-ticket',        staffOnlyVerify, ticketCreateRateLimiter, ticketController.createTicket);
+  app.post('/create-ticket',        deprecated('/api/v1/create-ticket'), staffOnlyVerify, ticketCreateRateLimiter, ticketController.createTicket);
   app.post('/api/v1/create-ticket', staffOnlyVerify, ticketCreateRateLimiter, ticketController.createTicket);
 
   // Tarea 3.3: /validate-ticket (POST) -> Protegido por API Key del torniquete + Rate Limiter
-  app.post('/validate-ticket',        validateRateLimiter, requireTurnstileApiKey, ticketController.validateTicket);
+  app.post('/validate-ticket',        deprecated('/api/v1/validate-ticket'), validateRateLimiter, requireTurnstileApiKey, ticketController.validateTicket);
   app.post('/api/v1/validate-ticket', validateRateLimiter, requireTurnstileApiKey, ticketController.validateTicket);
 
   // ── 2. Rutas modulares agrupadas /api/v1/... ──────────────────────────────

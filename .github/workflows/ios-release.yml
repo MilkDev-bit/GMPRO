@@ -5,6 +5,10 @@ on:
   push:
     tags: ['v*']
 
+# Mínimo privilegio: checkout + subir artefactos del run (no crea releases ni push).
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: apps/gym_mobile_app
