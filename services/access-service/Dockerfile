@@ -1,19 +1,19 @@
 # =============================================================================
 # GymPro · access-service · Dockerfile (Monorepo Root Context)
 # =============================================================================
-FROM node:22-alpine AS deps
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS deps
 RUN apk add --no-cache dumb-init
 WORKDIR /app
 COPY services/access-service/package*.json ./services/access-service/
 WORKDIR /app/services/access-service
 RUN npm ci --omit=dev --frozen-lockfile --prefer-offline
 
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS builder
 WORKDIR /app
 COPY --from=deps /app/services/access-service/node_modules ./services/access-service/node_modules
 COPY services/access-service ./services/access-service
 
-FROM node:22-alpine AS production
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS production
 LABEL org.opencontainers.image.title="GymPro Access Service"
 COPY --from=deps /usr/bin/dumb-init /usr/bin/dumb-init
 ENV NODE_ENV=production
