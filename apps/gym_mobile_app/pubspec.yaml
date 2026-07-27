@@ -30,7 +30,7 @@ dependencies:
   connectivity_plus: ^6.1.0       # Escucha de cambios de red para disparar la sincronización
 
   # ── Cliente HTTP y Red ──────────────────────────────────────────────────────
-  dio: ^5.7.0                     # Cliente HTTP robusto con interceptores para JWT y reintentos
+  dio: ^5.11.0                     # Cliente HTTP robusto con interceptores para JWT y reintentos
 
   # ── Certificate Pinning (SPKI) ──────────────────────────────────────────────
   crypto: ^3.0.3                  # SHA-256 del SubjectPublicKeyInfo (pin SPKI)
