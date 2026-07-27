@@ -129,7 +129,7 @@ services:
       - NODE_ENV=development
       - PORT=3004
       - AUTH_SERVICE_INTERNAL_URL=http://auth-service:3001
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?define REDIS_PASSWORD}@redis:6379
     depends_on:
       auth-service:
         condition: service_healthy
@@ -165,7 +165,7 @@ services:
       - PORT=3005
       - FITNESS_SERVICE_INTERNAL_URL=http://fitness-service:3004
       - AUTH_SERVICE_INTERNAL_URL=http://auth-service:3001
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?define REDIS_PASSWORD}@redis:6379
     depends_on:
       auth-service:
         condition: service_healthy
@@ -190,16 +190,19 @@ services:
   redis:
     image: redis:7-alpine
     container_name: gympro-redis
-    ports:
-      - "6379:6379"
-    command: redis-server --save 60 1 --loglevel warning
+    # CLD-5: NO publicar el puerto al host. Solo accesible en la red interna
+    # 'gympro-network' por los servicios. 'expose' documenta el puerto sin mapearlo.
+    expose:
+      - "6379"
+    # CLD-5: autenticación obligatoria. Define REDIS_PASSWORD en tu entorno/.env raíz.
+    command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD:?define REDIS_PASSWORD}
     volumes:
       - redis-data:/data
     networks:
       - gympro-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
