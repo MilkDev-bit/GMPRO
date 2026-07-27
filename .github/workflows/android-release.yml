@@ -11,6 +11,10 @@ on:
   push:
     tags: ['v*']
 
+# Mínimo privilegio: checkout + subir artefactos del run (no crea releases ni push).
+permissions:
+  contents: read
+
 # Directorio del proyecto Flutter (monorepo).
 defaults:
   run:
