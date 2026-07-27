@@ -1,0 +1,125 @@
+name: Security — SCA · SBOM · Image scan
+
+# A03-3 / A03-4 / CLD-3.
+# IMPORTANTE (política anti-ruptura): TODO arranca en modo REPORT-ONLY (no rompe
+# el pipeline aunque haya CVEs preexistentes sin parche). Primero se revisa el
+# backlog inicial; para activar el GATE bloqueante, ver los comentarios "GATE:"
+# de abajo y remediation-fase2.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"   # lunes 06:00 UTC — barrido semanal
+
+# Mínimo privilegio (A03-1). security-events: write permite subir SARIF a la
+# pestaña Security → Code scanning (visibilidad sin bloquear).
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ── SCA: vulnerabilidades en dependencias (lockfiles) ──────────────────────
+  sca-osv:
+    name: SCA (OSV-Scanner)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4  # TODO A03-2: pin a SHA
+      # OSV-Scanner recorre los package-lock.json y pubspec.lock del repo.
+      # reporter/format sarif → Security tab. NO falla el job (report-only).
+      - name: OSV-Scanner (report-only)
+        uses: google/osv-scanner-action/osv-scanner-action@v1  # TODO: pin a SHA
+        continue-on-error: true      # GATE: quitar esta línea para bloquear en vuln
+        with:
+          scan-args: |-
+            --recursive
+            --format=sarif
+            --output=osv.sarif
+            ./
+      - name: Subir SARIF de OSV
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3  # TODO: pin a SHA
+        with:
+          sarif_file: osv.sarif
+          category: osv-scanner
+
+  # ── npm audit por servicio (report-only) ───────────────────────────────────
+  npm-audit:
+    name: npm audit (report-only)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - services/auth-service
+          - services/access-service
+          - services/payment-service
+          - services/fitness-service
+          - services/ai-service
+          - packages_shared
+          - apps/admin-web
+    steps:
+      - uses: actions/checkout@v4  # TODO A03-2: pin a SHA
+      - uses: actions/setup-node@v4  # TODO: pin a SHA
+        with: { node-version: "22" }
+      - name: npm audit --omit=dev (report; GATE con --audit-level=high)
+        working-directory: ${{ matrix.service }}
+        run: |
+          npm audit --omit=dev --audit-level=high || \
+            echo "::warning::Vulnerabilidades detectadas en ${{ matrix.service }} (report-only; ver backlog antes de activar el gate)"
+
+  # ── SBOM CycloneDX por componente (adjunto como artefacto) ─────────────────
+  sbom:
+    name: SBOM (Syft · CycloneDX)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - services/auth-service
+          - services/access-service
+          - services/payment-service
+          - services/fitness-service
+          - services/ai-service
+          - apps/admin-web
+    steps:
+      - uses: actions/checkout@v4  # TODO A03-2: pin a SHA
+      - name: Generar SBOM CycloneDX
+        uses: anchore/sbom-action@v0  # TODO: pin a SHA
+        with:
+          path: ${{ matrix.component }}
+          format: cyclonedx-json
+          artifact-name: sbom-${{ matrix.component == 'apps/admin-web' && 'admin-web' || matrix.component }}.cdx.json
+      # En un tag de release, adjuntar el SBOM al release lo hace sbom-action
+      # automáticamente si el evento es 'release'; aquí queda como artefacto del run.
+
+  # ── Escaneo de IMÁGENES Docker construidas (Trivy) ─────────────────────────
+  # Solo en despliegue manual o tags (construir 5 imágenes es costoso en cada push).
+  image-scan:
+    name: Trivy image (report-only)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth-service, access-service, payment-service, fitness-service, ai-service]
+    steps:
+      - uses: actions/checkout@v4  # TODO A03-2: pin a SHA
+      - name: Build image
+        run: docker build -f services/${{ matrix.service }}/Dockerfile -t gympro/${{ matrix.service }}:scan .
+      - name: Trivy scan (report-only)
+        uses: aquasecurity/trivy-action@0.28.0  # TODO: pin a SHA
+        with:
+          image-ref: gympro/${{ matrix.service }}:scan
+          format: sarif
+          output: trivy-${{ matrix.service }}.sarif
+          severity: HIGH,CRITICAL
+          exit-code: "0"   # GATE: poner "1" para bloquear en HIGH/CRITICAL
+      - name: Subir SARIF de Trivy
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3  # TODO: pin a SHA
+        with:
+          sarif_file: trivy-${{ matrix.service }}.sarif
+          category: trivy-${{ matrix.service }}

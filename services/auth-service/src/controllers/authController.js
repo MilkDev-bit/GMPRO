@@ -153,6 +153,13 @@ async function login(req, res, next) {
         }
       }
 
+      // A09-3: evento para detección de ráfagas de 401 en /login (alerta SIEM/Sentry).
+      // NO se loguea el email completo (PII); solo el dominio para detectar patrones.
+      logger.warn('Login fallido', {
+        event: 'LOGIN_FAILED',
+        ip: req.ip,
+        emailDomain: String(email || '').split('@')[1] || null,
+      });
       return res.status(401).json({
         success: false, data: null,
         error: 'Email o contraseña incorrectos.',
