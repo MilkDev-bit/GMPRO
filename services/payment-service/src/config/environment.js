@@ -30,7 +30,8 @@ const ENV_SCHEMA = [
   { key: 'SUPABASE_URL',            required: true,  validate: (v) => v.startsWith('https://') },
   { key: 'SUPABASE_SERVICE_ROLE_KEY', required: true, validate: isValidSupabaseKey },
   { key: 'SUPABASE_DB_SCHEMA',      required: true },
-  { key: 'JWT_SECRET',              required: true,  validate: (v) => v.length >= 64 },
+  // JWT_SECRET (HS512) opcional tras migración a RS256: requerido SOLO si no hay JWT_PUBLIC_KEY.
+  { key: 'JWT_SECRET',              required: false, validate: (v) => !v || v.length >= 64 },
   { key: 'JWT_ALGORITHM',           required: true },
   { key: 'STRIPE_SECRET_KEY',       required: true,  validate: (v) => v.startsWith('sk_') },
   { key: 'STRIPE_WEBHOOK_SECRET',   required: true,  validate: (v) => v.startsWith('whsec_') },
@@ -52,6 +53,11 @@ function validateEnvironment() {
       errors.push(`  ✗ ${key}: valor inválido`);
     }
   }
+  // Debe existir AL MENOS un mecanismo de verificación JWT: HS512 (JWT_SECRET) o RS256 (JWT_PUBLIC_KEY).
+  if (!process.env.JWT_SECRET && !process.env.JWT_PUBLIC_KEY) {
+    errors.push('  ✗ JWT: falta JWT_SECRET (HS512) o JWT_PUBLIC_KEY (RS256) — se requiere al menos uno');
+  }
+
   if (errors.length > 0) {
     logger.error('Configuración inválida:\n' + errors.join('\n'));
     process.exit(1);

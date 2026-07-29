@@ -40,7 +40,8 @@ const ENV_SCHEMA = [
     validate: isValidSupabaseKey,
   },
   { key: "SUPABASE_DB_SCHEMA", required: true },
-  { key: "JWT_SECRET", required: true, validate: (v) => v.length >= 64 },
+  // JWT_SECRET (HS512) opcional tras migración a RS256: requerido SOLO si no hay JWT_PUBLIC_KEY.
+  { key: "JWT_SECRET", required: false, validate: (v) => !v || v.length >= 64 },
   {
     key: "INTER_SERVICE_SECRET",
     required: true,
@@ -61,6 +62,11 @@ function validateEnvironment() {
       errors.push(`  ✗ ${key}: valor o formato inválido`);
     }
   }
+  // Debe existir AL MENOS un mecanismo de verificación JWT: HS512 (JWT_SECRET) o RS256 (JWT_PUBLIC_KEY).
+  if (!process.env.JWT_SECRET && !process.env.JWT_PUBLIC_KEY) {
+    errors.push('  ✗ JWT: falta JWT_SECRET (HS512) o JWT_PUBLIC_KEY (RS256) — se requiere al menos uno');
+  }
+
   if (errors.length > 0) {
     logger.error(
       "Configuración inválida en fitness-service:\n" + errors.join("\n"),

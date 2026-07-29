@@ -30,7 +30,8 @@ const ENV_SCHEMA = [
   { key: 'SUPABASE_URL',            required: true,  validate: (v) => v.startsWith('https://') },
   { key: 'SUPABASE_SERVICE_ROLE_KEY', required: true, validate: isValidSupabaseKey },
   { key: 'SUPABASE_DB_SCHEMA',      required: true },
-  { key: 'JWT_SECRET',              required: true,  validate: (v) => v.length >= 64 },
+  // JWT_SECRET (HS512) opcional tras migración a RS256: requerido SOLO si no hay JWT_PUBLIC_KEY.
+  { key: 'JWT_SECRET',              required: false, validate: (v) => !v || v.length >= 64 },
   { key: 'INTER_SERVICE_SECRET',    required: true,  validate: (v) => v.length >= 32 },
   { key: 'AI_PROVIDER',             required: true,  validate: (v) => ['gemini','openai'].includes(v.toLowerCase()) },
   { key: 'FITNESS_SERVICE_INTERNAL_URL', required: true, validate: (v) => v.startsWith('http') },
@@ -55,6 +56,11 @@ function validateEnvironment() {
   }
   if (provider === 'openai' && !process.env.OPENAI_API_KEY) {
     errors.push('  ✗ OPENAI_API_KEY: requerido para AI_PROVIDER=openai');
+  }
+
+  // Debe existir AL MENOS un mecanismo de verificación JWT: HS512 (JWT_SECRET) o RS256 (JWT_PUBLIC_KEY).
+  if (!process.env.JWT_SECRET && !process.env.JWT_PUBLIC_KEY) {
+    errors.push('  ✗ JWT: falta JWT_SECRET (HS512) o JWT_PUBLIC_KEY (RS256) — se requiere al menos uno');
   }
 
   if (errors.length > 0) {

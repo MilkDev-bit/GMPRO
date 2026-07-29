@@ -37,7 +37,7 @@ const { createJwtVerifyMiddleware }   = require('../../../packages_shared/securi
 const REQUIRED_ENV = [
   'NODE_ENV', 'PORT',
   'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-  'JWT_SECRET', 'INTER_SERVICE_SECRET',
+  'INTER_SERVICE_SECRET',
   'AI_PROVIDER',
 ];
 

@@ -26,7 +26,7 @@ const { createAuthRateLimiter, createUserRateLimiter, createIpRateLimiter, creat
 // antes de servir cualquier request. Railway lo detectará como unhealthy.
 const REQUIRED_ENV = [
   'NODE_ENV', 'PORT', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-  'JWT_SECRET', 'BCRYPT_ROUNDS',
+  'BCRYPT_ROUNDS',
 ];
 
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
