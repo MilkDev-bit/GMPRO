@@ -39,6 +39,11 @@ jobs:
         --recursive
         ./
       fail-on-vuln: false
+      # El repo no tiene GitHub Code Security → NO subir SARIF al Security tab
+      # (fallaría). Report-only: resultados visibles en los logs del job.
+      # Para reactivar la integración con Security tab: upload-sarif: true
+      # (requiere repo público o GitHub Advanced Security).
+      upload-sarif: false
 
   # ── npm audit por servicio (report-only) ───────────────────────────────────
   npm-audit:
@@ -114,9 +119,13 @@ jobs:
           output: trivy-${{ matrix.service }}.sarif
           severity: HIGH,CRITICAL
           exit-code: "0"   # GATE: poner "1" para bloquear en HIGH/CRITICAL
-      - name: Subir SARIF de Trivy
+      # El repo no tiene GitHub Code Security → guardamos el SARIF como ARTEFACTO
+      # descargable en vez de subirlo al Security tab (que fallaría). Para volver
+      # a la integración con Security tab, sustituir por github/codeql-action/upload-sarif.
+      - name: Guardar SARIF de Trivy (artefacto)
         if: always()
-        uses: github/codeql-action/upload-sarif@v3  # TODO: pin a SHA
+        uses: actions/upload-artifact@v4  # TODO: pin a SHA
         with:
-          sarif_file: trivy-${{ matrix.service }}.sarif
-          category: trivy-${{ matrix.service }}
+          name: trivy-${{ matrix.service }}.sarif
+          path: trivy-${{ matrix.service }}.sarif
+          if-no-files-found: warn
