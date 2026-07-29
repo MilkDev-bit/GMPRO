@@ -57,18 +57,27 @@ class SecurityGuard extends ChangeNotifier {
   /// valores reales de firma/bundle antes de release, o la atestación fallará.
   TalsecConfig _buildConfig() => TalsecConfig(
         androidConfig: AndroidConfig(
-          packageName: 'com.gympro.app', // ⚠ REEMPLAZAR con el applicationId real
+          // AND-3: CONFIRMADO desde build.gradle.kts (applicationId/namespace),
+          // ambos fastlane/Appfile y las entitlements → com.gympro.mobile.
+          packageName: 'com.gympro.mobile',
           signingCertHashes: const [
-            // SHA-256 (base64) del certificado de firma de RELEASE. Obtener con:
-            //   keytool -list -v -keystore <release.jks> -alias <alias>
-            //   (toma el SHA256 y conviértelo de hex a base64). ⚠ REEMPLAZAR.
-            'REEMPLAZAR_SHA256_BASE64_DEL_CERT_DE_FIRMA=',
+            // ⚠ PENDIENTE (acoplado a AND-1): SHA-256 (base64) del certificado de
+            //   firma de RELEASE. NO confirmable sin el keystore de producción
+            //   (aún no existe). Tras generarlo (ver remediation-fase1-movil.md):
+            //     keytool -list -v -keystore <release.jks> -alias <alias>
+            //     → toma el SHA-256 (hex), conviértelo a base64 y ponlo aquí.
+            //   Con este valor centinela, la atestación de firma FALLARÁ en release
+            //   → NO publicar hasta reemplazarlo (ver nota de validación manual).
+            'PENDIENTE_SHA256_BASE64_CERT_RELEASE',
           ],
           supportedStores: const ['com.android.vending'],
         ),
         iosConfig: IOSConfig(
-          bundleIds: const ['com.gympro.app'], // ⚠ REEMPLAZAR
-          teamId: 'REEMPLAZAR_TEAMID',
+          // AND-3: CONFIRMADO (ExportOptions.plist, entitlements, Appfile) → com.gympro.mobile.
+          bundleIds: const ['com.gympro.mobile'],
+          // ⚠ PENDIENTE: Apple Developer Team ID (10 chars). No está en el repo;
+          //   obtener en developer.apple.com (Membership) o del perfil de firma.
+          teamId: 'PENDIENTE_APPLE_TEAM_ID',
         ),
         watcherMail: 'security@gympro-ai.com',
         // En debug Talsec relaja checks (p.ej. debugger) para no romper el
