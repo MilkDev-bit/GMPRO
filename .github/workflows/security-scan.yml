@@ -20,31 +20,25 @@ on:
 permissions:
   contents: read
   security-events: write
+  actions: read            # requerido por codeql upload-sarif y el reusable de OSV
 
 jobs:
   # ── SCA: vulnerabilidades en dependencias (lockfiles) ──────────────────────
+  # Reusable workflow OFICIAL de OSV-Scanner (no un composite action como step).
+  # Recorre package-lock.json / pubspec.lock, sube SARIF al Security tab él mismo.
+  # report-only: fail-on-vuln=false (GATE: poner true para bloquear en vuln).
   sca-osv:
     name: SCA (OSV-Scanner)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4  # TODO A03-2: pin a SHA
-      # OSV-Scanner recorre los package-lock.json y pubspec.lock del repo.
-      # reporter/format sarif → Security tab. NO falla el job (report-only).
-      - name: OSV-Scanner (report-only)
-        uses: google/osv-scanner-action/osv-scanner-action@v1  # TODO: pin a SHA
-        continue-on-error: true      # GATE: quitar esta línea para bloquear en vuln
-        with:
-          scan-args: |-
-            --recursive
-            --format=sarif
-            --output=osv.sarif
-            ./
-      - name: Subir SARIF de OSV
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3  # TODO: pin a SHA
-        with:
-          sarif_file: osv.sarif
-          category: osv-scanner
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8
+    with:
+      scan-args: |-
+        --recursive
+        ./
+      fail-on-vuln: false
 
   # ── npm audit por servicio (report-only) ───────────────────────────────────
   npm-audit:
@@ -76,22 +70,25 @@ jobs:
     name: SBOM (Syft · CycloneDX)
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        component:
-          - services/auth-service
-          - services/access-service
-          - services/payment-service
-          - services/fitness-service
-          - services/ai-service
-          - apps/admin-web
+        # path = qué escanear; name = etiqueta SIN '/' (el artifact-name no admite
+        # barras: rompía la ruta temporal → ENOENT sbom-services/...).
+        include:
+          - { path: services/auth-service,    name: auth-service }
+          - { path: services/access-service,  name: access-service }
+          - { path: services/payment-service, name: payment-service }
+          - { path: services/fitness-service, name: fitness-service }
+          - { path: services/ai-service,      name: ai-service }
+          - { path: apps/admin-web,           name: admin-web }
     steps:
       - uses: actions/checkout@v4  # TODO A03-2: pin a SHA
       - name: Generar SBOM CycloneDX
         uses: anchore/sbom-action@v0  # TODO: pin a SHA
         with:
-          path: ${{ matrix.component }}
+          path: ${{ matrix.path }}
           format: cyclonedx-json
-          artifact-name: sbom-${{ matrix.component == 'apps/admin-web' && 'admin-web' || matrix.component }}.cdx.json
+          artifact-name: sbom-${{ matrix.name }}.cdx.json
       # En un tag de release, adjuntar el SBOM al release lo hace sbom-action
       # automáticamente si el evento es 'release'; aquí queda como artefacto del run.
 
