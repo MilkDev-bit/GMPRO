@@ -40,17 +40,30 @@ const jwt       = require('jsonwebtoken');
 // ── Aislamiento de BD y Stripe ────────────────────────────────────────────────
 jest.mock('../src/models/offerModel');
 jest.mock('../src/models/subscriptionModel');
+jest.mock('../src/models/paymentHistoryModel');
 jest.mock('../src/services/biometricNotificationService', () => ({
   notifyBiometricSync:   jest.fn(),
   notifyBiometricDelete: jest.fn(),
 }));
 
+// Stub de Supabase para el lookup biométrico (getAuthDbClient en el webhook).
+// Cadena from().select().eq().is().limit().single() → data null → sin PIN → se
+// omite la sincronización ZKTeco, manteniendo el test hermético (sin red).
+jest.mock('@supabase/supabase-js', () => {
+  const chain = {
+    select: () => chain, eq: () => chain, is: () => chain, limit: () => chain,
+    single: async () => ({ data: null, error: null }),
+  };
+  return { createClient: () => ({ from: () => chain }) };
+});
+
 // Cliente Stripe mockeado (prefijo `mock` → permitido en la factory hoisteada).
 const mockStripe = {
-  customers: { create: jest.fn() },
-  coupons:   { retrieve: jest.fn(), create: jest.fn() },
-  checkout:  { sessions: { create: jest.fn() } },
-  webhooks:  { constructEvent: jest.fn() },
+  customers:     { create: jest.fn() },
+  coupons:       { retrieve: jest.fn(), create: jest.fn() },
+  checkout:      { sessions: { create: jest.fn() } },
+  subscriptions: { retrieve: jest.fn(), cancel: jest.fn() },
+  webhooks:      { constructEvent: jest.fn() },
 };
 jest.mock('../src/config/stripe', () => ({
   getStripeClient:    () => mockStripe,
@@ -58,9 +71,10 @@ jest.mock('../src/config/stripe', () => ({
 }));
 
 // Módulos bajo prueba (ya con los mocks aplicados).
-const offerModel         = require('../src/models/offerModel');
-const subscriptionModel  = require('../src/models/subscriptionModel');
-const createAdminRoutes  = require('../src/routes/adminRoutes');
+const offerModel          = require('../src/models/offerModel');
+const subscriptionModel   = require('../src/models/subscriptionModel');
+const paymentHistoryModel = require('../src/models/paymentHistoryModel');
+const createAdminRoutes   = require('../src/routes/adminRoutes');
 const paymentRoutes      = require('../src/routes/paymentRoutes');
 const { handleStripeWebhook } = require('../src/controllers/webhookController');
 
@@ -431,6 +445,121 @@ describe('Bloque 3 · Webhook checkout.session.completed (canje)', () => {
     const res = await invoke(event);
 
     expect(offerModel.incrementOfferUsage).toHaveBeenCalledWith('GHOST');
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOQUE 4 — GET /api/v1/admin/finance/series (serie temporal, RBAC + validación)
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Bloque 4 · GET /api/v1/admin/finance/series', () => {
+  const app = buildAdminApp();
+
+  const sample = {
+    moneda: 'MXN',
+    ingresos: [{ ym: '2026-06', label: 'Jun 26', value: 1200 }],
+    altasBajas: [{ ym: '2026-06', label: 'Jun 26', altas: 4, bajas: 1 }],
+  };
+
+  test('403 si el rol NO está en STAFF_ROLES', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/finance/series')
+      .set('Authorization', `Bearer ${signToken('miembro')}`);
+    expect(res.status).toBe(403);
+    expect(subscriptionModel.financeSeries).not.toHaveBeenCalled();
+  });
+
+  test('200 devuelve la serie y propaga months al modelo', async () => {
+    subscriptionModel.financeSeries.mockResolvedValue(sample);
+    const res = await request(app)
+      .get('/api/v1/admin/finance/series?months=24')
+      .set('Authorization', `Bearer ${signToken('admin')}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(sample);
+    expect(subscriptionModel.financeSeries).toHaveBeenCalledWith({ months: 24 });
+  });
+
+  test('200 sin months usa el valor por defecto (12)', async () => {
+    subscriptionModel.financeSeries.mockResolvedValue(sample);
+    const res = await request(app)
+      .get('/api/v1/admin/finance/series')
+      .set('Authorization', `Bearer ${signToken('staff')}`);
+    expect(res.status).toBe(200);
+    expect(subscriptionModel.financeSeries).toHaveBeenCalledWith({ months: 12 });
+  });
+
+  test('422 si months está fuera de rango (>36)', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/finance/series?months=99')
+      .set('Authorization', `Bearer ${signToken('admin')}`);
+    expect(res.status).toBe(422);
+    expect(subscriptionModel.financeSeries).not.toHaveBeenCalled();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOQUE 5 — Webhook invoice.paid asienta el ingreso en historial_pagos
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Bloque 5 · Webhook invoice.paid → ledger de ingresos', () => {
+  beforeEach(() => {
+    subscriptionModel.claimWebhookEvent.mockResolvedValue({ claimed: true });
+    subscriptionModel.releaseWebhookEvent.mockResolvedValue(undefined);
+    subscriptionModel.activateAfterPayment.mockResolvedValue({});
+    // localSub (y el re-fetch para biometría) con usuario_id.
+    subscriptionModel.findByStripeSubscriptionId.mockResolvedValue({
+      id: 'sub-local-1', usuario_id: 'user-9',
+    });
+    // Suscripción de Stripe con periodo e ítem de precio.
+    mockStripe.subscriptions.retrieve.mockResolvedValue({
+      current_period_start: 1_700_000_000,
+      current_period_end:   1_702_592_000,
+      items: { data: [{ price: { nickname: 'Plan Mensual' } }] },
+    });
+  });
+
+  function invoke(event) {
+    mockStripe.webhooks.constructEvent.mockReturnValue(event);
+    const req = { headers: { 'stripe-signature': 'sig' }, rawBody: Buffer.from('{}') };
+    const res = makeRes();
+    return handleStripeWebhook(req, res).then(() => res);
+  }
+
+  const invoiceEvent = (over = {}) => ({
+    id: 'evt_paid_1', type: 'invoice.paid',
+    data: { object: {
+      subscription: 'sub_stripe_1', customer: 'cus_1',
+      amount_paid: 50000, currency: 'mxn', number: 'INV-001', id: 'in_1', ...over,
+    } },
+  });
+
+  test('asienta el pago online con monto, moneda y stripeEventId', async () => {
+    paymentHistoryModel.recordOnlinePayment.mockResolvedValue({ id: 'hp-1' });
+
+    const res = await invoke(invoiceEvent());
+
+    expect(paymentHistoryModel.recordOnlinePayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usuarioId: 'user-9',
+        suscripcionId: 'sub-local-1',
+        monto: 500,            // 50000 centavos / 100
+        moneda: 'MXN',
+        stripeEventId: 'evt_paid_1',
+        numeroRecibo: 'INV-001',
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+  });
+
+  test('NO asienta si el monto pagado es 0 (p. ej. cupón 100%)', async () => {
+    const res = await invoke(invoiceEvent({ amount_paid: 0 }));
+    expect(paymentHistoryModel.recordOnlinePayment).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+  });
+
+  test('un fallo del ledger NO rompe el webhook (best-effort → 200)', async () => {
+    paymentHistoryModel.recordOnlinePayment.mockRejectedValue(new Error('db down'));
+    const res = await invoke(invoiceEvent());
+    expect(paymentHistoryModel.recordOnlinePayment).toHaveBeenCalled();
     expect(res.statusCode).toBe(200);
   });
 });

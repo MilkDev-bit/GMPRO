@@ -92,4 +92,74 @@ async function recordCashPayment({
   return data;
 }
 
-module.exports = { recordCashPayment, generateReceiptFolio };
+/**
+ * Registra un asiento de pago ONLINE (Stripe) en el ledger. Lo invoca el webhook
+ * invoice.paid. Es IDEMPOTENTE: el índice único uq_hp_stripe_event impide que un
+ * mismo evento se asiente dos veces (una re-entrega de Stripe → 23505 → no-op).
+ *
+ * @param {object} params
+ * @param {string}  params.usuarioId
+ * @param {string}  [params.suscripcionId]
+ * @param {number}  params.monto                 - Monto cobrado (>0), en unidades (no centavos)
+ * @param {string}  [params.moneda='MXN']
+ * @param {string}  [params.planNombre]
+ * @param {number}  [params.planDuracionDias]
+ * @param {string}  [params.periodoDesde]        - ISO8601
+ * @param {string}  [params.periodoHasta]        - ISO8601
+ * @param {string}  params.stripeEventId         - evt_… (trazabilidad + idempotencia)
+ * @param {string}  [params.numeroRecibo]        - nº de factura Stripe
+ * @returns {Promise<object|null>} Asiento creado, o null si ya existía.
+ */
+async function recordOnlinePayment({
+  usuarioId,
+  suscripcionId = null,
+  monto,
+  moneda = 'MXN',
+  planNombre = null,
+  planDuracionDias = null,
+  periodoDesde = null,
+  periodoHasta = null,
+  stripeEventId,
+  numeroRecibo = null,
+}) {
+  const db = getSupabaseClient();
+
+  const { data, error } = await db
+    .from('historial_pagos')
+    .insert({
+      usuario_id:         usuarioId,
+      suscripcion_id:     suscripcionId,
+      monto,
+      moneda,
+      metodo_pago:        'stripe',
+      estado_pago:        'completed',
+      plan_nombre:        planNombre,
+      plan_duracion_dias: planDuracionDias,
+      periodo_desde:      periodoDesde,
+      periodo_hasta:      periodoHasta,
+      numero_recibo:      numeroRecibo,
+      receptionist_id:    null,
+      stripe_event_id:    stripeEventId,
+    })
+    .select('id, numero_recibo')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      // Evento ya asentado (re-entrega de Stripe) → idempotente, no es error.
+      logger.info('Pago online ya asentado, se omite (evento duplicado)', { stripeEventId });
+      return null;
+    }
+    logger.error('Error asentando pago online en historial_pagos', {
+      usuarioId, stripeEventId, error: error.message,
+    });
+    throw error;
+  }
+
+  logger.info('Asiento de pago online (Stripe) registrado', {
+    id: data.id, usuarioId, monto, stripeEventId,
+  });
+  return data;
+}
+
+module.exports = { recordCashPayment, recordOnlinePayment, generateReceiptFolio };
