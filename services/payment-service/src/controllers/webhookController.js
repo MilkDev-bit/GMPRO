@@ -38,6 +38,7 @@ const { getStripeClient }        = require('../config/stripe');
 const env                        = require('../config/environment');
 const subscriptionModel          = require('../models/subscriptionModel');
 const offerModel                 = require('../models/offerModel');
+const paymentHistoryModel        = require('../models/paymentHistoryModel');
 const { notifyBiometricSync,
         notifyBiometricDelete }  = require('../services/biometricNotificationService');
 const { createServiceLogger }    = require('../../../../packages_shared/security/logger');
@@ -365,6 +366,31 @@ async function handleInvoicePaid(event) {
     monto: invoice.amount_paid / 100,
     moneda: invoice.currency,
   });
+
+  // ── ASIENTO EN EL LEDGER DE INGRESOS (historial_pagos) ────────────────────
+  // Best-effort: la suscripción YA quedó activada arriba; si el asiento falla no
+  // revertimos ese estado. Idempotente por stripe_event_id (índice único).
+  const montoPagado = (invoice.amount_paid || 0) / 100;
+  if (montoPagado > 0 && localSub?.usuario_id) {
+    try {
+      await paymentHistoryModel.recordOnlinePayment({
+        usuarioId:        localSub.usuario_id,
+        suscripcionId:    localSub.id,
+        monto:            montoPagado,
+        moneda:           invoice.currency ? invoice.currency.toUpperCase() : 'MXN',
+        planNombre:       subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
+        planDuracionDias: duracionDias,
+        periodoDesde:     periodStart.toISOString(),
+        periodoHasta:     periodEnd.toISOString(),
+        stripeEventId:    event.id,
+        numeroRecibo:     invoice.number || invoice.id,
+      });
+    } catch (e) {
+      logger.warn('No se pudo asentar el pago online en historial_pagos', {
+        eventId: event.id, error: e.message,
+      });
+    }
+  }
 
   // ── SINCRONIZACIÓN BIOMÉTRICA ZKTECO (fire-and-forget) ───────────────────
   // Obtener el usuario_id de la suscripción local para leer su pin_terminal

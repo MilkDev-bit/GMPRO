@@ -33,6 +33,14 @@ module.exports = function createAdminRoutes({ redisClient = null } = {}) {
   router.get('/finance/summary', staffOnly, adminController.financeSummary);
 
   router.get(
+    '/finance/series',
+    staffOnly,
+    [query('months').optional().isInt({ min: 1, max: 36 }).withMessage('months debe ser 1..36.')],
+    validate,
+    adminController.financeSeries,
+  );
+
+  router.get(
     '/subscriptions',
     staffOnly,
     [query('estado').optional().isIn(ESTADOS).withMessage('estado inválido.')],

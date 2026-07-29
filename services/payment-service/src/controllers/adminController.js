@@ -23,6 +23,17 @@ async function financeSummary(req, res, next) {
   }
 }
 
+// GET /api/v1/admin/finance/series?months=
+async function financeSeries(req, res, next) {
+  try {
+    const months = req.query.months ? Number(req.query.months) : 12;
+    const series = await subscriptionModel.financeSeries({ months });
+    return res.status(200).json({ success: true, data: series, error: null });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // GET /api/v1/admin/subscriptions?estado=
 async function listSubscriptions(req, res, next) {
   try {
@@ -120,6 +131,7 @@ async function setOfferActive(req, res, next) {
 
 module.exports = {
   financeSummary,
+  financeSeries,
   listSubscriptions,
   cancelSubscription,
   extendSubscription,

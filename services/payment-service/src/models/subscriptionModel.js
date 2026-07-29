@@ -462,6 +462,86 @@ async function financeSummary() {
   return { ingresosMes, moneda, suscripcionesActivas, suscripcionesPastDue, altasMes, bajasMes };
 }
 
+const MES_ABBR = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const monthKeyOf = (iso) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/**
+ * Serie mensual para el dashboard financiero (últimos `months` meses):
+ *   • ingresos:  suma de historial_pagos.monto (estado_pago='completed') por mes
+ *                de creado_en. Es el ledger REAL de cobros presenciales/terminal.
+ *   • altas:     suscripciones por mes de creado_en.
+ *   • bajas:     suscripciones canceladas por mes de cancelado_en.
+ *
+ * Incluye presencial (efectivo/terminal) y Stripe online: el webhook invoice.paid
+ * asienta cada cobro en historial_pagos (migración 008), por lo que esta consulta
+ * cubre ambos canales.
+ *
+ * El bucketing se hace en JS (PostgREST no agrupa por expresión de fecha).
+ */
+async function financeSeries({ months = 12 } = {}) {
+  const db = getSupabaseClient();
+  const m = Math.max(1, Math.min(Number(months) || 12, 36));
+  const now = new Date();
+  const windowStart = new Date(now.getFullYear(), now.getMonth() - (m - 1), 1).toISOString();
+
+  // Meses del rango (asc) + índice por clave YYYY-MM.
+  const keys = [];
+  const labels = {};
+  for (let i = 0; i < m; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - (m - 1) + i, 1);
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    keys.push(k);
+    labels[k] = `${MES_ABBR[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
+  }
+  const idx = Object.fromEntries(keys.map((k, i) => [k, i]));
+
+  const ingresos = new Array(m).fill(0);
+  const altas = new Array(m).fill(0);
+  const bajas = new Array(m).fill(0);
+
+  // Ingresos (ledger presencial).
+  const { data: pagos, error: e1 } = await db
+    .from('historial_pagos')
+    .select('monto, moneda, creado_en')
+    .eq('estado_pago', 'completed')
+    .gte('creado_en', windowStart);
+  if (e1) throw e1;
+  let moneda = 'MXN';
+  for (const p of pagos || []) {
+    const k = monthKeyOf(p.creado_en);
+    if (k in idx) ingresos[idx[k]] += Number(p.monto) || 0;
+    if (p.moneda) moneda = p.moneda;
+  }
+
+  // Altas.
+  const { data: nuevas, error: e2 } = await db
+    .from('suscripciones').select('creado_en').gte('creado_en', windowStart);
+  if (e2) throw e2;
+  for (const s of nuevas || []) {
+    const k = monthKeyOf(s.creado_en);
+    if (k in idx) altas[idx[k]] += 1;
+  }
+
+  // Bajas.
+  const { data: canceladas, error: e3 } = await db
+    .from('suscripciones').select('cancelado_en').eq('estado', 'cancelled').gte('cancelado_en', windowStart);
+  if (e3) throw e3;
+  for (const s of canceladas || []) {
+    if (!s.cancelado_en) continue;
+    const k = monthKeyOf(s.cancelado_en);
+    if (k in idx) bajas[idx[k]] += 1;
+  }
+
+  return {
+    moneda,
+    ingresos:   keys.map((k, i) => ({ ym: k, label: labels[k], value: ingresos[i] })),
+    altasBajas: keys.map((k, i) => ({ ym: k, label: labels[k], altas: altas[i], bajas: bajas[i] })),
+  };
+}
+
 /** Cancela una suscripción por id (marca estado y fecha). */
 async function cancelById(id) {
   const db = getSupabaseClient();
@@ -512,6 +592,7 @@ module.exports = {
   findById,
   listForAdmin,
   financeSummary,
+  financeSeries,
   cancelById,
   extendById,
 };

@@ -13,6 +13,7 @@ import { RevenueAreaChart } from '../components/charts/RevenueAreaChart';
 import { AltasBajasBarChart } from '../components/charts/AltasBajasBarChart';
 import { RetentionDonut } from '../components/charts/RetentionDonut';
 import { ingresosSeries, altasBajasSeries, lastDelta, type Period } from '../lib/financeSample';
+import { aggregateIngresos, lastAltasBajas, type FinanceSeriesDTO } from '../lib/financeSeries';
 import { FinanceIcon, UsersGroupIcon, AlertIcon, ArrowUpIcon, ArrowDownIcon } from '../components/icons';
 
 const PERIODS: readonly Period[] = ['Mensual', 'Trimestral', 'Anual'];
@@ -38,14 +39,21 @@ export function DashboardPage() {
     () => http.get<FinanceSummary>(`${API.payment}/admin/finance/summary`),
   );
 
-  // Series de MUESTRA derivadas del resumen (ver financeSample.ts).
+  // GET /admin/finance/series?months=36 — serie temporal REAL. Si el endpoint no
+  // existe todavía, `series` queda null y se cae a datos de muestra.
+  const { data: series } = useAsync<FinanceSeriesDTO>(
+    () => http.get<FinanceSeriesDTO>(`${API.payment}/admin/finance/series?months=36`),
+  );
+  const isSample = !series;
+
+  // Ingresos y altas/bajas: reales si hay serie, de muestra en su defecto.
   const ingresos = useMemo(
-    () => ingresosSeries(data?.ingresosMes ?? 0, period),
-    [data?.ingresosMes, period],
+    () => (series ? aggregateIngresos(series.ingresos, period) : ingresosSeries(data?.ingresosMes ?? 0, period)),
+    [series, data?.ingresosMes, period],
   );
   const altasBajas = useMemo(
-    () => altasBajasSeries(data?.altasMes ?? 0, data?.bajasMes ?? 0),
-    [data?.altasMes, data?.bajasMes],
+    () => (series ? lastAltasBajas(series.altasBajas) : altasBajasSeries(data?.altasMes ?? 0, data?.bajasMes ?? 0)),
+    [series, data?.altasMes, data?.bajasMes],
   );
   const mrrDelta = useMemo(() => lastDelta(ingresos), [ingresos]);
 
@@ -56,7 +64,8 @@ export function DashboardPage() {
     return den === 0 ? 0 : (data.suscripcionesActivas / den) * 100;
   }, [data]);
 
-  const muestra = <StatusBadge tone="amber">datos de muestra</StatusBadge>;
+  // Chip solo cuando los gráficos caen a datos de muestra (endpoint de serie ausente).
+  const muestra = isSample ? <StatusBadge tone="amber">datos de muestra</StatusBadge> : null;
 
   return (
     <div className="space-y-6">
@@ -111,8 +120,8 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <Card className="lg:col-span-2">
               <CardHeader
-                title="Ingresos recurrentes"
-                subtitle="Evolución del MRR"
+                title="Ingresos"
+                subtitle={isSample ? 'Evolución estimada del MRR' : 'Cobros registrados por mes'}
                 action={<PillFilter options={PERIODS} value={period} onChange={setPeriod} />}
               />
               <div className="flex items-center gap-3 mb-2">
