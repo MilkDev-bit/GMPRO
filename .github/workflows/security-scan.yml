@@ -116,7 +116,7 @@ jobs:
           exit-code: "0"   # GATE: poner "1" para bloquear en HIGH/CRITICAL
       - name: Subir SARIF de Trivy
         if: always()
-        uses: github/codeql-action/upload-sarif@v3  # TODO: pin a SHA
+        uses: github/codeql-action/upload-sarif@v4  # TODO: pin a SHA
         with:
           sarif_file: trivy-${{ matrix.service }}.sarif
           category: trivy-${{ matrix.service }}
