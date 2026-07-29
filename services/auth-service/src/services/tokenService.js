@@ -32,6 +32,10 @@ const logger = createServiceLogger('auth-service:tokenService');
 function generateAccessToken(user) {
   const jti = crypto.randomUUID();  // ID único para poder revocar este token específico
 
+  // A04-1: si hay clave PRIVADA configurada, firma ASIMÉTRICA (RS256/EdDSA);
+  // si no, mantiene la simétrica (HS*) → migración sin downtime. Los servicios
+  // verificadores aceptan AMBAS durante la convivencia (ver jwtVerify.js).
+  const useAsymmetric = !!env.JWT_PRIVATE_KEY;
   return jwt.sign(
     {
       sub:   user.id,
@@ -39,9 +43,9 @@ function generateAccessToken(user) {
       role:  user.rol,
       jti,
     },
-    env.JWT_SECRET,
+    useAsymmetric ? env.JWT_PRIVATE_KEY : env.JWT_SECRET,
     {
-      algorithm: env.JWT_ALGORITHM,
+      algorithm: useAsymmetric ? env.JWT_SIGN_ALGORITHM : env.JWT_ALGORITHM,
       expiresIn: env.JWT_EXPIRES_IN,
     }
   );

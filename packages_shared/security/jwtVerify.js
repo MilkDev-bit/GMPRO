@@ -25,12 +25,55 @@ const logger = createServiceLogger('jwt-verify');
 const JWT_SECRET    = process.env.JWT_SECRET;
 const JWT_ALGORITHM = process.env.JWT_ALGORITHM || 'HS512';
 
-if (!JWT_SECRET || JWT_SECRET.length < 64) {
-  logger.error('JWT_SECRET faltante o demasiado corto (mín. 64 chars). Proceso terminado.', {
+// ── A04-1: verificación ASIMÉTRICA (RS256/EdDSA) con CONVIVENCIA ──────────────
+// Durante la migración este verificador acepta tokens firmados con la CLAVE
+// PÚBLICA nueva (asimétrico) Y con el SECRETO simétrico viejo (HS*), hasta que
+// los tokens antiguos expiren de forma natural. auth-service firma con la clave
+// privada; el resto de servicios solo necesitan la clave PÚBLICA (distribuible
+// sin riesgo). Las claves pueden venir en PEM directo o en base64 (recomendado
+// en variables de entorno para evitar problemas con saltos de línea).
+function decodeKey(v) {
+  if (!v) return null;
+  return v.includes('BEGIN') ? v : Buffer.from(v, 'base64').toString('utf8');
+}
+const JWT_PUBLIC_KEY = decodeKey(process.env.JWT_PUBLIC_KEY);
+const JWT_VERIFY_ALGORITHMS = (process.env.JWT_VERIFY_ALGORITHMS || 'RS256')
+  .split(',').map((a) => a.trim()).filter(Boolean);
+
+const hasSymmetric  = !!JWT_SECRET && JWT_SECRET.length >= 64;
+const hasAsymmetric = !!JWT_PUBLIC_KEY;
+
+if (!hasSymmetric && !hasAsymmetric) {
+  logger.error('Config JWT inválida: se requiere JWT_SECRET (≥64) o JWT_PUBLIC_KEY. Proceso terminado.', {
     event:          'SECURITY_CONFIG_FAILURE',
-    recommendation: 'node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"',
+    recommendation: 'Simétrico: 64 bytes hex. Asimétrico: par RS256/EdDSA (auth firma, resto verifica con la pública).',
   });
   process.exit(1);
+}
+
+/**
+ * Verifica el token probando primero la firma ASIMÉTRICA (clave pública) y, si
+ * falla, la SIMÉTRICA (secreto viejo) durante la convivencia. Cada intento FIJA
+ * su algoritmo+clave, por lo que NO hay riesgo de confusión de algoritmo (un
+ * token HS firmado con la clave pública como secreto no valida contra RS256 con
+ * la pública, ni contra HS512 con JWT_SECRET).
+ * @param {string} token
+ * @returns {object} claims decodificados
+ * @throws el último error de verificación si ninguna vía valida.
+ */
+function verifyToken(token) {
+  let lastErr;
+  if (hasAsymmetric) {
+    try {
+      return jwt.verify(token, JWT_PUBLIC_KEY, { algorithms: JWT_VERIFY_ALGORITHMS, complete: false });
+    } catch (e) { lastErr = e; }
+  }
+  if (hasSymmetric) {
+    try {
+      return jwt.verify(token, JWT_SECRET, { algorithms: [JWT_ALGORITHM], complete: false });
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,11 +122,9 @@ function createJwtVerifyMiddleware(opts = {}) {
       }
 
       // ── Verificar firma y expiración ──────────────────────────────────────
-      // algorithms: whitelist explícita → rechaza automáticamente alg:none
-      const decoded = jwt.verify(token, JWT_SECRET, {
-        algorithms: [JWT_ALGORITHM],
-        complete:   false,
-      });
+      // verifyToken: asimétrico (clave pública) con fallback simétrico durante la
+      // convivencia. algorithms fijados por vía → rechaza alg:none y confusión RS/HS.
+      const decoded = verifyToken(token);
 
       // ── Validar claims de negocio ─────────────────────────────────────────
       if (!decoded.sub || !decoded.jti) {

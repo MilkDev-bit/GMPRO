@@ -129,6 +129,14 @@ module.exports = {
   SUPABASE_DB_SCHEMA: process.env.SUPABASE_DB_SCHEMA,
 
   JWT_SECRET: process.env.JWT_SECRET,
+  // A04-1: firma asimétrica (opcional en convivencia). Clave PRIVADA solo en
+  // auth-service; admite PEM directo o base64. Si falta, se firma simétrico (HS*).
+  JWT_PRIVATE_KEY: process.env.JWT_PRIVATE_KEY
+    ? (process.env.JWT_PRIVATE_KEY.includes('BEGIN')
+        ? process.env.JWT_PRIVATE_KEY
+        : Buffer.from(process.env.JWT_PRIVATE_KEY, 'base64').toString('utf8'))
+    : null,
+  JWT_SIGN_ALGORITHM: process.env.JWT_SIGN_ALGORITHM || 'RS256',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN,
   JWT_ALGORITHM: process.env.JWT_ALGORITHM,
