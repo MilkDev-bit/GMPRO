@@ -119,3 +119,8 @@ GoogleService-Info.plist
 **/fastlane/certs/
 apps/*/ios/certs/
 apps/*/ios/private_keys/
+
+# material de claves JWT — NUNCA commitear
+*.b64
+jwt_priv.pem
+jwt_pub.pem
