@@ -22,7 +22,7 @@ const { createJwtVerifyMiddleware,
 const REQUIRED_ENV = [
   'NODE_ENV', 'PORT',
   'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-  'JWT_SECRET', 'INTER_SERVICE_SECRET',
+  'INTER_SERVICE_SECRET',
 ];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length) {

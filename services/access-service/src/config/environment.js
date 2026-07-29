@@ -33,7 +33,8 @@ const ENV_SCHEMA = [
   { key: 'SUPABASE_URL',            required: true,  validate: (v) => v.startsWith('https://') },
   { key: 'SUPABASE_SERVICE_ROLE_KEY', required: true, validate: isValidSupabaseKey },
   { key: 'SUPABASE_DB_SCHEMA',      required: true },
-  { key: 'JWT_SECRET',              required: true,  validate: (v) => v.length >= 64 },
+  // JWT_SECRET (HS512) opcional tras migración a RS256: requerido SOLO si no hay JWT_PUBLIC_KEY.
+  { key: 'JWT_SECRET',              required: false, validate: (v) => !v || v.length >= 64 },
   { key: 'JWT_ALGORITHM',           required: true },
   { key: 'TURNSTILE_API_KEY',       required: true,  validate: (v) => v.length >= 32 },
   { key: 'PAYMENT_SERVICE_INTERNAL_URL', required: true, validate: (v) => v.startsWith('http') },
@@ -59,6 +60,11 @@ function validateEnvironment() {
     errors.push('  ✗ AES_ENCRYPTION_KEY / QR_SECRET_KEY: FALTANTE');
   } else if (!/^[0-9a-fA-F]{64}$/.test(aesKey)) {
     errors.push('  ✗ AES_ENCRYPTION_KEY / QR_SECRET_KEY: debe ser una cadena hexadecimal exacta de 64 caracteres (32 bytes para AES-256)');
+  }
+
+  // Debe existir AL MENOS un mecanismo de verificación JWT: HS512 (JWT_SECRET) o RS256 (JWT_PUBLIC_KEY).
+  if (!process.env.JWT_SECRET && !process.env.JWT_PUBLIC_KEY) {
+    errors.push('  ✗ JWT: falta JWT_SECRET (HS512) o JWT_PUBLIC_KEY (RS256) — se requiere al menos uno');
   }
 
   if (errors.length > 0) {
