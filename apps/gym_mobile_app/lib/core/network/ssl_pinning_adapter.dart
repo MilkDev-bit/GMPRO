@@ -21,10 +21,20 @@ class SSLPinningAdapter {
   static IOHttpClientAdapter build() {
     return IOHttpClientAdapter(
       createHttpClient: () {
-        // ── KILL-SWITCH: pinning OFF → TLS estándar del SO ──────────────────
-        if (!AppConfig.isSSLPinningEnabled) {
-          AppLogger.w('SSL pinning DESACTIVADO (kill-switch/local). TLS del SO.',
-              tag: 'SSLPinning');
+        // ── KILL-SWITCH / PINES SIN CONFIGURAR → TLS estándar del SO ────────
+        // Dos vías de fail-open que evitan dejar a los usuarios sin conexión:
+        //   1. Kill-switch remoto (build-time) o backend local (http).
+        //   2. Pines aún en placeholder (hasConfiguredPins == false): así, si se
+        //      despliega sin haber puesto los hashes reales, la app NO se brickea.
+        //      El pinning (fail-closed) se activa solo al colocar un pin real.
+        if (!AppConfig.isSSLPinningEnabled || !AppConfig.hasConfiguredPins) {
+          AppLogger.w(
+            AppConfig.hasConfiguredPins
+                ? 'SSL pinning DESACTIVADO (kill-switch/local). TLS del SO.'
+                : 'SSL pinning INACTIVO: pines SPKI sin configurar (placeholder). '
+                    'TLS del SO. ⚠ Coloca los hashes reales antes del release.',
+            tag: 'SSLPinning',
+          );
           return HttpClient();
         }
 

@@ -153,10 +153,24 @@ class AppConfig {
   ///     | openssl x509 -pubkey -noout \
   ///     | openssl pkey -pubin -outform der \
   ///     | openssl dgst -sha256 -binary | openssl enc -base64
+  /// Valores CENTINELA de "sin configurar". Mientras `certificatePins` contenga
+  /// SOLO estos (o esté vacío), el pinning queda INACTIVO (ver `hasConfiguredPins`).
+  static const String _pinPlaceholderA = 'REEMPLAZAR_PIN_A_SPKI_SHA256_BASE64';
+  static const String _pinPlaceholderB = 'REEMPLAZAR_PIN_B_SPKI_SHA256_BASE64';
+
+  /// ⚠ COLOCAR AQUÍ los HASHES SPKI REALES del dominio de producción de GymPro
+  /// (leaf actual + backup offline) ANTES del release. Ver remediation-fase1-movil.md.
+  /// Mientras sean los centinelas, el pinning NO se aplica (fail-open) para no
+  /// dejar a los usuarios sin conexión con pines de ejemplo.
   static const Set<String> certificatePins = <String>{
-    // Pin A — clave pública ACTUAL (leaf). ⚠ REEMPLAZAR con el hash real.
-    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-    // Pin B — clave de RESPALDO pre-generada (backup). ⚠ REEMPLAZAR.
-    'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+    _pinPlaceholderA, // Pin A — clave pública ACTUAL (leaf, producción). ⚠ REEMPLAZAR.
+    _pinPlaceholderB, // Pin B — clave de RESPALDO pre-generada offline.   ⚠ REEMPLAZAR.
   };
+
+  /// True SOLO si hay ≥1 pin REAL (no centinela ni vacío). Si es false, el adapter
+  /// omite el pinning → imposible brickear la app con pines de ejemplo. El pinning
+  /// se ACTIVA automáticamente (fail-closed) en cuanto se coloca un hash real.
+  static bool get hasConfiguredPins => certificatePins.any(
+        (p) => p.trim().isNotEmpty && p != _pinPlaceholderA && p != _pinPlaceholderB,
+      );
 }
