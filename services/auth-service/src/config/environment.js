@@ -133,6 +133,9 @@ module.exports = {
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_DB_SCHEMA: process.env.SUPABASE_DB_SCHEMA,
+  // Mínimo privilegio (CLD-1): cadena pg del rol svc_auth (pooler de Supabase).
+  // Cuando está presente, los modelos migrados operan como svc_auth (no service_role).
+  AUTH_DATABASE_URL: process.env.AUTH_DATABASE_URL,
 
   JWT_SECRET: process.env.JWT_SECRET,
   // A04-1: firma asimétrica (opcional en convivencia). Clave PRIVADA solo en

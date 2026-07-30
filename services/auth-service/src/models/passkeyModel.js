@@ -6,7 +6,7 @@
 
 'use strict';
 
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');   // pg directo (svc_auth)
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('auth-service:passkeyModel');
@@ -104,33 +104,26 @@ async function getAndRemoveChallenge(key, redisClient = null) {
  * @returns {Promise<object>}
  */
 async function saveCredential({ userId, credentialID, publicKey, counter = 0, transports = [], deviceName = 'Dispositivo Móvil' }) {
-  const db = getSupabaseClient();
-
-  // Asegurarnos de que la publicKey se guarde como base64 en texto en DB para portabilidad
+  // publicKey se guarda como base64 en texto para portabilidad.
   const publicKeyStr = Buffer.isBuffer(publicKey) || publicKey instanceof Uint8Array
     ? Buffer.from(publicKey).toString('base64')
     : publicKey.toString();
 
-  const { data, error } = await db
-    .from('passkey_credentials')
-    .insert({
-      user_id:       userId,
-      credential_id: credentialID,
-      public_key:    publicKeyStr,
-      counter:       counter,
-      transports:    transports,
-      device_name:   deviceName,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    logger.error('Error al guardar credencial Passkey en Supabase', { error: error.message, userId, credentialID });
+  try {
+    const { rows } = await query(
+      `INSERT INTO passkey_credentials
+         (user_id, credential_id, public_key, counter, transports, device_name)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING *`,
+      [userId, credentialID, publicKeyStr, counter, transports, deviceName],
+    );
+    const data = rows[0];
+    logger.info('Passkey registrada en DB correctamente', { id: data.id, userId });
+    return data;
+  } catch (error) {
+    logger.error('Error al guardar credencial Passkey', { error: error.message, userId, credentialID });
     throw error;
   }
-
-  logger.info('Passkey registrada en DB correctamente', { id: data.id, userId });
-  return data;
 }
 
 /**
@@ -139,19 +132,16 @@ async function saveCredential({ userId, credentialID, publicKey, counter = 0, tr
  * @returns {Promise<Array<object>>}
  */
 async function findCredentialsByUserId(userId) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('passkey_credentials')
-    .select('*')
-    .eq('user_id', userId);
-
-  if (error) {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM passkey_credentials WHERE user_id = $1`,
+      [userId],
+    );
+    return rows;
+  } catch (error) {
     logger.error('Error al consultar passkeys por usuario', { error: error.message, userId });
     throw error;
   }
-
-  return data || [];
 }
 
 /**
@@ -160,22 +150,22 @@ async function findCredentialsByUserId(userId) {
  * @returns {Promise<object|null>}
  */
 async function findCredentialById(credentialID) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('passkey_credentials')
-    .select('*, usuarios(*)')
-    .eq('credential_id', credentialID)
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
+  // Equivale al embed PostgREST `*, usuarios(*)`: la credencial + el usuario
+  // relacionado (por FK user_id) anidado como objeto `usuarios`.
+  try {
+    const { rows } = await query(
+      `SELECT pc.*, to_jsonb(u.*) AS usuarios
+       FROM passkey_credentials pc
+       JOIN usuarios u ON u.id = pc.user_id
+       WHERE pc.credential_id = $1
+       LIMIT 1`,
+      [credentialID],
+    );
+    return rows[0] || null;
+  } catch (error) {
     logger.error('Error en findCredentialById', { error: error.message, credentialID });
     throw error;
   }
-
-  return data;
 }
 
 /**
@@ -185,14 +175,12 @@ async function findCredentialById(credentialID) {
  * @returns {Promise<void>}
  */
 async function updateCredentialCounter(credentialID, newCounter) {
-  const db = getSupabaseClient();
-
-  const { error } = await db
-    .from('passkey_credentials')
-    .update({ counter: newCounter, ultimo_uso: new Date().toISOString() })
-    .eq('credential_id', credentialID);
-
-  if (error) {
+  try {
+    await query(
+      `UPDATE passkey_credentials SET counter = $2, ultimo_uso = $3 WHERE credential_id = $1`,
+      [credentialID, newCounter, new Date().toISOString()],
+    );
+  } catch (error) {
     logger.error('Error al actualizar contador del Passkey', { error: error.message, credentialID });
   }
 }

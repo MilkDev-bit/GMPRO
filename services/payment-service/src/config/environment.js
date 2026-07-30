@@ -79,6 +79,9 @@ module.exports = {
   SUPABASE_URL:               process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY:  process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_DB_SCHEMA:         process.env.SUPABASE_DB_SCHEMA,
+  // Mínimo privilegio (CLD-1): cadena pg del rol svc_payment. Cuando está presente,
+  // los modelos migrados operan como svc_payment (no service_role).
+  PAYMENT_DATABASE_URL:       process.env.PAYMENT_DATABASE_URL,
   JWT_SECRET:                 process.env.JWT_SECRET,
   JWT_ALGORITHM:              process.env.JWT_ALGORITHM || 'HS512',
   STRIPE_SECRET_KEY:          process.env.STRIPE_SECRET_KEY,

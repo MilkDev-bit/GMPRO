@@ -87,6 +87,10 @@ module.exports = {
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_DB_SCHEMA: process.env.SUPABASE_DB_SCHEMA || "fitness_service_db",
+  // Mínimo privilegio (CLD-1): si ambos están presentes, el cliente usa el rol
+  // svc_fitness (JWT scopeado) en vez de SERVICE_ROLE_KEY. Opcionales → coexistencia.
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+  SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_ALGORITHM: process.env.JWT_ALGORITHM || "HS512",
   INTER_SERVICE_SECRET: process.env.INTER_SERVICE_SECRET,

@@ -482,18 +482,22 @@ async function verifyEmail(req, res, next) {
       });
     }
 
-    const { getSupabaseClient } = require('../config/database');
-    const db = getSupabaseClient();
+    const { query } = require('../config/database');
 
     // Buscar usuario con ese token de verificación no usado
-    const { data: user, error } = await db
-      .from('usuarios')
-      .select('id, email_verificado')
-      .eq('token_verificacion', token)
-      .is('eliminado_en', null)
-      .single();
+    let user = null;
+    try {
+      const { rows } = await query(
+        `SELECT id, email_verificado FROM usuarios
+         WHERE token_verificacion = $1 AND eliminado_en IS NULL LIMIT 1`,
+        [token],
+      );
+      user = rows[0] || null;
+    } catch (e) {
+      user = null;
+    }
 
-    if (error || !user) {
+    if (!user) {
       return res.status(400).json({
         success: false, data: null,
         error: 'Token de verificación inválido o ya utilizado.',

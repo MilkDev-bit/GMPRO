@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { getSupabaseClient }   = require('../config/database');
+const { query }               = require('../config/database');   // pg directo (svc_payment)
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('payment-service:paymentHistoryModel');
@@ -55,41 +55,30 @@ async function recordCashPayment({
   receptionistId,
   notas = null,
 }) {
-  const db          = getSupabaseClient();
   const numeroRecibo = generateReceiptFolio(metodoPago);
 
-  const { data, error } = await db
-    .from('historial_pagos')
-    .insert({
-      usuario_id:            usuarioId,
-      suscripcion_id:        suscripcionId,
-      monto,
-      moneda:                'MXN',
-      metodo_pago:           metodoPago,
-      estado_pago:           'completed',
-      plan_nombre:           planNombre,
-      plan_duracion_dias:    planDuracionDias,
-      periodo_desde:         periodoDesde,
-      periodo_hasta:         periodoHasta,
-      numero_recibo:         numeroRecibo,
-      pase_cortesia_codigo:  paseCortesiaCodigo,
-      receptionist_id:       receptionistId,
-      notas,
-    })
-    .select('*')
-    .single();
-
-  if (error) {
+  try {
+    const { rows } = await query(
+      `INSERT INTO historial_pagos
+         (usuario_id, suscripcion_id, monto, moneda, metodo_pago, estado_pago,
+          plan_nombre, plan_duracion_dias, periodo_desde, periodo_hasta,
+          numero_recibo, pase_cortesia_codigo, receptionist_id, notas)
+       VALUES ($1,$2,$3,'MXN',$4,'completed',$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING *`,
+      [usuarioId, suscripcionId, monto, metodoPago, planNombre, planDuracionDias,
+       periodoDesde, periodoHasta, numeroRecibo, paseCortesiaCodigo, receptionistId, notas],
+    );
+    const data = rows[0];
+    logger.info('Asiento de pago presencial registrado', {
+      id: data.id, usuarioId, monto, numeroRecibo, metodoPago,
+    });
+    return data;
+  } catch (error) {
     logger.error('Error registrando asiento en historial_pagos', {
       usuarioId, receptionistId, error: error.message,
     });
     throw error;
   }
-
-  logger.info('Asiento de pago presencial registrado', {
-    id: data.id, usuarioId, monto, numeroRecibo, metodoPago,
-  });
-  return data;
 }
 
 /**
@@ -122,29 +111,23 @@ async function recordOnlinePayment({
   stripeEventId,
   numeroRecibo = null,
 }) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('historial_pagos')
-    .insert({
-      usuario_id:         usuarioId,
-      suscripcion_id:     suscripcionId,
-      monto,
-      moneda,
-      metodo_pago:        'stripe',
-      estado_pago:        'completed',
-      plan_nombre:        planNombre,
-      plan_duracion_dias: planDuracionDias,
-      periodo_desde:      periodoDesde,
-      periodo_hasta:      periodoHasta,
-      numero_recibo:      numeroRecibo,
-      receptionist_id:    null,
-      stripe_event_id:    stripeEventId,
-    })
-    .select('id, numero_recibo')
-    .single();
-
-  if (error) {
+  try {
+    const { rows } = await query(
+      `INSERT INTO historial_pagos
+         (usuario_id, suscripcion_id, monto, moneda, metodo_pago, estado_pago,
+          plan_nombre, plan_duracion_dias, periodo_desde, periodo_hasta,
+          numero_recibo, receptionist_id, stripe_event_id)
+       VALUES ($1,$2,$3,$4,'stripe','completed',$5,$6,$7,$8,$9,NULL,$10)
+       RETURNING id, numero_recibo`,
+      [usuarioId, suscripcionId, monto, moneda, planNombre, planDuracionDias,
+       periodoDesde, periodoHasta, numeroRecibo, stripeEventId],
+    );
+    const data = rows[0];
+    logger.info('Asiento de pago online (Stripe) registrado', {
+      id: data.id, usuarioId, monto, stripeEventId,
+    });
+    return data;
+  } catch (error) {
     if (error.code === '23505') {
       // Evento ya asentado (re-entrega de Stripe) → idempotente, no es error.
       logger.info('Pago online ya asentado, se omite (evento duplicado)', { stripeEventId });
@@ -155,11 +138,6 @@ async function recordOnlinePayment({
     });
     throw error;
   }
-
-  logger.info('Asiento de pago online (Stripe) registrado', {
-    id: data.id, usuarioId, monto, stripeEventId,
-  });
-  return data;
 }
 
 module.exports = { recordCashPayment, recordOnlinePayment, generateReceiptFolio };

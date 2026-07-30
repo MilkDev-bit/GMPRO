@@ -1,89 +1,50 @@
 /**
  * @file services/auth-service/src/models/resetTokenModel.js
  * @description Modelo para tokens de restablecimiento de contraseña.
+ * Mínimo privilegio (CLD-1): pg con rol svc_auth, SQL parametrizado.
  */
 
 'use strict';
 
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('auth-service:resetTokenModel');
 
-/**
- * Crea un nuevo token de reset de contraseña.
- *
- * @param {string} usuarioId - UUID del usuario
- * @param {string} tokenHash - SHA-256 del token en texto plano
- * @returns {Promise<object>} Registro creado
- */
+/** Crea un token de reset (invalida los anteriores del usuario primero). */
 async function create(usuarioId, tokenHash) {
-  const db = getSupabaseClient();
+  // Invalidar cualquier token anterior vigente del mismo usuario.
+  await query(
+    `UPDATE tokens_password_reset SET usado = true
+     WHERE usuario_id = $1 AND usado = false`,
+    [usuarioId],
+  );
 
-  // Primero invalidar cualquier token anterior del mismo usuario
-  await db
-    .from('tokens_password_reset')
-    .update({ usado: true })
-    .eq('usuario_id', usuarioId)
-    .eq('usado', false);
-
-  const { data, error } = await db
-    .from('tokens_password_reset')
-    .insert({
-      usuario_id: usuarioId,
-      token_hash: tokenHash,
-      // expira_en: DEFAULT en Supabase = NOW() + INTERVAL '1 hour'
-    })
-    .select('id, expira_en')
-    .single();
-
-  if (error) throw error;
-  logger.info('Token de reset creado', { userId: usuarioId, tokenId: data.id });
-  return data;
+  // expira_en tiene DEFAULT (NOW() + 1 hora) en el schema.
+  const { rows } = await query(
+    `INSERT INTO tokens_password_reset (usuario_id, token_hash)
+     VALUES ($1, $2)
+     RETURNING id, expira_en`,
+    [usuarioId, tokenHash],
+  );
+  logger.info('Token de reset creado', { userId: usuarioId, tokenId: rows[0].id });
+  return rows[0];
 }
 
-/**
- * Busca y valida un token de reset por su hash.
- * Retorna null si el token no existe, ya fue usado, o expiró.
- *
- * @param {string} tokenHash - SHA-256 del token recibido por el usuario
- * @returns {Promise<{id: string, usuario_id: string}|null>}
- */
+/** Busca y valida un token por hash (no usado, no expirado). @returns {Promise<object|null>} */
 async function findValidToken(tokenHash) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('tokens_password_reset')
-    .select('id, usuario_id, expira_en')
-    .eq('token_hash', tokenHash)
-    .eq('usado', false)
-    .gt('expira_en', new Date().toISOString())  // No expirado
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-
-  return data;
+  const { rows } = await query(
+    `SELECT id, usuario_id, expira_en FROM tokens_password_reset
+     WHERE token_hash = $1 AND usado = false AND expira_en > $2
+     LIMIT 1`,
+    [tokenHash, new Date().toISOString()],
+  );
+  return rows[0] || null;
 }
 
-/**
- * Marca un token como usado (solo puede usarse una vez).
- *
- * @param {string} tokenId - UUID del registro en tokens_password_reset
- * @returns {Promise<void>}
- */
+/** Marca un token como usado (un solo uso). */
 async function markAsUsed(tokenId) {
-  const db = getSupabaseClient();
-
-  const { error } = await db
-    .from('tokens_password_reset')
-    .update({ usado: true })
-    .eq('id', tokenId);
-
-  if (error) throw error;
+  await query(`UPDATE tokens_password_reset SET usado = true WHERE id = $1`, [tokenId]);
 }
 
 module.exports = { create, findValidToken, markAsUsed };

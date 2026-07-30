@@ -40,7 +40,11 @@ if (HAS_DB) ({ Pool } = require('pg'));
   }
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 20 });
+    pool = new Pool({
+      connectionString: (process.env.DATABASE_URL || '').replace(/[?&]sslmode=[^&]+/i, ''),
+      max: 10,   // el Session Pooler de Supabase limita a ~15 clientes; 20 lo excedía
+      ssl: { rejectUnauthorized: false },   // Supabase exige TLS (cadena self-signed)
+    });
     // DDL alineada con la migración 006 (event_id como PRIMARY KEY).
     await pool.query(`
       CREATE TABLE IF NOT EXISTS webhook_events_procesados (
