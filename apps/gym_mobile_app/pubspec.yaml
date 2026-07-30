@@ -60,8 +60,8 @@ dependencies:
   flutter_local_notifications: ^18.0.1 # Programación y canales nativos de notificación Android/iOS
   path_provider: ^2.1.5           # Almacenamiento temporal de imágenes para attachments nativos
   path: ^1.9.0                    # Manipulación/canonicalización segura de rutas (anti path traversal)
-  firebase_core: ^3.8.0           # Núcleo de Firebase para inicialización nativa en app
-  firebase_messaging: ^15.1.6     # Recepción de notificaciones push remotes FCM / APNs
+  firebase_core: ^4.12.1           # Núcleo de Firebase para inicialización nativa en app
+  firebase_messaging: ^16.4.3     # Recepción de notificaciones push remotes FCM / APNs
   watch_connectivity: ^0.2.9
 
 dev_dependencies:
