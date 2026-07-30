@@ -1,5 +1,10 @@
 -- =============================================================================
 -- GymPro · Script de Inicialización de Esquemas
+-- ⚠ PARCIALMENTE OBSOLETO (ver docs/database/SCHEMA-DIVERGENCE-REPORT.md).
+--   Las tablas de access aquí (historial_accesos, tickets_visitas) NO coinciden
+--   con el código y quedan SUPERADAS por 013_canonical_access.sql. usuarios y las
+--   tablas de payment/auth siguen vigentes. Para un setup FRESCO, la fuente de
+--   verdad autoritativa es docs/database/schemas/CANONICAL_SCHEMA.sql (pg_dump).
 -- =============================================================================
 -- Versión      : 1.0.0
 -- Motor        : PostgreSQL 15+ (Supabase)
