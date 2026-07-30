@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -13,7 +15,7 @@ plugins {
 // .github/workflows/android-release.yml, que decodifica ANDROID_KEY_PROPERTIES_BASE64
 // y ANDROID_KEYSTORE_BASE64). key.properties y *.jks están gitignored → NUNCA
 // viven en el repo. En local (sin ese archivo) el release cae a 'debug'.
-val keystoreProperties = java.util.Properties()
+val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }

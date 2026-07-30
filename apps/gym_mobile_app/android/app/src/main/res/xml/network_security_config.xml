@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Configuración de red de PRODUCCIÓN (src/main).
+
+  Objetivo: forzar HTTPS y validación estricta de certificados.
+
+  • base-config cleartextTrafficPermitted="false"
+        Bloquea TODO tráfico HTTP en claro para cualquier dominio. Aunque
+        Android ya lo bloquea por defecto con targetSdk >= 28, aquí queda
+        EXPLÍCITO e independiente del targetSdk.
+
+  • trust-anchors -> solo "system"
+        La app confía ÚNICAMENTE en las CAs del sistema operativo. Al NO
+        incluir <certificates src="user"/>, se rechazan las CAs raíz que el
+        usuario haya instalado manualmente. Esto cierra el vector de MITM más
+        común en móviles (proxy con CA propia / Frida / interceptores), que es
+        justamente la "validación incorrecta de certificados" a evitar.
+
+  El override de debug (src/debug/res/xml/network_security_config.xml) permite
+  cleartext SOLO hacia hosts locales y solo en builds de debug.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
