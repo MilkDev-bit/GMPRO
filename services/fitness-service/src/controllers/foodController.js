@@ -6,7 +6,7 @@
 
 'use strict';
 
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');   // pg directo (svc_fitness)
 const { sanitizeLikeQuery, sanitizeBarcode } = require('../utils/postgrestSanitizer');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
@@ -123,16 +123,11 @@ async function searchFoods(req, res, next) {
 
     let results = [];
     try {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from('catalogo_alimentos')
-        .select('*')
-        .or(`nombre.ilike.%${safeQuery}%,marca.ilike.%${safeQuery}%`)
-        .limit(30);
-
-      if (!error && data && data.length > 0) {
-        results = data;
-      }
+      const { rows } = await query(
+        `SELECT * FROM catalogo_alimentos WHERE (nombre ILIKE $1 OR marca ILIKE $1) LIMIT 30`,
+        [`%${safeQuery}%`],
+      );
+      if (rows.length > 0) results = rows;
     } catch (dbErr) {
       logger.warn('Error al consultar catalogo_alimentos en Supabase, usando fallback', { error: dbErr.message });
     }
@@ -172,16 +167,11 @@ async function getFoodByBarcode(req, res, next) {
 
     let food = null;
     try {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from('catalogo_alimentos')
-        .select('*')
-        .eq('codigo_barras', code)
-        .maybeSingle();
-
-      if (!error && data) {
-        food = data;
-      }
+      const { rows } = await query(
+        `SELECT * FROM catalogo_alimentos WHERE codigo_barras = $1 LIMIT 1`,
+        [code],
+      );
+      if (rows[0]) food = rows[0];
     } catch (dbErr) {
       logger.warn('Error en DB al buscar por barcode, usando fallback', { error: dbErr.message });
     }

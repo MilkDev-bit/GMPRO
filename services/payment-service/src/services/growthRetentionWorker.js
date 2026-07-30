@@ -163,7 +163,7 @@ async function processInactivityAlerts() {
         try {
           const r = await query(
             `SELECT id FROM access_service_db.historial_accesos
-             WHERE usuario_id = $1 AND creado_en >= $2 LIMIT 1`,
+             WHERE usuario_id = $1 AND fecha_hora >= $2 LIMIT 1`,
             [sub.usuario_id, cincoDiasAtras],
           );
           accesos = r.rows;

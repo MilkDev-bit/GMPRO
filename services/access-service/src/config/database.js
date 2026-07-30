@@ -1,64 +1,62 @@
 /**
  * @file services/access-service/src/config/database.js
- * @description Cliente Supabase singleton para access_service_db.
+ * @description Acceso a datos de access_service_db.
+ * Mínimo privilegio (CLD-1): pg directo con el rol svc_access.
  */
 'use strict';
 
 const { createClient } = require('@supabase/supabase-js');
-const jwt = require('jsonwebtoken');
+const { Pool } = require('pg');
 const env = require('./environment');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 const logger = createServiceLogger('access-service:db');
 
-const SVC_ROLE = 'svc_access';
-// Mínimo privilegio (CLD-1) con COEXISTENCIA: con SUPABASE_JWT_SECRET + ANON_KEY el
-// cliente se autentica con un JWT role=svc_access → PostgREST hace SET ROLE y aplican
-// RLS + policies. Si faltan, cae al SERVICE_ROLE_KEY (god-mode). Activable por env.
-const useScopedRole = !!(env.SUPABASE_JWT_SECRET && env.SUPABASE_ANON_KEY);
-const TOKEN_TTL_SEC  = 60 * 60;
-const REFRESH_MARGIN = 10 * 60 * 1000;
-
+// ── supabase-js (service_role) sólo para modelos aún no migrados (transición) ──
 let supabaseClient = null;
-let tokenIssuedAt  = 0;
-
-function scopedRoleToken() {
-  return jwt.sign({ role: SVC_ROLE, iss: 'gympro-access-service' }, env.SUPABASE_JWT_SECRET, { expiresIn: TOKEN_TTL_SEC });
-}
-
-function buildClient() {
-  if (useScopedRole) {
-    tokenIssuedAt = Date.now();
-    logger.info('Supabase conectado (rol de mínimo privilegio)', { schema: env.SUPABASE_DB_SCHEMA, role: SVC_ROLE });
-    return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      db:   { schema: env.SUPABASE_DB_SCHEMA },
-      global: { headers: { 'x-app-name': 'gympro-access-service', Authorization: `Bearer ${scopedRoleToken()}` } },
-    });
-  }
-  logger.info('Supabase conectado (service_role — sin rol scopeado)', { schema: env.SUPABASE_DB_SCHEMA });
-  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+function getSupabaseClient() {
+  if (supabaseClient) return supabaseClient;
+  supabaseClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     db:   { schema: env.SUPABASE_DB_SCHEMA },
     global: { headers: { 'x-app-name': 'gympro-access-service' } },
   });
+  return supabaseClient;
 }
 
-function getSupabaseClient() {
-  const stale = useScopedRole && (Date.now() - tokenIssuedAt) > (TOKEN_TTL_SEC * 1000 - REFRESH_MARGIN);
-  if (!supabaseClient || stale) supabaseClient = buildClient();
-  return supabaseClient;
+// ── pg directo (svc_access) ──────────────────────────────────────────────────
+let pgPool = null;
+function getPool() {
+  if (pgPool) return pgPool;
+  if (!env.ACCESS_DATABASE_URL) {
+    throw new Error('ACCESS_DATABASE_URL no configurada (conexión pg del rol svc_access).');
+  }
+  // pg-connection-string trata sslmode=require como verify-full → rechaza el cert
+  // self-signed del pooler de Supabase. Lo quitamos y forzamos TLS por el objeto ssl.
+  const connectionString = env.ACCESS_DATABASE_URL.replace(/[?&]sslmode=[^&]+/i, '');
+  pgPool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    max: 10,
+    options: '-c search_path=access_service_db',
+  });
+  pgPool.on('error', (err) => logger.error('Error en pool pg de access', { error: err.message }));
+  logger.info('Pool pg (svc_access) inicializado');
+  return pgPool;
+}
+
+/** SQL parametrizado con el rol svc_access. @returns {Promise<import('pg').QueryResult>} */
+async function query(text, params) {
+  return getPool().query(text, params);
 }
 
 async function checkDatabaseConnection() {
   try {
-    const db = getSupabaseClient();
-    const { error } = await db.from('historial_accesos').select('id').limit(1);
-    if (error) throw error;
+    await query('SELECT 1');   // salud vía pg (rol svc_access)
     return true;
   } catch (err) {
-    logger.error('Fallo en conexión a Supabase', { error: err.message });
+    logger.error('Fallo en conexión pg (svc_access)', { error: err.message });
     return false;
   }
 }
 
-module.exports = { getSupabaseClient, checkDatabaseConnection };
+module.exports = { getSupabaseClient, checkDatabaseConnection, query, getPool };

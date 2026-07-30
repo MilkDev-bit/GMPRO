@@ -1,5 +1,10 @@
 -- =============================================================================
 -- GymPro · Migración 002 — Schema fitness_service_db
+-- ⚠ PARCIALMENTE OBSOLETO (ver docs/database/SCHEMA-DIVERGENCE-REPORT.md).
+--   Las tablas catalogo_ejercicios/rutinas_usuario/registros_nutricion NO las usa
+--   el código (huérfanas); las reales están en 010_schema_gaps.sql. Solo el schema,
+--   los enums, set_updated_at y catalogo_alimentos siguen vigentes. Fuente de verdad
+--   para setup fresco: docs/database/schemas/CANONICAL_SCHEMA.sql.
 -- =============================================================================
 -- Versión      : 1.0.0
 -- Motor        : PostgreSQL 15+ (Supabase)
