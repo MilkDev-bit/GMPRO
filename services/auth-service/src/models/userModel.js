@@ -2,15 +2,13 @@
  * @file services/auth-service/src/models/userModel.js
  * @description Capa de acceso a datos para la tabla auth_service_db.usuarios.
  *
- * FILOSOFÍA:
- *   Este modelo encapsula TODA interacción con Supabase para la entidad usuario.
- *   Los controllers nunca construyen queries directamente — solo llaman a estos métodos.
- *   Esto permite cambiar Supabase por otro ORM/DB sin tocar los controllers.
+ * Mínimo privilegio (CLD-1): opera vía `pg` con el rol svc_auth (query()),
+ * SQL SIEMPRE parametrizado ($1,$2,…) — nunca concatenar valores.
  *
  * SEGURIDAD:
- *   • Nunca se retorna password_hash ni refresh_token_hash al caller
- *   • Los campos sensibles se listan explícitamente en los SELECT
- *   • El cifrado/descifrado de historial_clinico ocurre en la capa de servicio
+ *   • Nunca se retorna password_hash al caller (SAFE_COLUMNS lo excluye).
+ *   • Los campos sensibles se listan explícitamente en los SELECT.
+ *   • El cifrado/descifrado de historial_clinico ocurre en la capa de servicio.
  */
 
 'use strict';
@@ -18,246 +16,131 @@
 const bcrypt  = require('bcrypt');
 const crypto  = require('crypto');
 const env     = require('../config/environment');
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');
 const refreshTokenModel = require('./refreshTokenModel');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('auth-service:userModel');
 
-// Columnas seguras a retornar en la mayoría de queries (sin hashes ni tokens)
+// Columnas seguras a retornar (sin hashes ni tokens)
 const SAFE_COLUMNS = [
   'id', 'email', 'nombre', 'apellido_paterno', 'apellido_materno',
   'telefono', 'fecha_nacimiento', 'sexo_biologico', 'estatura_cm',
   'peso_kg', 'nivel_actividad', 'historial_clinico', 'contacto_emergencia',
   'email_verificado', 'activo', 'rol', 'ultimo_login',
   'intentos_fallidos', 'bloqueado_hasta', 'creado_en', 'actualizado_en',
-  'pin_terminal',  // PIN numérico asignado a la terminal biométrica ZKTeco
+  'pin_terminal',
 ].join(', ');
 
-// Columnas para autenticación (incluye el hash para comparar). El estado de
-// sesión ya no vive aquí: está en la tabla refresh_tokens.
+// Columnas para autenticación (incluye el hash para comparar en login).
 const AUTH_COLUMNS = `${SAFE_COLUMNS}, password_hash`;
 
-/**
- * Busca un usuario por email. Solo para usuarios activos y no eliminados.
- * Incluye password_hash para validación de login.
- *
- * @param {string} email
- * @returns {Promise<object|null>}
- */
+/** Busca un usuario por email (activo, no eliminado). Incluye password_hash. */
 async function findByEmailForAuth(email) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('usuarios')
-    .select(AUTH_COLUMNS)
-    .eq('email', email.toLowerCase().trim())
-    .is('eliminado_en', null)         // Excluir cuentas eliminadas (soft delete)
-    .limit(1)
-    .single();
-
-  if (error) {
-    // PGRST116: no rows found — no es un error real para esta consulta
-    if (error.code === 'PGRST116') return null;
-    logger.error('Error en findByEmailForAuth', { error: error.message });
-    throw error;
-  }
-
-  return data;
+  const { rows } = await query(
+    `SELECT ${AUTH_COLUMNS} FROM usuarios
+     WHERE email = $1 AND eliminado_en IS NULL LIMIT 1`,
+    [email.toLowerCase().trim()],
+  );
+  return rows[0] || null;
 }
 
-/**
- * Busca un usuario por ID (sin hash de contraseña).
- *
- * @param {string} id - UUID
- * @returns {Promise<object|null>}
- */
+/** Busca un usuario por ID (sin hash). */
 async function findById(id) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('usuarios')
-    .select(SAFE_COLUMNS)
-    .eq('id', id)
-    .is('eliminado_en', null)
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-
-  return data;
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS} FROM usuarios
+     WHERE id = $1 AND eliminado_en IS NULL LIMIT 1`,
+    [id],
+  );
+  return rows[0] || null;
 }
 
-/**
- * Crea un nuevo usuario en la base de datos.
- *
- * @param {object} userData
- * @param {string} userData.email
- * @param {string} userData.password_hash  - Ya hasheado con bcrypt
- * @param {string} userData.nombre
- * @param {string} userData.apellido_paterno
- * @param {string} [userData.apellido_materno]
- * @param {string} [userData.telefono]
- * @param {string} [userData.rol]
- * @returns {Promise<object>}  Usuario creado (sin password_hash)
- */
+/** Crea un nuevo usuario. @returns {Promise<object>} sin password_hash */
 async function create(userData) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('usuarios')
-    .insert({
-      email:             userData.email.toLowerCase().trim(),
-      password_hash:     userData.password_hash,
-      nombre:            userData.nombre,
-      apellido_paterno:  userData.apellido_paterno,
-      apellido_materno:  userData.apellido_materno || null,
-      telefono:          userData.telefono || null,
-      rol:               userData.rol || 'miembro',
-      email_verificado:  false,
-      activo:            true,
-    })
-    .select(SAFE_COLUMNS)
-    .single();
-
-  if (error) {
-    // Código 23505: unique_violation (email duplicado)
-    if (error.code === '23505') {
+  try {
+    const { rows } = await query(
+      `INSERT INTO usuarios
+         (email, password_hash, nombre, apellido_paterno, apellido_materno,
+          telefono, rol, email_verificado, activo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,false,true)
+       RETURNING ${SAFE_COLUMNS}`,
+      [
+        userData.email.toLowerCase().trim(),
+        userData.password_hash,
+        userData.nombre,
+        userData.apellido_paterno,
+        userData.apellido_materno || null,
+        userData.telefono || null,
+        userData.rol || 'miembro',
+      ],
+    );
+    const data = rows[0];
+    logger.info('Usuario creado', { userId: data.id, rol: data.rol });
+    return data;
+  } catch (error) {
+    if (error.code === '23505') {   // unique_violation (email duplicado)
       const duplicateError = new Error('El email ya está registrado.');
       duplicateError.status = 409;
       throw duplicateError;
     }
     throw error;
   }
-
-  logger.info('Usuario creado', { userId: data.id, rol: data.rol });
-  return data;
 }
 
-/**
- * Actualiza el último login y limpia el contador de intentos fallidos.
- * Llamada después de un login exitoso.
- *
- * Solo bookkeeping de login: el estado de sesión (refresh tokens) vive en la
- * tabla refresh_tokens, gestionada por refreshTokenModel.
- *
- * @param {string} id - UUID del usuario
- * @returns {Promise<void>}
- */
+/** Bookkeeping de login exitoso (no lanza; solo loguea si falla). */
 async function recordSuccessfulLogin(id) {
-  const db = getSupabaseClient();
-
-  const { error } = await db
-    .from('usuarios')
-    .update({
-      ultimo_login:       new Date().toISOString(),
-      intentos_fallidos:  0,
-      bloqueado_hasta:    null,   // Limpiar bloqueo si existía
-    })
-    .eq('id', id);
-
-  if (error) logger.error('Error actualizando login exitoso', { userId: id, error: error.message });
+  try {
+    await query(
+      `UPDATE usuarios SET ultimo_login = $2, intentos_fallidos = 0, bloqueado_hasta = NULL
+       WHERE id = $1`,
+      [id, new Date().toISOString()],
+    );
+  } catch (error) {
+    logger.error('Error actualizando login exitoso', { userId: id, error: error.message });
+  }
 }
 
-/**
- * Incrementa el contador de intentos fallidos y opcionalmente bloquea la cuenta.
- * OWASP A07: Previene fuerza bruta con bloqueo progresivo.
- *
- * @param {string} id
- * @param {number} currentAttempts - Intentos actuales antes de este fallo
- * @returns {Promise<{ blocked: boolean, blockedUntil: Date|null }>}
- */
+/** Incrementa intentos fallidos y bloquea progresivamente (OWASP A07). */
 async function recordFailedLogin(id, currentAttempts) {
-  const db = getSupabaseClient();
   const newAttempts = currentAttempts + 1;
-
-  // Bloquear tras 5 intentos fallidos: 15 min, luego 1h, luego 24h
   let blockedUntil = null;
-  if (newAttempts >= 10) {
-    blockedUntil = new Date(Date.now() + 24 * 60 * 60_000);  // 24 horas
-  } else if (newAttempts >= 7) {
-    blockedUntil = new Date(Date.now() + 60 * 60_000);       // 1 hora
-  } else if (newAttempts >= 5) {
-    blockedUntil = new Date(Date.now() + 15 * 60_000);       // 15 minutos
+  if (newAttempts >= 10)      blockedUntil = new Date(Date.now() + 24 * 60 * 60_000);
+  else if (newAttempts >= 7)  blockedUntil = new Date(Date.now() + 60 * 60_000);
+  else if (newAttempts >= 5)  blockedUntil = new Date(Date.now() + 15 * 60_000);
+
+  try {
+    await query(
+      `UPDATE usuarios SET intentos_fallidos = $2, bloqueado_hasta = $3 WHERE id = $1`,
+      [id, newAttempts, blockedUntil?.toISOString() || null],
+    );
+  } catch (error) {
+    logger.error('Error registrando login fallido', { userId: id, error: error.message });
   }
-
-  const { error } = await db
-    .from('usuarios')
-    .update({
-      intentos_fallidos: newAttempts,
-      bloqueado_hasta:   blockedUntil?.toISOString() || null,
-    })
-    .eq('id', id);
-
-  if (error) logger.error('Error registrando login fallido', { userId: id, error: error.message });
-
   return { blocked: !!blockedUntil, blockedUntil };
 }
 
-/**
- * Marca el email del usuario como verificado e invalida el token de verificación.
- *
- * @param {string} id
- * @returns {Promise<void>}
- */
+/** Marca el email como verificado e invalida el token de verificación. */
 async function verifyEmail(id) {
-  const db = getSupabaseClient();
-
-  const { error } = await db
-    .from('usuarios')
-    .update({
-      email_verificado:  true,
-      token_verificacion: null,  // Invalidar token usado
-    })
-    .eq('id', id);
-
-  if (error) throw error;
+  await query(
+    `UPDATE usuarios SET email_verificado = true, token_verificacion = NULL WHERE id = $1`,
+    [id],
+  );
   logger.info('Email verificado', { userId: id });
 }
 
-/**
- * Actualiza el hash de la contraseña e invalida todos los refresh tokens activos.
- * Llamada después de un reset o cambio de contraseña exitoso.
- *
- * @param {string} id
- * @param {string} newPasswordHash
- * @returns {Promise<void>}
- */
+/** Actualiza el hash de contraseña y revoca TODAS las sesiones del usuario. */
 async function updatePassword(id, newPasswordHash) {
-  const db = getSupabaseClient();
-
-  const { error } = await db
-    .from('usuarios')
-    .update({
-      password_hash:      newPasswordHash,
-      intentos_fallidos:  0,
-      bloqueado_hasta:    null,
-    })
-    .eq('id', id);
-
-  if (error) throw error;
-
-  // Invalidar TODAS las sesiones activas (todos los dispositivos) tras cambiar
-  // la contraseña: revoca cada familia de refresh tokens del usuario.
+  await query(
+    `UPDATE usuarios SET password_hash = $2, intentos_fallidos = 0, bloqueado_hasta = NULL
+     WHERE id = $1`,
+    [id, newPasswordHash],
+  );
   await refreshTokenModel.revokeAllForUser(id);
-
   logger.info('Contraseña actualizada y sesiones revocadas', { userId: id });
 }
 
-/**
- * Actualiza los datos de perfil del usuario (no credenciales).
- *
- * @param {string} id
- * @param {Partial<object>} profileData
- * @returns {Promise<object>} Usuario actualizado
- */
+/** Actualiza datos de perfil (nunca email/password). @returns {Promise<object>} */
 async function updateProfile(id, profileData) {
-  const db = getSupabaseClient();
-
-  // Permitir solo campos de perfil — nunca permitir actualizar email o password aquí
   const allowedFields = [
     'nombre', 'apellido_paterno', 'apellido_materno', 'telefono',
     'fecha_nacimiento', 'sexo_biologico', 'estatura_cm', 'peso_kg',
@@ -268,207 +151,115 @@ async function updateProfile(id, profileData) {
   for (const field of allowedFields) {
     if (field in profileData) safeUpdate[field] = profileData[field];
   }
-
   if (Object.keys(safeUpdate).length === 0) {
     const err = new Error('No se proporcionaron campos válidos para actualizar.');
     err.status = 400;
     throw err;
   }
 
-  const { data, error } = await db
-    .from('usuarios')
-    .update(safeUpdate)
-    .eq('id', id)
-    .select(SAFE_COLUMNS)
-    .single();
+  const cols = Object.keys(safeUpdate);
+  const setClause = cols.map((c, i) => `"${c}" = $${i + 2}`).join(', ');
+  const vals = cols.map((c) => safeUpdate[c]);
 
-  if (error) throw error;
-  return data;
+  const { rows } = await query(
+    `UPDATE usuarios SET ${setClause} WHERE id = $1 RETURNING ${SAFE_COLUMNS}`,
+    [id, ...vals],
+  );
+  if (!rows[0]) { const e = new Error('Usuario no encontrado.'); e.status = 404; throw e; }
+  return rows[0];
 }
 
-/**
- * Busca o crea un usuario autenticado mediante proveedor nativo OAuth (Google / Apple).
- * Al autenticarse a través de un proveedor nativo, el email se considera pre-verificado.
- *
- * @param {object} oauthData
- * @param {string} oauthData.email
- * @param {string} oauthData.nombre
- * @param {string} [oauthData.apellido_paterno]
- * @returns {Promise<object>} Usuario de DB listo para generar JWT
- */
+/** Busca o crea un usuario vía OAuth nativo (Google/Apple). Email pre-verificado. */
 async function findOrCreateByOAuth({ email, nombre, apellido_paterno = 'Socio' }) {
-  const db = getSupabaseClient();
   const cleanEmail = email.toLowerCase().trim();
 
-  // 1. Intentar buscar por email existente
-  const { data: existingUser, error: findErr } = await db
-    .from('usuarios')
-    .select(SAFE_COLUMNS)
-    .eq('email', cleanEmail)
-    .is('eliminado_en', null)
-    .maybeSingle();
-
-  if (findErr && findErr.code !== 'PGRST116') {
-    logger.error('Error buscando usuario OAuth en DB', { error: findErr.message });
-    throw findErr;
-  }
-
+  const { rows: found } = await query(
+    `SELECT ${SAFE_COLUMNS} FROM usuarios WHERE email = $1 AND eliminado_en IS NULL LIMIT 1`,
+    [cleanEmail],
+  );
+  const existingUser = found[0];
   if (existingUser) {
-    // Si existía pero no había verificado email, lo verificamos al entrar con Google/Apple
     if (!existingUser.email_verificado) {
-      await db.from('usuarios').update({ email_verificado: true }).eq('id', existingUser.id);
+      await query(`UPDATE usuarios SET email_verificado = true WHERE id = $1`, [existingUser.id]);
       existingUser.email_verificado = true;
     }
     return existingUser;
   }
 
-  // 2. Si no existe, crear cuenta con contraseña aleatoria criptográfica y email verificado
   const randomPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), env.BCRYPT_ROUNDS);
-  const { data: newUser, error: createErr } = await db
-    .from('usuarios')
-    .insert({
-      email: cleanEmail,
-      password_hash: randomPasswordHash,
-      nombre: nombre || 'Socio',
-      apellido_paterno: apellido_paterno || 'GymPro',
-      rol: 'miembro',
-      email_verificado: true,
-      activo: true,
-    })
-    .select(SAFE_COLUMNS)
-    .single();
-
-  if (createErr) {
-    logger.error('Error creando usuario vía OAuth', { error: createErr.message });
-    throw createErr;
-  }
-
-  logger.info('Nuevo usuario creado mediante OAuth nativo', { userId: newUser.id, email: cleanEmail });
-  return newUser;
+  const { rows } = await query(
+    `INSERT INTO usuarios
+       (email, password_hash, nombre, apellido_paterno, rol, email_verificado, activo)
+     VALUES ($1,$2,$3,$4,'miembro',true,true)
+     RETURNING ${SAFE_COLUMNS}`,
+    [cleanEmail, randomPasswordHash, nombre || 'Socio', apellido_paterno || 'GymPro'],
+  );
+  logger.info('Nuevo usuario creado mediante OAuth nativo', { userId: rows[0].id, email: cleanEmail });
+  return rows[0];
 }
 
-/**
- * Soft delete: marca el usuario como eliminado sin borrar el registro.
- * Preserva el historial de accesos y pagos vinculados al usuario_id.
- *
- * @param {string} id
- * @returns {Promise<void>}
- */
+/** Soft delete: marca eliminado_en y revoca sesiones. */
 async function softDelete(id) {
-  const db = getSupabaseClient();
-
-  const { error } = await db
-    .from('usuarios')
-    .update({
-      eliminado_en:       new Date().toISOString(),
-      activo:             false,
-    })
-    .eq('id', id);
-
-  if (error) throw error;
-
-  // Invalida todas las sesiones activas del usuario dado de baja.
+  await query(
+    `UPDATE usuarios SET eliminado_en = $2, activo = false WHERE id = $1`,
+    [id, new Date().toISOString()],
+  );
   await refreshTokenModel.revokeAllForUser(id);
-
   logger.info('Usuario eliminado (soft delete) y sesiones revocadas', { userId: id });
 }
 
-/**
- * Obtiene el pin_terminal de un usuario para la integración con ZKTeco ADMS.
- * Solo retorna el UUID, nombre y pin_terminal (campos mínimos para el sync).
- *
- * @param {string} usuarioId - UUID del usuario
- * @returns {Promise<{id: string, nombre: string, pin_terminal: number|null}|null>}
- */
+/** pin_terminal de un usuario (para sync ZKTeco). */
 async function findPinTerminalByUserId(usuarioId) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('usuarios')
-    .select('id, nombre, apellido_paterno, pin_terminal')
-    .eq('id', usuarioId)
-    .is('eliminado_en', null)
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-  return data;
+  const { rows } = await query(
+    `SELECT id, nombre, apellido_paterno, pin_terminal FROM usuarios
+     WHERE id = $1 AND eliminado_en IS NULL LIMIT 1`,
+    [usuarioId],
+  );
+  return rows[0] || null;
 }
 
-/**
- * Asigna un pin_terminal único a un usuario si aún no tiene uno.
- * Invoca la función SQL assign_pin_terminal() que usa una secuencia
- * interna para garantizar unicidad sin condiciones de carrera.
- *
- * @param {string} usuarioId - UUID del usuario
- * @returns {Promise<number>} PIN asignado o existente
- */
+/** Asigna un pin_terminal único vía la función SQL atómica assign_pin_terminal(). */
 async function assignPinTerminal(usuarioId) {
-  const db = getSupabaseClient();
-
-  // Llamar a la función SQL segura que maneja la secuencia atómicamente
-  const { data, error } = await db.rpc('assign_pin_terminal', {
-    p_usuario_id: usuarioId,
-  });
-
-  if (error) {
-    logger.error('Error asignando pin_terminal al usuario', {
-      usuarioId, error: error.message,
-    });
-    throw error;
-  }
-
-  logger.info('pin_terminal asignado a usuario via ZKTeco sync', {
-    usuarioId, pin: data,
-  });
-  return data;
+  const { rows } = await query(
+    `SELECT auth_service_db.assign_pin_terminal($1) AS pin`,
+    [usuarioId],
+  );
+  const pin = rows[0].pin;
+  logger.info('pin_terminal asignado a usuario via ZKTeco sync', { usuarioId, pin });
+  return pin;
 }
 
-// ── ADMIN: listado y gestión de miembros (panel staff/admin) ─────────────────
-/**
- * Lista miembros con búsqueda opcional por nombre/email. El término de búsqueda
- * se SANEA para no romper la sintaxis del filtro .or de PostgREST (evita
- * inyección de operadores en el filtro).
- * @param {{ search?: string, limit?: number }} [opts]
- * @returns {Promise<object[]>}
- */
+// ── ADMIN: listado y gestión de miembros ─────────────────────────────────────
+/** Lista miembros con búsqueda opcional (saneada) por nombre/email. */
 async function listMembers({ search = '', limit = 100 } = {}) {
-  const db = getSupabaseClient();
-  let query = db
-    .from('usuarios')
-    .select(SAFE_COLUMNS)
-    .is('eliminado_en', null)
-    .order('creado_en', { ascending: false })
-    .limit(Math.min(limit, 200));
-
+  const lim = Math.min(limit, 200);
   const safe = String(search).replace(/[^a-zA-Z0-9@._\-\s]/g, '').trim().slice(0, 60);
   if (safe) {
-    query = query.or(`email.ilike.%${safe}%,nombre.ilike.%${safe}%`);
+    const { rows } = await query(
+      `SELECT ${SAFE_COLUMNS} FROM usuarios
+       WHERE eliminado_en IS NULL AND (email ILIKE $1 OR nombre ILIKE $1)
+       ORDER BY creado_en DESC LIMIT $2`,
+      [`%${safe}%`, lim],
+    );
+    return rows;
   }
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS} FROM usuarios
+     WHERE eliminado_en IS NULL ORDER BY creado_en DESC LIMIT $1`,
+    [lim],
+  );
+  return rows;
 }
 
-/**
- * Activa/suspende un miembro (soft-lock). Al suspender NO borra la cuenta.
- * @param {string} id
- * @param {boolean} activo
- * @returns {Promise<object>}
- */
+/** Activa/suspende un miembro (soft-lock). */
 async function setActive(id, activo) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('usuarios')
-    .update({ activo })
-    .eq('id', id)
-    .is('eliminado_en', null)
-    .select(SAFE_COLUMNS)
-    .single();
-  if (error) throw error;
-  return data;
+  const { rows } = await query(
+    `UPDATE usuarios SET activo = $2 WHERE id = $1 AND eliminado_en IS NULL
+     RETURNING ${SAFE_COLUMNS}`,
+    [id, activo],
+  );
+  if (!rows[0]) { const e = new Error('Usuario no encontrado.'); e.status = 404; throw e; }
+  return rows[0];
 }
 
 module.exports = {

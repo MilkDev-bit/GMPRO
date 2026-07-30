@@ -11,7 +11,7 @@
 'use strict';
 
 const axios                   = require('axios');
-const { getSupabaseClient }   = require('../config/database');
+const { query }               = require('../config/database');   // pg directo (svc_payment)
 const emailService            = require('./emailService');
 const { notifyBiometricDelete } = require('./biometricNotificationService');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
@@ -35,7 +35,6 @@ const BUSINESS_TZ = process.env.BUSINESS_TIMEZONE || 'America/Mexico_City';
  * Identifica suscripciones vencidas/fallidas y envía notificación persuasiva.
  */
 async function processPastDueRecovery() {
-  const db = getSupabaseClient();
   const ahora = new Date();
   const tresDiasAtras = new Date(ahora.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -43,13 +42,14 @@ async function processPastDueRecovery() {
 
   try {
     // Buscar suscripciones en past_due no notificadas o cuyo último aviso tiene > 3 días
-    const { data: pastDueSubs, error: subError } = await db
-      .from('suscripciones')
-      .select('id, usuario_id, plan_nombre, monto, notificado_recuperacion_en')
-      .eq('estado', 'past_due')
-      .or(`notificado_recuperacion_en.is.null,notificado_recuperacion_en.lt.${tresDiasAtras}`);
+    const { rows: pastDueSubs } = await query(
+      `SELECT id, usuario_id, plan_nombre, monto, notificado_recuperacion_en
+       FROM suscripciones
+       WHERE estado = 'past_due'
+         AND (notificado_recuperacion_en IS NULL OR notificado_recuperacion_en < $1)`,
+      [tresDiasAtras],
+    );
 
-    if (subError) throw subError;
     if (!pastDueSubs || pastDueSubs.length === 0) {
       logger.info('✅ Ninguna membresía past_due requiere notificación el día de hoy.');
       return;
@@ -60,13 +60,12 @@ async function processPastDueRecovery() {
     for (const sub of pastDueSubs) {
       try {
         // Obtener datos del usuario
-        const { data: user, error: userError } = await db
-          .from('usuarios')
-          .select('id, nombre, email, push_token')
-          .eq('id', sub.usuario_id)
-          .single();
-
-        if (userError || !user) {
+        const { rows: userRows } = await query(
+          `SELECT id, nombre, email, push_token FROM auth_service_db.usuarios WHERE id = $1 LIMIT 1`,
+          [sub.usuario_id],
+        );
+        const user = userRows[0];
+        if (!user) {
           logger.warn(`No se encontró usuario ${sub.usuario_id} para suscripción ${sub.id}`);
           continue;
         }
@@ -112,10 +111,10 @@ async function processPastDueRecovery() {
         }
 
         // 4. Actualizar timestamp para control de anti-spam
-        await db
-          .from('suscripciones')
-          .update({ notificado_recuperacion_en: ahora.toISOString() })
-          .eq('id', sub.id);
+        await query(
+          `UPDATE suscripciones SET notificado_recuperacion_en = $2 WHERE id = $1`,
+          [sub.id, ahora.toISOString()],
+        );
 
         logger.info(`✅ Recuperación procesada exitosamente para socio: ${nombre} (${user.id})`);
       } catch (itemErr) {
@@ -123,7 +122,7 @@ async function processPastDueRecovery() {
       }
     }
   } catch (err) {
-    logger.error('Error global en processPastDueRecovery:', err.message);
+    logger.error('Error global en processPastDueRecovery', { error: err.message });
   }
 }
 
@@ -132,7 +131,6 @@ async function processPastDueRecovery() {
  * Previene la deserción (churn) enviando rutinas suaves motivacionales vía IA.
  */
 async function processInactivityAlerts() {
-  const db = getSupabaseClient();
   const ahora = new Date();
   const cincoDiasAtras = new Date(ahora.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString();
   const sieteDiasAtras = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -141,13 +139,14 @@ async function processInactivityAlerts() {
 
   try {
     // 1. Obtener socios con membresía ACTIVA
-    const { data: activeSubs, error: subError } = await db
-      .from('suscripciones')
-      .select('id, usuario_id, notificado_inactividad_en')
-      .eq('estado', 'active')
-      .or(`notificado_inactividad_en.is.null,notificado_inactividad_en.lt.${sieteDiasAtras}`);
+    const { rows: activeSubs } = await query(
+      `SELECT id, usuario_id, notificado_inactividad_en
+       FROM suscripciones
+       WHERE estado = 'active'
+         AND (notificado_inactividad_en IS NULL OR notificado_inactividad_en < $1)`,
+      [sieteDiasAtras],
+    );
 
-    if (subError) throw subError;
     if (!activeSubs || activeSubs.length === 0) {
       logger.info('✅ Todos los socios activos están al día o ya fueron motivados recientemente.');
       return;
@@ -160,14 +159,15 @@ async function processInactivityAlerts() {
     for (const sub of activeSubs) {
       try {
         // 2. Consultar si hay alguna entrada en historial_accesos en los últimos 5 días
-        const { data: accesos, error: accesoError } = await db
-          .from('historial_accesos')
-          .select('id')
-          .eq('usuario_id', sub.usuario_id)
-          .gte('fecha_acceso', cincoDiasAtras)
-          .limit(1);
-
-        if (accesoError) {
+        let accesos;
+        try {
+          const r = await query(
+            `SELECT id FROM access_service_db.historial_accesos
+             WHERE usuario_id = $1 AND creado_en >= $2 LIMIT 1`,
+            [sub.usuario_id, cincoDiasAtras],
+          );
+          accesos = r.rows;
+        } catch (accesoError) {
           // Si la tabla no existe o falla en entorno de desarrollo local, continuar de forma segura
           if (accesoError.code === '42P01') {
             logger.warn('Tabla historial_accesos no encontrada. Saltando verificación de inactividad.');
@@ -177,20 +177,20 @@ async function processInactivityAlerts() {
         }
 
         // Si tiene al menos 1 acceso en los últimos 5 días, está activo; pasar al siguiente
-        if (accesos && accesos.length > 0) {
+        if (accesos.length > 0) {
           continue;
         }
 
         inactivosDetectados++;
 
         // 3. El usuario lleva >= 5 días inactivo. Obtener perfil para personalizar rutina de reactivación.
-        const { data: user, error: userError } = await db
-          .from('usuarios')
-          .select('id, nombre, email, objetivo_fitness, lesiones')
-          .eq('id', sub.usuario_id)
-          .single();
-
-        if (userError || !user || !user.email) continue;
+        const { rows: userRows } = await query(
+          `SELECT id, nombre, email, objetivo_fitness, lesiones
+           FROM auth_service_db.usuarios WHERE id = $1 LIMIT 1`,
+          [sub.usuario_id],
+        );
+        const user = userRows[0];
+        if (!user || !user.email) continue;
 
         const nombre = user.nombre || 'Socio GymPro';
         logger.info(`😴 Socio inactivo detectado: ${nombre} (${user.id}). Generando rutina de regreso por IA...`);
@@ -240,10 +240,10 @@ async function processInactivityAlerts() {
         logger.info(`📲 [PUSH MOTIVACIONAL] a ${user.email}: "⚡ ${nombre}, tu cuerpo echa de menos el movimiento. Te preparamos una rutina suave de 20 min. ¡Toca aquí para verla!"`);
 
         // 7. Marcar como notificado en Supabase para no saturarlo
-        await db
-          .from('suscripciones')
-          .update({ notificado_inactividad_en: ahora.toISOString() })
-          .eq('id', sub.id);
+        await query(
+          `UPDATE suscripciones SET notificado_inactividad_en = $2 WHERE id = $1`,
+          [sub.id, ahora.toISOString()],
+        );
 
         logger.info(`✅ Alerta de inactividad enviada a socio: ${nombre} (${user.id})`);
       } catch (itemErr) {
@@ -253,7 +253,7 @@ async function processInactivityAlerts() {
 
     logger.info(`📊 Escaneo finalizado. Socios inactivos notificados: ${inactivosDetectados}`);
   } catch (err) {
-    logger.error('Error global en processInactivityAlerts:', err.message);
+    logger.error('Error global en processInactivityAlerts', { error: err.message });
   }
 }
 
@@ -293,8 +293,6 @@ async function processInactivityAlerts() {
  * automáticamente. No requiere intervención manual.
  */
 async function processExpiredFacialRevocation() {
-  const db = getSupabaseClient();
-
   // "Hoy" en la zona horaria del negocio, como fecha pura YYYY-MM-DD, para
   // comparar contra el DATE `valido_hasta` sin arrastrar hora ni UTC.
   const hoyLocal = new Intl.DateTimeFormat('en-CA', {
@@ -309,15 +307,19 @@ async function processExpiredFacialRevocation() {
   // (active/past_due/cancelled). Se excluye 'active' y 'free_pass' —el socio
   // vigente o de pase libre no se toca— y se exige que el período pagado ya
   // haya terminado.
-  const { data: vencidas, error } = await db
-    .from('suscripciones')
-    .select('id, usuario_id, valido_hasta, estado')
-    .lt('valido_hasta', hoyLocal)               // operador `<` (ver criterio arriba)
-    .not('estado', 'in', '("active","free_pass")')
-    .is('acceso_facial_revocado_en', null)      // idempotencia: no reprocesar
-    .limit(500);
-
-  if (error) {
+  let vencidas;
+  try {
+    const r = await query(
+      `SELECT id, usuario_id, valido_hasta, estado
+       FROM suscripciones
+       WHERE valido_hasta < $1                       -- operador '<' (ver criterio arriba)
+         AND estado NOT IN ('active','free_pass')
+         AND acceso_facial_revocado_en IS NULL       -- idempotencia: no reprocesar
+       LIMIT 500`,
+      [hoyLocal],
+    );
+    vencidas = r.rows;
+  } catch (error) {
     logger.error('Error consultando suscripciones vencidas para revocación facial', {
       error: error.message,
     });
@@ -336,19 +338,18 @@ async function processExpiredFacialRevocation() {
   for (const sub of vencidas) {
     try {
       // pin_terminal vive en usuarios (mismo patrón que getUserBiometricInfo).
-      const { data: user, error: userErr } = await db
-        .from('usuarios')
-        .select('id, pin_terminal')
-        .eq('id', sub.usuario_id)
-        .single();
-
-      if (userErr || !user) {
+      const { rows: userRows } = await query(
+        `SELECT id, pin_terminal FROM auth_service_db.usuarios WHERE id = $1 LIMIT 1`,
+        [sub.usuario_id],
+      );
+      const user = userRows[0];
+      if (!user) {
         // Sin usuario no hay a quién revocar en el terminal. Se sella igual
         // para no reintentar indefinidamente sobre un registro huérfano.
         logger.warn('Usuario no encontrado para revocación facial; se sella sin DELETE', {
           suscripcionId: sub.id, usuarioId: sub.usuario_id,
         });
-        await _sellarRevocacion(db, sub.id);
+        await _sellarRevocacion(sub.id);
         continue;
       }
 
@@ -358,14 +359,14 @@ async function processExpiredFacialRevocation() {
         logger.info('Usuario sin pin_terminal; no hay acceso facial que revocar', {
           usuarioId: sub.usuario_id,
         });
-        await _sellarRevocacion(db, sub.id);
+        await _sellarRevocacion(sub.id);
         continue;
       }
 
       // DELETE al terminal. notifyBiometricDelete lanza si la llamada M2M
       // falla; en ese caso NO sellamos (se reintenta al próximo ciclo).
       await notifyBiometricDelete(sub.usuario_id, user.pin_terminal);
-      await _sellarRevocacion(db, sub.id);
+      await _sellarRevocacion(sub.id);
       revocadas++;
 
       logger.warn('Acceso facial revocado por vencimiento', {
@@ -387,12 +388,13 @@ async function processExpiredFacialRevocation() {
 }
 
 /** Sella la marca de idempotencia tras revocar (o descartar) un usuario. */
-async function _sellarRevocacion(db, suscripcionId) {
-  const { error } = await db
-    .from('suscripciones')
-    .update({ acceso_facial_revocado_en: new Date().toISOString() })
-    .eq('id', suscripcionId);
-  if (error) {
+async function _sellarRevocacion(suscripcionId) {
+  try {
+    await query(
+      `UPDATE suscripciones SET acceso_facial_revocado_en = $2 WHERE id = $1`,
+      [suscripcionId, new Date().toISOString()],
+    );
+  } catch (error) {
     // Si no se puede sellar, se reintentará (no rompe el flujo): mejor un
     // DELETE repetido —inocuo en el terminal— que dejar de revocar.
     logger.warn('No se pudo sellar acceso_facial_revocado_en', {

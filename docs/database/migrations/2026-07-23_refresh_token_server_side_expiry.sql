@@ -14,10 +14,10 @@
 -- Ajusta el schema/qualified name si tu tabla `usuarios` vive en otro esquema.
 -- =============================================================================
 
-ALTER TABLE usuarios
+ALTER TABLE auth_service_db.usuarios
   ADD COLUMN IF NOT EXISTS refresh_token_expires_at TIMESTAMPTZ;
 
-COMMENT ON COLUMN usuarios.refresh_token_expires_at IS
+COMMENT ON COLUMN auth_service_db.usuarios.refresh_token_expires_at IS
   'Expiración server-side del refresh token (autoridad, no la cookie). NULL = sin sesión activa o fila legacy (se acepta hasta el próximo login, que la poblará).';
 
 -- Nota: la búsqueda en /refresh filtra por refresh_token_hash. Si aún no existe

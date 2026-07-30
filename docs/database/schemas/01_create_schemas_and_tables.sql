@@ -425,6 +425,7 @@ CREATE TRIGGER trg_tv_updated_at
   FOR EACH ROW EXECUTE FUNCTION access_service_db.set_updated_at();
 
 -- Constraint: canjeado_en y acceso_id son obligatorios cuando estado = 'canjeado'
+ALTER TABLE access_service_db.tickets_visitas DROP CONSTRAINT IF EXISTS chk_tv_canje_consistente;
 ALTER TABLE access_service_db.tickets_visitas
   ADD CONSTRAINT chk_tv_canje_consistente
   CHECK (
@@ -523,6 +524,7 @@ CREATE INDEX IF NOT EXISTS idx_sus_stripe_customer_id
   WHERE stripe_customer_id IS NOT NULL;
 
 -- Constraint: si metodo_pago = 'stripe', stripe_customer_id es obligatorio
+ALTER TABLE payment_service_db.suscripciones DROP CONSTRAINT IF EXISTS chk_sus_stripe_campos;
 ALTER TABLE payment_service_db.suscripciones
   ADD CONSTRAINT chk_sus_stripe_campos
   CHECK (
@@ -531,11 +533,13 @@ ALTER TABLE payment_service_db.suscripciones
   );
 
 -- Constraint: valido_hasta siempre debe ser posterior a valido_desde
+ALTER TABLE payment_service_db.suscripciones DROP CONSTRAINT IF EXISTS chk_sus_fechas_coherentes;
 ALTER TABLE payment_service_db.suscripciones
   ADD CONSTRAINT chk_sus_fechas_coherentes
   CHECK (valido_hasta > valido_desde);
 
 -- Constraint: suspendido_hasta debe ser posterior a suspendido_desde
+ALTER TABLE payment_service_db.suscripciones DROP CONSTRAINT IF EXISTS chk_sus_suspension_coherente;
 ALTER TABLE payment_service_db.suscripciones
   ADD CONSTRAINT chk_sus_suspension_coherente
   CHECK (

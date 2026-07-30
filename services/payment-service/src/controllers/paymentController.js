@@ -12,7 +12,7 @@ const paymentHistoryModel = require('../models/paymentHistoryModel');
 const offerModel          = require('../models/offerModel');
 const accessSyncService   = require('../services/accessSyncService');
 const { generateReceiptPdf } = require('../services/pdfService');
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');   // pg directo (svc_payment)
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('payment-service:paymentController');
@@ -52,16 +52,17 @@ async function registerCashPayment(req, res, next) {
     // Antes: db.from('auth_service_db.usuarios') — string con punto que NO
     // resuelve como schema.tabla; la verificación nunca bloqueaba. Ahora se
     // usa .schema('auth_service_db').from('usuarios') y se CORTA si no existe.
-    const db = getSupabaseClient();
-    const { data: usuario, error: userError } = await db
-      .schema('auth_service_db')
-      .from('usuarios')
-      .select('id, email, nombre, apellido_paterno')
-      .eq('id', usuario_id)
-      .is('eliminado_en', null)
-      .maybeSingle();
-
-    if (userError) {
+    let usuario;
+    try {
+      const { rows } = await query(
+        `SELECT id, email, nombre, apellido_paterno
+         FROM auth_service_db.usuarios
+         WHERE id = $1 AND eliminado_en IS NULL
+         LIMIT 1`,
+        [usuario_id],
+      );
+      usuario = rows[0];
+    } catch (userError) {
       logger.error('Error verificando usuario para pago en efectivo', {
         usuario_id, receptionistId, error: userError.message,
       });
@@ -363,14 +364,15 @@ async function getReceiptPdf(req, res, next) {
   try {
     const { id: subscriptionId } = req.params;
 
-    const db = getSupabaseClient();
-    const { data: subscription, error } = await db
-      .from('suscripciones')
-      .select('*')
-      .eq('id', subscriptionId)
-      .single();
+    let subscription = null;
+    try {
+      const { rows } = await query(`SELECT * FROM suscripciones WHERE id = $1 LIMIT 1`, [subscriptionId]);
+      subscription = rows[0] || null;
+    } catch (e) {
+      subscription = null;
+    }
 
-    if (error || !subscription) {
+    if (!subscription) {
       return res.status(404).json({
         success: false, data: null, error: 'Comprobante o suscripción no encontrada.',
       });
@@ -385,12 +387,13 @@ async function getReceiptPdf(req, res, next) {
 
     // Obtener datos del usuario si se puede
     let user = { nombre: 'Usuario GymPro', email: '' };
-    const { data: usuario } = await db
-      .from('auth_service_db.usuarios')
-      .select('nombre, apellido_paterno, email')
-      .eq('id', subscription.usuario_id)
-      .single();
-    if (usuario) user = usuario;
+    try {
+      const { rows } = await query(
+        `SELECT nombre, apellido_paterno, email FROM auth_service_db.usuarios WHERE id = $1 LIMIT 1`,
+        [subscription.usuario_id],
+      );
+      if (rows[0]) user = rows[0];
+    } catch { /* si falla, se usa el default */ }
 
     const pdfBuffer = await generateReceiptPdf({
       subscription,

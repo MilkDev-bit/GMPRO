@@ -2,16 +2,16 @@
  * @file services/payment-service/src/models/subscriptionModel.js
  * @description Capa de acceso a datos para payment_service_db.suscripciones.
  *
- * IMPORTANTE SOBRE IDEMPOTENCIA:
- *   Stripe puede entregar el mismo evento de webhook más de una vez.
- *   Por eso, todas las operaciones de actualización usan el stripe_event_id
- *   como guard de idempotencia: si ya se procesó, la query no hace nada.
- *   Adicionalmente guardamos el stripe_event_id en la tabla para detectar duplicados.
+ * Mínimo privilegio (CLD-1): opera vía `pg` con el rol svc_payment (query()),
+ * SQL SIEMPRE parametrizado ($1,$2,…) — nunca concatenar valores.
+ *
+ * IDEMPOTENCIA (Stripe at-least-once): las actualizaciones guardan stripe_event_id
+ * y el claim de webhook usa la PK de webhook_events_procesados (23505 = duplicado).
  */
 
 'use strict';
 
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 const logger = createServiceLogger('payment-service:subscriptionModel');
 
@@ -24,125 +24,73 @@ const SAFE_COLUMNS = [
   'creado_en', 'actualizado_en',
 ].join(', ');
 
-/**
- * Busca la suscripción activa de un usuario.
- *
- * @param {string} usuarioId - UUID del usuario en auth_service_db
- * @returns {Promise<object|null>}
- */
+/** Busca la suscripción activa de un usuario. @returns {Promise<object|null>} */
 async function findActiveByUserId(usuarioId) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .select(SAFE_COLUMNS)
-    .eq('usuario_id', usuarioId)
-    .eq('estado', 'active')
-    .order('valido_hasta', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-  return data;
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS} FROM suscripciones
+     WHERE usuario_id = $1 AND estado = 'active'
+     ORDER BY valido_hasta DESC LIMIT 1`,
+    [usuarioId],
+  );
+  return rows[0] || null;
 }
 
-/**
- * Busca una suscripción por stripe_subscription_id.
- * Usada en el handler del webhook para localizar la suscripción a actualizar.
- *
- * @param {string} stripeSubscriptionId
- * @returns {Promise<object|null>}
- */
+/** Busca una suscripción por stripe_subscription_id. @returns {Promise<object|null>} */
 async function findByStripeSubscriptionId(stripeSubscriptionId) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .select(SAFE_COLUMNS + ', stripe_event_id_ultimo')
-    .eq('stripe_subscription_id', stripeSubscriptionId)
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-  return data;
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS}, stripe_event_id_ultimo FROM suscripciones
+     WHERE stripe_subscription_id = $1 LIMIT 1`,
+    [stripeSubscriptionId],
+  );
+  return rows[0] || null;
 }
 
-/**
- * Busca una suscripción por stripe_customer_id.
- *
- * @param {string} stripeCustomerId
- * @returns {Promise<object|null>}
- */
+/** Busca una suscripción por stripe_customer_id. @returns {Promise<object|null>} */
 async function findByStripeCustomerId(stripeCustomerId) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .select(SAFE_COLUMNS)
-    .eq('stripe_customer_id', stripeCustomerId)
-    .order('creado_en', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-  return data;
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS} FROM suscripciones
+     WHERE stripe_customer_id = $1
+     ORDER BY creado_en DESC LIMIT 1`,
+    [stripeCustomerId],
+  );
+  return rows[0] || null;
 }
 
-/**
- * Verifica si un stripe_event_id ya fue procesado (idempotencia).
- *
- * @param {string} stripeEventId
- * @returns {Promise<boolean>}
- */
+/** Verifica si un stripe_event_id ya fue procesado (idempotencia). */
 async function isEventAlreadyProcessed(stripeEventId) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .select('id')
-    .eq('stripe_event_id_ultimo', stripeEventId)
-    .limit(1)
-    .single();
-
-  if (error && error.code !== 'PGRST116') throw error;
-  return !!data;
+  const { rows } = await query(
+    `SELECT id FROM suscripciones WHERE stripe_event_id_ultimo = $1 LIMIT 1`,
+    [stripeEventId],
+  );
+  return rows.length > 0;
 }
 
 /**
- * Crea una nueva suscripción.
- *
- * @param {object} subscriptionData
+ * Crea una nueva suscripción. `subscriptionData` = objeto columna→valor (claves
+ * generadas por el propio servicio; se citan como identificadores).
  * @returns {Promise<object>}
  */
 async function create(subscriptionData) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .insert(subscriptionData)
-    .select(SAFE_COLUMNS)
-    .single();
-
-  if (error) {
+  const cols = Object.keys(subscriptionData);
+  const vals = Object.values(subscriptionData);
+  const colList = cols.map((c) => `"${c}"`).join(', ');
+  const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
+  try {
+    const { rows } = await query(
+      `INSERT INTO suscripciones (${colList}) VALUES (${placeholders}) RETURNING ${SAFE_COLUMNS}`,
+      vals,
+    );
+    const data = rows[0];
+    logger.info('Suscripción creada', { id: data.id, userId: data.usuario_id });
+    return data;
+  } catch (error) {
     logger.error('Error creando suscripción', { error: error.message });
     throw error;
   }
-  logger.info('Suscripción creada', { id: data.id, userId: data.usuario_id });
-  return data;
 }
 
 /**
  * Activa (o renueva) una suscripción tras un pago exitoso.
- * Calcula valido_hasta sumando plan_duracion_dias a la fecha actual.
- *
- * @param {string}  stripeSubscriptionId
- * @param {string}  stripeEventId          - Para idempotencia
- * @param {string}  proximoPagoEn          - Timestamp del próximo pago (de Stripe)
- * @param {number}  [duracionDias=30]      - Días de vigencia del plan
  * @returns {Promise<object>} Suscripción actualizada
  */
 async function activateAfterPayment({
@@ -151,135 +99,79 @@ async function activateAfterPayment({
   proximoPagoEn = null,
   duracionDias  = 30,
 }) {
-  const db        = getSupabaseClient();
-  const ahora     = new Date();
+  const ahora = new Date();
   const validoHasta = new Date(ahora);
   validoHasta.setDate(validoHasta.getDate() + duracionDias);
 
-  const { data, error } = await db
-    .from('suscripciones')
-    .update({
-      estado:                 'active',
-      valido_desde:           ahora.toISOString(),
-      valido_hasta:           validoHasta.toISOString(),
-      ultimo_pago_en:         ahora.toISOString(),
-      proximo_pago_en:        proximoPagoEn,
-      cancelado_en:           null,        // Limpiar si había sido cancelada
-      // Re-habilita al usuario para el cron de revocación facial: si había
-      // sido revocado por vencimiento y ahora vuelve a pagar, el flag se
-      // limpia para que el alta biométrica (invoice.paid → notifyBiometricSync)
-      // no quede bloqueada y una futura expiración vuelva a revocar.
-      acceso_facial_revocado_en: null,
-      stripe_event_id_ultimo: stripeEventId,
-      actualizado_en:         ahora.toISOString(),
-    })
-    .eq('stripe_subscription_id', stripeSubscriptionId)
-    .select(SAFE_COLUMNS)
-    .single();
-
-  if (error) {
-    logger.error('Error activando suscripción', {
-      stripeSubscriptionId, stripeEventId, error: error.message,
+  try {
+    const { rows } = await query(
+      `UPDATE suscripciones SET
+         estado = 'active',
+         valido_desde = $2,
+         valido_hasta = $3,
+         ultimo_pago_en = $2,
+         proximo_pago_en = $4,
+         cancelado_en = NULL,
+         acceso_facial_revocado_en = NULL,   -- re-habilita el alta biométrica al re-pagar
+         stripe_event_id_ultimo = $5,
+         actualizado_en = $2
+       WHERE stripe_subscription_id = $1
+       RETURNING ${SAFE_COLUMNS}`,
+      [stripeSubscriptionId, ahora.toISOString(), validoHasta.toISOString(), proximoPagoEn, stripeEventId],
+    );
+    if (!rows[0]) throw new Error(`Suscripción no encontrada para stripe_subscription_id=${stripeSubscriptionId}`);
+    const data = rows[0];
+    logger.info('Suscripción activada/renovada', {
+      id: data.id, userId: data.usuario_id, validoHasta: validoHasta.toISOString(), stripeEventId,
     });
+    return data;
+  } catch (error) {
+    logger.error('Error activando suscripción', { stripeSubscriptionId, stripeEventId, error: error.message });
     throw error;
   }
-
-  logger.info('Suscripción activada/renovada', {
-    id:           data.id,
-    userId:       data.usuario_id,
-    validoHasta:  validoHasta.toISOString(),
-    stripeEventId,
-  });
-
-  return data;
 }
 
-/**
- * Cancela una suscripción (evento customer.subscription.deleted de Stripe).
- *
- * @param {string} stripeSubscriptionId
- * @param {string} stripeEventId
- * @param {string} [razon='stripe_cancelled'] - Razón de cancelación
- * @returns {Promise<object>}
- */
+/** Cancela una suscripción (customer.subscription.deleted). @returns {Promise<object>} */
 async function cancelSubscription({ stripeSubscriptionId, stripeEventId, razon = 'stripe_cancelled' }) {
-  const db    = getSupabaseClient();
-  const ahora = new Date();
-
-  const { data, error } = await db
-    .from('suscripciones')
-    .update({
-      estado:                 'cancelled',
-      cancelado_en:           ahora.toISOString(),
-      razon_cancelacion:      razon,
-      stripe_event_id_ultimo: stripeEventId,
-      actualizado_en:         ahora.toISOString(),
-    })
-    .eq('stripe_subscription_id', stripeSubscriptionId)
-    .select(SAFE_COLUMNS)
-    .single();
-
-  if (error) throw error;
-
-  logger.info('Suscripción cancelada', {
-    id: data.id, userId: data.usuario_id, razon, stripeEventId,
-  });
-  return data;
+  const ahora = new Date().toISOString();
+  const { rows } = await query(
+    `UPDATE suscripciones SET
+       estado = 'cancelled',
+       cancelado_en = $2,
+       razon_cancelacion = $3,
+       stripe_event_id_ultimo = $4,
+       actualizado_en = $2
+     WHERE stripe_subscription_id = $1
+     RETURNING ${SAFE_COLUMNS}`,
+    [stripeSubscriptionId, ahora, razon, stripeEventId],
+  );
+  if (!rows[0]) throw new Error(`Suscripción no encontrada para stripe_subscription_id=${stripeSubscriptionId}`);
+  logger.info('Suscripción cancelada', { id: rows[0].id, userId: rows[0].usuario_id, razon, stripeEventId });
+  return rows[0];
 }
 
-/**
- * Marca una suscripción con pago fallido.
- * No cancela la suscripción — Stripe reintentará el cobro automáticamente.
- *
- * @param {string} stripeSubscriptionId
- * @param {string} stripeEventId
- * @param {string} [failureReason]
- * @returns {Promise<object>}
- */
+/** Marca pago fallido (no cancela; Stripe reintenta). @returns {Promise<object>} */
 async function markPaymentFailed({ stripeSubscriptionId, stripeEventId, failureReason = null }) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db
-    .from('suscripciones')
-    .update({
-      estado:                 'past_due',   // Pago vencido, aún no cancelada
-      razon_fallo_pago:       failureReason,
-      stripe_event_id_ultimo: stripeEventId,
-      actualizado_en:         new Date().toISOString(),
-    })
-    .eq('stripe_subscription_id', stripeSubscriptionId)
-    .select(SAFE_COLUMNS)
-    .single();
-
-  if (error) throw error;
-
-  logger.warn('Pago fallido registrado', {
-    id: data.id, userId: data.usuario_id, failureReason, stripeEventId,
-  });
-  return data;
+  const { rows } = await query(
+    `UPDATE suscripciones SET
+       estado = 'past_due',
+       razon_fallo_pago = $3,
+       stripe_event_id_ultimo = $2,
+       actualizado_en = $4
+     WHERE stripe_subscription_id = $1
+     RETURNING ${SAFE_COLUMNS}`,
+    [stripeSubscriptionId, stripeEventId, failureReason, new Date().toISOString()],
+  );
+  if (!rows[0]) throw new Error(`Suscripción no encontrada para stripe_subscription_id=${stripeSubscriptionId}`);
+  logger.warn('Pago fallido registrado', { id: rows[0].id, userId: rows[0].usuario_id, failureReason, stripeEventId });
+  return rows[0];
 }
 
 /**
- * Registra un pago en efectivo de forma ATÓMICA e IDEMPOTENTE vía la RPC
- * payment_service_db.registrar_pago_efectivo.
- *
- * La duración del acceso la determina el PLAN (tabla `planes`), no el
- * cliente (fix 2.3). La extensión de `valido_hasta` y el asiento en el
- * ledger ocurren en una sola transacción, con la Idempotency-Key como
- * guard de concurrencia (fix 2.2).
- *
- * @param {object} params
- * @param {string} params.usuarioId
- * @param {string} params.planId             - UUID del plan canónico
- * @param {number} params.montoCobrado       - Monto realmente cobrado (MXN)
- * @param {string} params.metodoPago         - 'cash' | 'card_terminal' | 'transfer'
- * @param {string} params.receptionistaId
- * @param {string} params.idempotencyKey
- * @param {string} params.numeroRecibo       - Folio generado en el servicio
- * @param {string} [params.paseCortesiaCodigo]
- * @param {string} [params.notas]
- * @returns {Promise<{ yaProcesado: boolean, action: string, subscription: object, pago: object }>}
- * @throws  {Error} err.code === 'PLAN_NOT_FOUND' si el plan no existe/está inactivo.
+ * Registra un pago en efectivo ATÓMICO e IDEMPOTENTE vía la RPC SECURITY DEFINER
+ * payment_service_db.registrar_pago_efectivo (extensión de vigencia + asiento en
+ * ledger en una sola transacción; Idempotency-Key como guard).
+ * @throws {Error} err.code === 'PLAN_NOT_FOUND' si el plan no existe/está inactivo.
  */
 async function registerCashPayment({
   usuarioId,
@@ -292,21 +184,28 @@ async function registerCashPayment({
   paseCortesiaCodigo = null,
   notas = null,
 }) {
-  const db = getSupabaseClient();
-
-  const { data, error } = await db.rpc('registrar_pago_efectivo', {
-    p_usuario_id:           usuarioId,
-    p_plan_id:              planId,
-    p_monto_cobrado:        montoCobrado,
-    p_metodo_pago:          metodoPago,
-    p_receptionist_id:      receptionistaId,
-    p_idempotency_key:      idempotencyKey,
-    p_numero_recibo:        numeroRecibo,
-    p_pase_cortesia_codigo: paseCortesiaCodigo,
-    p_notas:                notas,
-  });
-
-  if (error) {
+  try {
+    // Orden posicional de la firma: p_usuario_id, p_plan_id, p_monto_cobrado,
+    // p_metodo_pago, p_receptionist_id, p_idempotency_key, p_numero_recibo,
+    // p_pase_cortesia_codigo, p_notas.
+    const { rows } = await query(
+      `SELECT payment_service_db.registrar_pago_efectivo($1,$2,$3,$4,$5,$6,$7,$8,$9) AS result`,
+      [usuarioId, planId, montoCobrado, metodoPago, receptionistaId,
+       idempotencyKey, numeroRecibo, paseCortesiaCodigo, notas],
+    );
+    const data = rows[0].result;   // jsonb → objeto { ya_procesado, accion, suscripcion, pago }
+    const result = {
+      yaProcesado:  data.ya_procesado === true,
+      action:       data.accion,
+      subscription: data.suscripcion,
+      pago:         data.pago,
+    };
+    logger.info('Pago efectivo procesado (RPC atómica)', {
+      usuarioId, action: result.action, yaProcesado: result.yaProcesado,
+      suscripcionId: result.subscription?.id, validoHasta: result.subscription?.valido_hasta, receptionistaId,
+    });
+    return result;
+  } catch (error) {
     // La RPC lanza P0002 ('PLAN_NOT_FOUND') si el plan no existe/está inactivo.
     if (error.code === 'P0002' || /PLAN_NOT_FOUND/.test(error.message || '')) {
       const e = new Error('PLAN_NOT_FOUND');
@@ -318,86 +217,42 @@ async function registerCashPayment({
     });
     throw error;
   }
-
-  const result = {
-    yaProcesado:  data.ya_procesado === true,
-    action:       data.accion,
-    subscription: data.suscripcion,
-    pago:         data.pago,
-  };
-
-  logger.info('Pago efectivo procesado (RPC atómica)', {
-    usuarioId,
-    action: result.action,
-    yaProcesado: result.yaProcesado,
-    suscripcionId: result.subscription?.id,
-    validoHasta: result.subscription?.valido_hasta,
-    receptionistaId,
-  });
-
-  return result;
 }
 
-/**
- * Obtiene el historial de suscripciones de un usuario.
- *
- * @param {string} usuarioId
- * @param {number} [limit=10]
- * @returns {Promise<object[]>}
- */
+/** Historial de suscripciones de un usuario. @returns {Promise<object[]>} */
 async function getHistoryByUserId(usuarioId, limit = 10) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .select(SAFE_COLUMNS)
-    .eq('usuario_id', usuarioId)
-    .order('creado_en', { ascending: false })
-    .limit(limit);
-
-  if (error) throw error;
-  return data || [];
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS} FROM suscripciones
+     WHERE usuario_id = $1 ORDER BY creado_en DESC LIMIT $2`,
+    [usuarioId, limit],
+  );
+  return rows;
 }
 
 /**
- * Reclama ATÓMICAMENTE un evento de webhook de Stripe para procesarlo una sola vez.
- *
- * FIX DE IDEMPOTENCIA (race at-least-once):
- *   Inserta el event_id en el ledger webhook_events_procesados (PK = event_id).
- *   • Éxito           → { claimed: true }  (este proceso es el dueño; procede a procesar).
- *   • Violación 23505 → { claimed: false } (otra entrega ya lo reclamó → duplicado seguro).
- *   • Otro error      → lanza (fail-closed: sin garantía de idempotencia NO se procesa;
- *                        el caller responde 5xx y Stripe reintenta más tarde).
- *
- * @param {string} eventId
- * @param {string} tipo
- * @returns {Promise<{ claimed: boolean }>}
+ * Reclama ATÓMICAMENTE un evento de webhook (procesar una sola vez).
+ *   éxito → { claimed:true } · 23505 → { claimed:false } · otro → lanza (fail-closed).
  */
 async function claimWebhookEvent(eventId, tipo) {
-  const db = getSupabaseClient();
-  const { error } = await db
-    .from('webhook_events_procesados')
-    .insert({ event_id: eventId, tipo });
-
-  if (error) {
+  try {
+    await query(
+      `INSERT INTO webhook_events_procesados (event_id, tipo) VALUES ($1, $2)`,
+      [eventId, tipo],
+    );
+    return { claimed: true };
+  } catch (error) {
     if (error.code === '23505') return { claimed: false };
     logger.error('Error reclamando evento de webhook (idempotencia)', {
       eventId, code: error.code, error: error.message,
     });
     throw error;
   }
-  return { claimed: true };
 }
 
-/**
- * Libera un evento previamente reclamado (p. ej. si el handler falló) para que el
- * reintento automático de Stripe pueda reprocesarlo. No lanza.
- *
- * @param {string} eventId
- */
+/** Libera un evento reclamado (si el handler falló) para el reintento de Stripe. No lanza. */
 async function releaseWebhookEvent(eventId) {
   try {
-    const db = getSupabaseClient();
-    await db.from('webhook_events_procesados').delete().eq('event_id', eventId);
+    await query(`DELETE FROM webhook_events_procesados WHERE event_id = $1`, [eventId]);
   } catch (err) {
     logger.warn('No se pudo liberar el claim de webhook para reintento', { eventId, error: err.message });
   }
@@ -406,60 +261,54 @@ async function releaseWebhookEvent(eventId) {
 // ── ADMIN (panel staff/admin) ────────────────────────────────────────────────
 /** Busca una suscripción por su id local. */
 async function findById(id) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .select(SAFE_COLUMNS + ', stripe_subscription_id')
-    .eq('id', id)
-    .limit(1)
-    .single();
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-  return data;
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS}, stripe_subscription_id FROM suscripciones WHERE id = $1 LIMIT 1`,
+    [id],
+  );
+  return rows[0] || null;
 }
 
 /** Lista suscripciones para el panel, opcionalmente filtradas por estado. */
 async function listForAdmin({ estado = null, limit = 200 } = {}) {
-  const db = getSupabaseClient();
-  let query = db
-    .from('suscripciones')
-    .select(SAFE_COLUMNS)
-    .order('creado_en', { ascending: false })
-    .limit(Math.min(limit, 500));
-  if (estado) query = query.eq('estado', estado);
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  const lim = Math.min(limit, 500);
+  if (estado) {
+    const { rows } = await query(
+      `SELECT ${SAFE_COLUMNS} FROM suscripciones WHERE estado = $1
+       ORDER BY creado_en DESC LIMIT $2`,
+      [estado, lim],
+    );
+    return rows;
+  }
+  const { rows } = await query(
+    `SELECT ${SAFE_COLUMNS} FROM suscripciones ORDER BY creado_en DESC LIMIT $1`,
+    [lim],
+  );
+  return rows;
 }
 
-/** Resumen financiero para el dashboard. `ingresosMes` = MRR de las activas
- *  (proxy recurrente); para caja real del mes, sumar la tabla de pagos. */
+/** Resumen financiero para el dashboard. `ingresosMes` = MRR de las activas (proxy). */
 async function financeSummary() {
-  const db = getSupabaseClient();
   const startMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-
-  const countBy = async (apply) => {
-    const { count, error } = await apply(
-      db.from('suscripciones').select('id', { count: 'exact', head: true }),
-    );
-    if (error) throw error;
-    return count || 0;
+  const { rows } = await query(
+    `SELECT
+       count(*) FILTER (WHERE estado = 'active')                                    AS activas,
+       count(*) FILTER (WHERE estado = 'past_due')                                  AS past_due,
+       count(*) FILTER (WHERE creado_en >= $1)                                      AS altas_mes,
+       count(*) FILTER (WHERE estado = 'cancelled' AND cancelado_en >= $1)          AS bajas_mes,
+       COALESCE(SUM(monto) FILTER (WHERE estado = 'active'), 0)                     AS ingresos,
+       (array_agg(moneda) FILTER (WHERE estado = 'active'))[1]                      AS moneda
+     FROM suscripciones`,
+    [startMonth],
+  );
+  const r = rows[0];
+  return {
+    ingresosMes:            Number(r.ingresos) || 0,
+    moneda:                 r.moneda || 'MXN',
+    suscripcionesActivas:   Number(r.activas) || 0,
+    suscripcionesPastDue:   Number(r.past_due) || 0,
+    altasMes:               Number(r.altas_mes) || 0,
+    bajasMes:               Number(r.bajas_mes) || 0,
   };
-
-  const suscripcionesActivas = await countBy((q) => q.eq('estado', 'active'));
-  const suscripcionesPastDue = await countBy((q) => q.eq('estado', 'past_due'));
-  const altasMes = await countBy((q) => q.gte('creado_en', startMonth));
-  const bajasMes = await countBy((q) => q.eq('estado', 'cancelled').gte('cancelado_en', startMonth));
-
-  const { data: actives, error } = await db
-    .from('suscripciones').select('monto, moneda').eq('estado', 'active');
-  if (error) throw error;
-  const ingresosMes = (actives || []).reduce((a, s) => a + (Number(s.monto) || 0), 0);
-  const moneda = actives?.[0]?.moneda || 'MXN';
-
-  return { ingresosMes, moneda, suscripcionesActivas, suscripcionesPastDue, altasMes, bajasMes };
 }
 
 const MES_ABBR = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -469,25 +318,14 @@ const monthKeyOf = (iso) => {
 };
 
 /**
- * Serie mensual para el dashboard financiero (últimos `months` meses):
- *   • ingresos:  suma de historial_pagos.monto (estado_pago='completed') por mes
- *                de creado_en. Es el ledger REAL de cobros presenciales/terminal.
- *   • altas:     suscripciones por mes de creado_en.
- *   • bajas:     suscripciones canceladas por mes de cancelado_en.
- *
- * Incluye presencial (efectivo/terminal) y Stripe online: el webhook invoice.paid
- * asienta cada cobro en historial_pagos (migración 008), por lo que esta consulta
- * cubre ambos canales.
- *
- * El bucketing se hace en JS (PostgREST no agrupa por expresión de fecha).
+ * Serie mensual para el dashboard financiero (últimos `months` meses).
+ * El bucketing se hace en JS (se mantiene igual que antes).
  */
 async function financeSeries({ months = 12 } = {}) {
-  const db = getSupabaseClient();
   const m = Math.max(1, Math.min(Number(months) || 12, 36));
   const now = new Date();
   const windowStart = new Date(now.getFullYear(), now.getMonth() - (m - 1), 1).toISOString();
 
-  // Meses del rango (asc) + índice por clave YYYY-MM.
   const keys = [];
   const labels = {};
   for (let i = 0; i < m; i++) {
@@ -502,34 +340,36 @@ async function financeSeries({ months = 12 } = {}) {
   const altas = new Array(m).fill(0);
   const bajas = new Array(m).fill(0);
 
-  // Ingresos (ledger presencial).
-  const { data: pagos, error: e1 } = await db
-    .from('historial_pagos')
-    .select('monto, moneda, creado_en')
-    .eq('estado_pago', 'completed')
-    .gte('creado_en', windowStart);
-  if (e1) throw e1;
+  // Ingresos (ledger presencial + Stripe vía migración 008).
+  const { rows: pagos } = await query(
+    `SELECT monto, moneda, creado_en FROM historial_pagos
+     WHERE estado_pago = 'completed' AND creado_en >= $1`,
+    [windowStart],
+  );
   let moneda = 'MXN';
-  for (const p of pagos || []) {
+  for (const p of pagos) {
     const k = monthKeyOf(p.creado_en);
     if (k in idx) ingresos[idx[k]] += Number(p.monto) || 0;
     if (p.moneda) moneda = p.moneda;
   }
 
   // Altas.
-  const { data: nuevas, error: e2 } = await db
-    .from('suscripciones').select('creado_en').gte('creado_en', windowStart);
-  if (e2) throw e2;
-  for (const s of nuevas || []) {
+  const { rows: nuevas } = await query(
+    `SELECT creado_en FROM suscripciones WHERE creado_en >= $1`,
+    [windowStart],
+  );
+  for (const s of nuevas) {
     const k = monthKeyOf(s.creado_en);
     if (k in idx) altas[idx[k]] += 1;
   }
 
   // Bajas.
-  const { data: canceladas, error: e3 } = await db
-    .from('suscripciones').select('cancelado_en').eq('estado', 'cancelled').gte('cancelado_en', windowStart);
-  if (e3) throw e3;
-  for (const s of canceladas || []) {
+  const { rows: canceladas } = await query(
+    `SELECT cancelado_en FROM suscripciones
+     WHERE estado = 'cancelled' AND cancelado_en >= $1`,
+    [windowStart],
+  );
+  for (const s of canceladas) {
     if (!s.cancelado_en) continue;
     const k = monthKeyOf(s.cancelado_en);
     if (k in idx) bajas[idx[k]] += 1;
@@ -544,36 +384,34 @@ async function financeSeries({ months = 12 } = {}) {
 
 /** Cancela una suscripción por id (marca estado y fecha). */
 async function cancelById(id) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('suscripciones')
-    .update({ estado: 'cancelled', cancelado_en: new Date().toISOString() })
-    .eq('id', id)
-    .select(SAFE_COLUMNS)
-    .single();
-  if (error) throw error;
-  return data;
+  const { rows } = await query(
+    `UPDATE suscripciones SET estado = 'cancelled', cancelado_en = $2
+     WHERE id = $1 RETURNING ${SAFE_COLUMNS}`,
+    [id, new Date().toISOString()],
+  );
+  if (!rows[0]) throw new Error(`Suscripción no encontrada: ${id}`);
+  return rows[0];
 }
 
-/** Otorga cortesía/extensión: suma `dias` a valido_hasta (desde hoy o desde el
- *  vencimiento actual, el que sea mayor) y reactiva la suscripción. */
+/** Otorga cortesía/extensión: suma `dias` a valido_hasta (desde hoy o el vencimiento, el mayor). */
 async function extendById(id, dias) {
-  const db = getSupabaseClient();
-  const { data: sub, error: e1 } = await db
-    .from('suscripciones').select('valido_hasta').eq('id', id).limit(1).single();
-  if (e1) throw e1;
+  const { rows: subRows } = await query(
+    `SELECT valido_hasta FROM suscripciones WHERE id = $1 LIMIT 1`,
+    [id],
+  );
+  if (!subRows[0]) throw new Error(`Suscripción no encontrada: ${id}`);
+  const sub = subRows[0];
 
   const base = Math.max(sub.valido_hasta ? new Date(sub.valido_hasta).getTime() : 0, Date.now());
   const nuevoValidoHasta = new Date(base + dias * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await db
-    .from('suscripciones')
-    .update({ estado: 'active', valido_hasta: nuevoValidoHasta })
-    .eq('id', id)
-    .select(SAFE_COLUMNS)
-    .single();
-  if (error) throw error;
-  return data;
+  const { rows } = await query(
+    `UPDATE suscripciones SET estado = 'active', valido_hasta = $2
+     WHERE id = $1 RETURNING ${SAFE_COLUMNS}`,
+    [id, nuevoValidoHasta],
+  );
+  if (!rows[0]) throw new Error(`Suscripción no encontrada: ${id}`);
+  return rows[0];
 }
 
 module.exports = {

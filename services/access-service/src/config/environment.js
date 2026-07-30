@@ -83,6 +83,10 @@ module.exports = {
   SUPABASE_URL:               process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY:  process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_DB_SCHEMA:         process.env.SUPABASE_DB_SCHEMA || 'access_service_db',
+  // Mínimo privilegio (CLD-1): si ambos están, el cliente usa el rol svc_access
+  // (JWT scopeado) en vez de SERVICE_ROLE_KEY. Opcionales → coexistencia.
+  SUPABASE_ANON_KEY:          process.env.SUPABASE_ANON_KEY,
+  SUPABASE_JWT_SECRET:        process.env.SUPABASE_JWT_SECRET,
   JWT_SECRET:                 process.env.JWT_SECRET,
   JWT_ALGORITHM:              process.env.JWT_ALGORITHM || 'HS512',
   AES_ENCRYPTION_KEY:         getAesKey(),
