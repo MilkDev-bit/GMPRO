@@ -1,46 +1,49 @@
 /**
  * @file services/fitness-service/src/models/routineModel.js
  * @description Capa de datos para rutinas de entrenamiento y ejercicios asignados.
+ * Mínimo privilegio (CLD-1): pg con rol svc_fitness, SQL parametrizado.
  */
 
 'use strict';
 
-const { getSupabaseClient }   = require('../config/database');
+const { query, getPool }      = require('../config/database');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('fitness-service:routineModel');
 
 /**
- * Obtiene las rutinas asignadas o personalizadas de un usuario.
- *
+ * Rutinas de un usuario con sus ejercicios anidados.
+ * Equivale al embed PostgREST `*, rutina_ejercicios(*, ejercicios(*))`.
  * @param {string} usuarioId
  * @returns {Promise<object[]>}
  */
 async function getUserRoutines(usuarioId) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('rutinas')
-    .select('*, rutina_ejercicios(*, ejercicios(*))')
-    .eq('usuario_id', usuarioId)
-    .order('creado_at', { ascending: false });
-
-  if (error) {
-    logger.error('Error obteniendo rutinas del usuario', { usuarioId, error: error.message });
-    throw error;
-  }
-  return data || [];
+  const { rows } = await query(
+    `SELECT r.*,
+       COALESCE((
+         SELECT jsonb_agg(
+                  jsonb_build_object(
+                    'id', re.id, 'rutina_id', re.rutina_id, 'ejercicio_id', re.ejercicio_id,
+                    'series', re.series, 'repeticiones', re.repeticiones,
+                    'descanso_seg', re.descanso_seg, 'orden', re.orden,
+                    'ejercicios', to_jsonb(e.*)
+                  ) ORDER BY re.orden)
+         FROM rutina_ejercicios re
+         JOIN ejercicios e ON e.id = re.ejercicio_id
+         WHERE re.rutina_id = r.id
+       ), '[]'::jsonb) AS rutina_ejercicios
+     FROM rutinas r
+     WHERE r.usuario_id = $1
+     ORDER BY r.creado_at DESC`,
+    [usuarioId],
+  );
+  return rows;
 }
 
 /**
- * Crea una nueva rutina para el usuario con sus ejercicios y sets/reps.
- *
+ * Crea una rutina con sus ejercicios en una TRANSACCIÓN (cabecera + ítems).
  * @param {object} routineData
- * @param {string} routineData.usuario_id
- * @param {string} routineData.nombre
- * @param {string} [routineData.descripcion]
- * @param {string} [routineData.nivel] - 'beginner' | 'intermediate' | 'advanced'
- * @param {object[]} [routineData.ejercicios] - [{ ejercicio_id, series, repeticiones, descanso_seg }]
- * @returns {Promise<object>}
+ * @returns {Promise<object>} la rutina creada
  */
 async function createRoutine({
   usuario_id,
@@ -49,68 +52,50 @@ async function createRoutine({
   nivel = 'intermediate',
   ejercicios = [],
 }) {
-  const db = getSupabaseClient();
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
 
-  // 1. Insertar la rutina cabecera
-  const { data: rutina, error: routineErr } = await db
-    .from('rutinas')
-    .insert({
-      usuario_id,
-      nombre,
-      descripcion,
-      nivel,
-      creado_at: new Date().toISOString(),
-    })
-    .select('*')
-    .single();
+    const { rows } = await client.query(
+      `INSERT INTO rutinas (usuario_id, nombre, descripcion, nivel, creado_at)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [usuario_id, nombre, descripcion, nivel, new Date().toISOString()],
+    );
+    const rutina = rows[0];
 
-  if (routineErr) {
-    logger.error('Error al insertar rutina en DB', { error: routineErr.message });
-    throw routineErr;
-  }
-
-  // 2. Insertar ítems en rutina_ejercicios si se proporcionaron
-  if (Array.isArray(ejercicios) && ejercicios.length > 0) {
-    const itemsToInsert = ejercicios.map((ej, index) => ({
-      rutina_id:       rutina.id,
-      ejercicio_id:    ej.ejercicio_id,
-      series:          ej.series || 3,
-      repeticiones:    ej.repeticiones || 12,
-      descanso_seg:    ej.descanso_seg || 60,
-      orden:           index + 1,
-    }));
-
-    const { error: itemsErr } = await db
-      .from('rutina_ejercicios')
-      .insert(itemsToInsert);
-
-    if (itemsErr) {
-      logger.error('Error insertando ejercicios de la rutina', { error: itemsErr.message });
-      throw itemsErr;
+    if (Array.isArray(ejercicios) && ejercicios.length > 0) {
+      let idx = 0;
+      for (const ej of ejercicios) {
+        idx += 1;
+        await client.query(
+          `INSERT INTO rutina_ejercicios (rutina_id, ejercicio_id, series, repeticiones, descanso_seg, orden)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [rutina.id, ej.ejercicio_id, ej.series || 3, ej.repeticiones || 12, ej.descanso_seg || 60, idx],
+        );
+      }
     }
-  }
 
-  logger.info('Rutina creada con éxito', { rutinaId: rutina.id, usuarioId: usuario_id });
-  return rutina;
+    await client.query('COMMIT');
+    logger.info('Rutina creada con éxito', { rutinaId: rutina.id, usuarioId: usuario_id });
+    return rutina;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Error al crear rutina (rollback)', { error: error.message });
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /**
- * Elimina una rutina del usuario.
- *
- * @param {string} rutinaId
- * @param {string} usuarioId - Para verificación de propiedad
- * @returns {Promise<boolean>}
+ * Elimina una rutina del usuario (verifica propiedad). @returns {Promise<boolean>}
  */
 async function deleteRoutine(rutinaId, usuarioId) {
-  const db = getSupabaseClient();
-  const { error, count } = await db
-    .from('rutinas')
-    .delete({ count: 'exact' })
-    .eq('id', rutinaId)
-    .eq('usuario_id', usuarioId);
-
-  if (error) throw error;
-  return count > 0;
+  const res = await query(
+    `DELETE FROM rutinas WHERE id = $1 AND usuario_id = $2`,
+    [rutinaId, usuarioId],
+  );
+  return res.rowCount > 0;
 }
 
 module.exports = {

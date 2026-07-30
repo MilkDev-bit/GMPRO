@@ -6,7 +6,7 @@
 'use strict';
 
 const progressModel           = require('../models/progressModel');
-const { getSupabaseClient }   = require('../config/database');
+const { query }               = require('../config/database');   // pg directo (svc_fitness)
 const { sanitizeLikeQuery, sanitizeBarcode } = require('../utils/postgrestSanitizer');
 const { FALLBACK_OPEN_FOOD_FACTS } = require('./foodController');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
@@ -54,22 +54,14 @@ async function verifyFoods(req, res, next) {
       ? [...new Set(barcodes.map(sanitizeBarcode).filter(Boolean))].slice(0, 100)
       : [];
 
-    let db = null;
-    try { db = getSupabaseClient(); } catch (_) { db = null; }
-
     // ── 1. Verificación batch por código de barras ──────────────────────────
     if (codes.length > 0) {
       let rows = [];
-      if (db) {
-        try {
-          const { data, error } = await db
-            .from('catalogo_alimentos')
-            .select('*')
-            .in('codigo_barras', codes);
-          if (!error && Array.isArray(data)) rows = data;
-        } catch (dbErr) {
-          logger.warn('verifyFoods: fallo consultando catalogo_alimentos, usando fallback', { error: dbErr.message });
-        }
+      try {
+        const r = await query(`SELECT * FROM catalogo_alimentos WHERE codigo_barras = ANY($1)`, [codes]);
+        rows = r.rows;
+      } catch (dbErr) {
+        logger.warn('verifyFoods: fallo consultando catalogo_alimentos, usando fallback', { error: dbErr.message });
       }
       for (const food of rows) result.by_barcode[String(food.codigo_barras)] = food;
 
@@ -86,17 +78,11 @@ async function verifyFoods(req, res, next) {
     const safeName = sanitizeLikeQuery(name);
     if (safeName) {
       let found = null;
-      if (db) {
-        try {
-          const { data, error } = await db
-            .from('catalogo_alimentos')
-            .select('*')
-            .or(`nombre.ilike.%${safeName}%,marca.ilike.%${safeName}%`)
-            .limit(1);
-          if (!error && data && data[0]) found = data[0];
-        } catch (dbErr) {
-          logger.warn('verifyFoods: fallo búsqueda por nombre, usando fallback', { error: dbErr.message });
-        }
+      try {
+        const r = await query(`SELECT * FROM catalogo_alimentos WHERE (nombre ILIKE $1 OR marca ILIKE $1) LIMIT 1`, [`%${safeName}%`]);
+        if (r.rows[0]) found = r.rows[0];
+      } catch (dbErr) {
+        logger.warn('verifyFoods: fallo búsqueda por nombre, usando fallback', { error: dbErr.message });
       }
       if (!found) {
         const qLower = safeName.toLowerCase();

@@ -2,16 +2,16 @@
 -- 011 · WIRING de los roles de mínimo privilegio (post-009)
 -- Fecha: 2026-07-29 · Idempotente · Ver docs/database/WIRING-least-privilege.md
 -- =============================================================================
--- Habilita el USO real de los roles svc_* según el enfoque híbrido:
---   • JWT scopeado (fitness, access): PostgREST necesita poder SET ROLE → GRANT a
---     authenticator. Además, RLS ya se aplica → cubrir cruces de schema faltantes.
---   • pg directo (payment, auth): fijar search_path del rol para no calificar tablas.
+-- Habilita el USO real de los roles svc_*. Los 5 servicios usan pg DIRECTO
+-- (payment, auth, fitness, access; ai no tiene BD): fija el search_path por rol y
+-- cubre los cruces de schema (access→payment, access→auth). Los GRANT a
+-- `authenticator` eran para el enfoque JWT scopeado (descartado); se dejan por inocuos.
 -- Ejecutar como postgres tras 009 + bootstrap. Seguro de re-ejecutar.
 -- =============================================================================
 
 BEGIN;
 
--- ── JWT scopeado: permitir a PostgREST cambiar a estos roles ─────────────────
+-- ── (vestigial) grants del enfoque JWT scopeado, ya descartado. Inocuos. ─────
 GRANT svc_fitness TO authenticator;
 GRANT svc_access  TO authenticator;
 
@@ -35,6 +35,8 @@ GRANT SELECT (push_token, objetivo_fitness, lesiones)
 -- Los cruces a OTRO schema se calificarán explícitamente en el SQL de los modelos.
 ALTER ROLE svc_payment SET search_path TO payment_service_db;
 ALTER ROLE svc_auth    SET search_path TO auth_service_db;
+ALTER ROLE svc_fitness SET search_path TO fitness_service_db;
+ALTER ROLE svc_access  SET search_path TO access_service_db;
 
 COMMIT;
 

@@ -10,7 +10,7 @@
 'use strict';
 
 const env                   = require('../config/environment');
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');   // pg directo (svc_access)
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
 const logger = createServiceLogger('access-service:paymentClient');
@@ -86,20 +86,17 @@ async function checkMembershipValidity(usuarioId, redisClient = null) {
   // ── 3. Fallback directo a DB (payment_service_db.suscripciones) ───────────
   // Garantiza que el torniquete no bloquee la entrada si la API HTTP tuvo un bache temporal
   try {
-    const db = getSupabaseClient();
     const ahoraIso = new Date().toISOString();
 
-    const { data: sub, error } = await db
-      .from('payment_service_db.suscripciones')
-      .select('estado, valido_hasta')
-      .eq('usuario_id', usuarioId)
-      .in('estado', ['active', 'free_pass'])
-      .gt('valido_hasta', ahoraIso)
-      .order('valido_hasta', { ascending: false })
-      .limit(1)
-      .single();
+    const { rows } = await query(
+      `SELECT estado, valido_hasta FROM payment_service_db.suscripciones
+       WHERE usuario_id = $1 AND estado IN ('active','free_pass') AND valido_hasta > $2
+       ORDER BY valido_hasta DESC LIMIT 1`,
+      [usuarioId, ahoraIso],
+    );
+    const sub = rows[0];
 
-    if (error || !sub) {
+    if (!sub) {
       return {
         valid:        false,
         estado:       'expired_or_none',

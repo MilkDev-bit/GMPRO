@@ -5,7 +5,7 @@
 
 'use strict';
 
-const { getSupabaseClient } = require('../config/database');
+const { query } = require('../config/database');   // pg directo (svc_fitness)
 const env                   = require('../config/environment');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
@@ -49,42 +49,35 @@ async function getExercises({
     }
   }
 
-  const db = getSupabaseClient();
-  let query = db
-    .from('ejercicios')
-    .select('*', { count: 'exact' });
+  // Filtros dinámicos (pueden venir como string o array por HPP whitelist) → = ANY($n).
+  const conds = [];
+  const params = [];
+  let p = 1;
+  if (muscleGroup) { params.push(Array.isArray(muscleGroup) ? muscleGroup : [muscleGroup]); conds.push(`grupo_muscular = ANY($${p++})`); }
+  if (difficulty)  { params.push(Array.isArray(difficulty)  ? difficulty  : [difficulty]);  conds.push(`dificultad = ANY($${p++})`); }
+  if (equipment)   { params.push(Array.isArray(equipment)   ? equipment   : [equipment]);   conds.push(`equipamiento = ANY($${p++})`); }
+  const whereClause = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
 
-  // Manejar filtros que pueden venir como string simple o como array (gracias a HPP whitelist)
-  if (muscleGroup) {
-    const arr = Array.isArray(muscleGroup) ? muscleGroup : [muscleGroup];
-    query = query.in('grupo_muscular', arr);
-  }
-  if (difficulty) {
-    const arr = Array.isArray(difficulty) ? difficulty : [difficulty];
-    query = query.in('dificultad', arr);
-  }
-  if (equipment) {
-    const arr = Array.isArray(equipment) ? equipment : [equipment];
-    query = query.in('equipamiento', arr);
-  }
-
-  query = query
-    .order('nombre', { ascending: true })
-    .range(offset, offset + sizeNum - 1);
-
-  const { data, count, error } = await query;
-
-  if (error) {
-    logger.error('Error consultando tabla ejercicios en Supabase', { error: error.message });
+  let total, data;
+  try {
+    const cnt = await query(`SELECT count(*)::int AS total FROM ejercicios ${whereClause}`, params);
+    total = cnt.rows[0].total;
+    const rowsRes = await query(
+      `SELECT * FROM ejercicios ${whereClause} ORDER BY nombre ASC LIMIT $${p} OFFSET $${p + 1}`,
+      [...params, sizeNum, offset],
+    );
+    data = rowsRes.rows;
+  } catch (error) {
+    logger.error('Error consultando tabla ejercicios', { error: error.message });
     throw error;
   }
 
   const result = {
-    exercises: data || [],
-    total:     count || 0,
-    page:      pageNum,
-    pageSize:  sizeNum,
-    totalPages: Math.ceil((count || 0) / sizeNum),
+    exercises:  data,
+    total,
+    page:       pageNum,
+    pageSize:   sizeNum,
+    totalPages: Math.ceil(total / sizeNum),
   };
 
   if (redisClient) {
@@ -105,15 +98,8 @@ async function getExercises({
  * @returns {Promise<object|null>}
  */
 async function getExerciseById(exerciseId) {
-  const db = getSupabaseClient();
-  const { data, error } = await db
-    .from('ejercicios')
-    .select('*')
-    .eq('id', exerciseId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+  const { rows } = await query(`SELECT * FROM ejercicios WHERE id = $1 LIMIT 1`, [exerciseId]);
+  return rows[0] || null;
 }
 
 module.exports = {

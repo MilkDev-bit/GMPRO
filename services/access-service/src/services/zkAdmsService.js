@@ -11,7 +11,7 @@
 
 const crypto                  = require('crypto');
 const { createClient }        = require('@supabase/supabase-js');
-const { getSupabaseClient }   = require('../config/database');
+const { query }               = require('../config/database');   // pg directo (svc_access)
 const accessModel             = require('../models/accessModel');
 const { createServiceLogger } = require('../../../../packages_shared/security/logger');
 
@@ -65,19 +65,14 @@ async function resolvePinToUserId(pin) {
   // Entrada expirada: eliminarla para no acumular basura.
   if (cached) PIN_CACHE.delete(pinKey);
 
-  const db = getAuthDbClient();
-  if (!db) return null;
-
   try {
-    const { data, error } = await db
-      .from('usuarios')
-      .select('id')
-      .eq('pin_terminal', parseInt(pinKey, 10))
-      .is('eliminado_en', null)
-      .limit(1)
-      .single();
-
-    if (error || !data) return null;
+    const { rows } = await query(
+      `SELECT id FROM auth_service_db.usuarios
+       WHERE pin_terminal = $1 AND eliminado_en IS NULL LIMIT 1`,
+      [parseInt(pinKey, 10)],
+    );
+    const data = rows[0];
+    if (!data) return null;
 
     // Guardar en caché con eviction del más antiguo si se alcanzó el tope.
     if (PIN_CACHE.size >= PIN_CACHE_MAX) {
@@ -273,17 +268,16 @@ async function getPendingCommandsForDevice(serialNumber, redisClient = null) {
     }
   } else {
     // Fallback si Redis no está disponible: consultar tabla de cola en Supabase PostgreSQL
-    const db = getSupabaseClient();
-    const { data, error } = await db
-      .from('zk_device_commands')
-      .select('id, command_id, command_string')
-      .in('serial_number', [serialNumber, 'ALL'])
-      .eq('estado', 'pending')
-      .order('creado_at', { ascending: true })
-      .limit(10);
-
-    if (!error && data && data.length > 0) {
-      data.forEach((row) => pendingCommands.push(row.command_string));
+    try {
+      const { rows } = await query(
+        `SELECT id, command_id, command_string FROM zk_device_commands
+         WHERE serial_number = ANY($1) AND estado = 'pending'
+         ORDER BY creado_at ASC LIMIT 10`,
+        [[serialNumber, 'ALL']],
+      );
+      rows.forEach((row) => pendingCommands.push(row.command_string));
+    } catch (dbErr) {
+      logger.debug('Fallback zk_device_commands no disponible: ' + dbErr.message);
     }
   }
 
@@ -335,15 +329,12 @@ async function processCommandResult(serialNumber, commandId, returnCode, redisCl
   }
 
   // Sincronizar estado en PostgreSQL (tabla zk_device_commands para historial/auditoría)
-  const db = getSupabaseClient();
-  await db
-    .from('zk_device_commands')
-    .update({
-      estado:        isSuccess ? 'completed' : 'failed',
-      return_code:   String(returnCode),
-      ejecutado_at:  new Date().toISOString(),
-    })
-    .eq('command_id', String(commandId));
+  await query(
+    `UPDATE zk_device_commands
+       SET estado = $2, return_code = $3, ejecutado_at = $4
+     WHERE command_id = $1`,
+    [String(commandId), isSuccess ? 'completed' : 'failed', String(returnCode), new Date().toISOString()],
+  );
 }
 
 /**
@@ -424,18 +415,17 @@ async function _pushCommandToQueue(serialNumber, commandId, commandString, metad
   }
 
   // Sincronizar también a PostgreSQL en segundo plano por durabilidad
-  const db = getSupabaseClient();
-  await db.from('zk_device_commands').insert({
-    command_id:     String(commandId),
-    serial_number:  serialNumber,
-    command_string: commandString,
-    estado:         'pending',
-    metadata:       metadata,
-    creado_at:      new Date().toISOString(),
-  }).select('id').maybeSingle().catch((err) => {
+  try {
+    await query(
+      `INSERT INTO zk_device_commands
+         (command_id, serial_number, command_string, estado, metadata, creado_at)
+       VALUES ($1,$2,$3,'pending',$4,$5)`,
+      [String(commandId), serialNumber, commandString, JSON.stringify(metadata || {}), new Date().toISOString()],
+    );
+  } catch (err) {
     // Si la tabla aún no existe en entorno de dev no colapsar la sincronización en Redis
-    logger.debug('Nota: No se pudo escribir en zk_device_commands de Supabase (¿tabla en creación?): ' + err.message);
-  });
+    logger.debug('Nota: No se pudo escribir en zk_device_commands (¿tabla en creación?): ' + err.message);
+  }
 }
 
 module.exports = {
