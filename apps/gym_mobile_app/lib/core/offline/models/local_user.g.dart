@@ -83,7 +83,7 @@ const LocalUserSchema = CollectionSchema(
   getId: _localUserGetId,
   getLinks: _localUserGetLinks,
   attach: _localUserAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _localUserEstimateSize(

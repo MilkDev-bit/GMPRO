@@ -79,7 +79,7 @@ const SyncActionSchema = CollectionSchema(
   getId: _syncActionGetId,
   getLinks: _syncActionGetLinks,
   attach: _syncActionAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _syncActionEstimateSize(

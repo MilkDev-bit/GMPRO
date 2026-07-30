@@ -114,7 +114,7 @@ const LocalRoutineSchema = CollectionSchema(
   getId: _localRoutineGetId,
   getLinks: _localRoutineGetLinks,
   attach: _localRoutineAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _localRoutineEstimateSize(

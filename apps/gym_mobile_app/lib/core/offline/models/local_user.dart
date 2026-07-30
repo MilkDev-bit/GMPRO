@@ -4,7 +4,7 @@
 ///
 /// Regenerar tras cambios:  dart run build_runner build --delete-conflicting-outputs
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 part 'local_user.g.dart';
 

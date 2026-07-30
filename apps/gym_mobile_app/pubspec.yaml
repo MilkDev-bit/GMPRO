@@ -25,8 +25,8 @@ dependencies:
   animations: ^2.0.11             # Transiciones Material Motion (Fade Through / Shared Axis)
 
   # ── Offline-First (Isar) ────────────────────────────────────────────────────
-  isar: ^3.1.0+1                  # Base de datos local NoSQL reactiva (Single Source of Truth)
-  isar_flutter_libs: ^3.1.0+1    # Binarios nativos de Isar para Flutter
+  isar_community: ^3.3.2               # Base de datos local NoSQL reactiva (fork mantenido de isar; declara namespace → compatible AGP 8/9)
+  isar_community_flutter_libs: ^3.3.2  # Binarios nativos de Isar para Flutter
   connectivity_plus: ^6.1.0       # Escucha de cambios de red para disparar la sincronización
 
   # ── Cliente HTTP y Red ──────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ dependencies:
   asn1lib: ^1.5.3                 # Parseo ASN.1/DER del cert para extraer el SPKI
 
   # ── RASP (Runtime Application Self-Protection) ──────────────────────────────
-  freerasp: ^6.11.0               # Talsec: root/jailbreak, emulador, debugger, Frida, tampering
+  freerasp: ^7.5.1                # Talsec: root/jailbreak, emulador, debugger, Frida, tampering (7.x: proguard saneado p/ AGP nuevo)
 
   # ── Navegación ──────────────────────────────────────────────────────────────
   go_router: ^14.6.2              # Routing declarativo + intercepción nativa de deep links
@@ -59,6 +59,7 @@ dependencies:
   toastification: ^2.3.0          # Toasts dinámicos y fluidos estilo nativo iOS / Dynamic Island
   flutter_local_notifications: ^18.0.1 # Programación y canales nativos de notificación Android/iOS
   path_provider: ^2.1.5           # Almacenamiento temporal de imágenes para attachments nativos
+  path: ^1.9.0                    # Manipulación/canonicalización segura de rutas (anti path traversal)
   firebase_core: ^3.8.0           # Núcleo de Firebase para inicialización nativa en app
   firebase_messaging: ^15.1.6     # Recepción de notificaciones push remotes FCM / APNs
   watch_connectivity: ^0.2.9
@@ -71,7 +72,7 @@ dev_dependencies:
   http_mock_adapter: ^0.6.1
   # Codegen de Isar (genera los *.g.dart de las @Collection).
   #   Tras añadir/editar colecciones ejecuta:  dart run build_runner build --delete-conflicting-outputs
-  isar_generator: ^3.1.0+1
+  isar_community_generator: ^3.3.2
   build_runner: ^2.4.13
 
 flutter:

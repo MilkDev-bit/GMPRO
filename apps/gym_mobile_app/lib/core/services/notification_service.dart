@@ -9,6 +9,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../config/app_config.dart';
 import '../network/api_client.dart';
 import 'toast_service.dart';
@@ -309,6 +310,33 @@ class NotificationServiceImpl implements NotificationService {
     );
   }
 
+  /// Construye la ruta de un adjunto GARANTIZANDO que quede dentro de [baseDir].
+  ///
+  /// Mitiga path traversal (CWE-22) en tres capas:
+  ///   1. Sanea [rawName] a un ÚNICO componente de archivo: solo `[A-Za-z0-9_-]`.
+  ///      Esto neutraliza separadores (`/`, `\`), secuencias `..` y rutas
+  ///      absolutas (p.ej. `/etc/passwd` o `../../Library/...`) convirtiéndolos
+  ///      en `_`.
+  ///   2. Normaliza y canonicaliza tanto la base como el candidato (resuelve
+  ///      `.`, `..` y separadores redundantes a una ruta absoluta real).
+  ///   3. Verifica con [p.isWithin] que el candidato sea descendiente de la base;
+  ///      si algo se escapó, lanza y aborta el guardado (falla de forma segura).
+  static String _resolveSafeAttachmentPath(String baseDir, String rawName) {
+    final safeName = rawName.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    if (safeName.isEmpty) {
+      throw ArgumentError('Nombre de adjunto inválido');
+    }
+    final candidate = p.normalize(p.join(baseDir, '$safeName.jpg'));
+    final canonicalBase = p.canonicalize(baseDir);
+    final canonicalCandidate = p.canonicalize(candidate);
+    if (!p.isWithin(canonicalBase, canonicalCandidate)) {
+      throw ArgumentError(
+        'Ruta de adjunto fuera del directorio temporal esperado: $rawName',
+      );
+    }
+    return candidate;
+  }
+
   @override
   Future<void> showRichNotification({
     required int id,
@@ -337,7 +365,12 @@ class NotificationServiceImpl implements NotificationService {
             // En Apple (iOS/macOS) requerimos el archivo guardado localmente para UNNotificationAttachment
             if (Platform.isIOS || Platform.isMacOS) {
               final tempDir = await getTemporaryDirectory();
-              final file = File('${tempDir.path}/notif_attachment_$id.jpg');
+              // Endurecimiento anti path traversal (CWE-22): construimos la ruta
+              // desde un componente saneado y verificamos por canonicalización que
+              // el resultado quede DENTRO de tempDir antes de escribir el archivo.
+              final safePath =
+                  _resolveSafeAttachmentPath(tempDir.path, 'notif_attachment_$id');
+              final file = File(safePath);
               await file.writeAsBytes(bigPictureBytes);
               localAttachmentPath = file.path;
             }

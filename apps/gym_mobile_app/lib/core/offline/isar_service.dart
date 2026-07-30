@@ -6,7 +6,7 @@
 ///   • R2: Isar es la Single Source of Truth; se exponen streams (`watchAll`)
 ///     para que la UI reaccione a los cambios locales.
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'models/local_routine.dart';

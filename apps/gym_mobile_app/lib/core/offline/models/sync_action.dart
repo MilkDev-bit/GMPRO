@@ -9,7 +9,7 @@
 /// NOTA: tras editar esta colección, regenera el código:
 ///   dart run build_runner build --delete-conflicting-outputs
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 part 'sync_action.g.dart';
 

@@ -24,8 +24,10 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
+        _assertConfigured(android, 'FIREBASE_ANDROID_API_KEY');
         return android;
       case TargetPlatform.iOS:
+        _assertConfigured(ios, 'FIREBASE_IOS_API_KEY');
         return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
@@ -49,8 +51,14 @@ class DefaultFirebaseOptions {
     }
   }
 
+  // ── API keys inyectadas en tiempo de build ────────────────────────────────
+  // La API key NO se versiona: se pasa con --dart-define-from-file=env.json
+  // (ver env.example.json). String.fromEnvironment es const, por lo que estas
+  // FirebaseOptions siguen siendo const. Recuerda que la key igual termina en
+  // el binario compilado — la protección efectiva son las restricciones de la
+  // clave en GCP (package name + SHA-1 / bundle ID + API) y Firebase App Check.
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyA47EhRXKVxPH1WcXnxDkzuiVsQIBS4C-w',
+    apiKey: String.fromEnvironment('FIREBASE_ANDROID_API_KEY'),
     appId: '1:877957177840:android:99183725ea04ee38923d35',
     messagingSenderId: '877957177840',
     projectId: 'gympro-cccd2',
@@ -58,11 +66,24 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCWOWW13i99FdeW1UiYA69OiI9XbXeDG-A',
+    apiKey: String.fromEnvironment('FIREBASE_IOS_API_KEY'),
     appId: '1:877957177840:ios:8376228142cb0b05923d35',
     messagingSenderId: '877957177840',
     projectId: 'gympro-cccd2',
     storageBucket: 'gympro-cccd2.firebasestorage.app',
     iosBundleId: 'com.g',
   );
+
+  /// Falla rápido y con un mensaje claro si el build no inyectó la API key
+  /// (p.ej. se olvidó `--dart-define-from-file=env.json`), en vez de arrancar
+  /// con una key vacía y fallar de forma opaca contra Firebase.
+  static void _assertConfigured(FirebaseOptions options, String envVar) {
+    if (options.apiKey.isEmpty) {
+      throw StateError(
+        'Firebase API key ausente ($envVar). Compila/ejecuta con '
+        '--dart-define-from-file=env.json (copia env.example.json y rellena '
+        'las claves rotadas desde Google Cloud Console).',
+      );
+    }
+  }
 }
