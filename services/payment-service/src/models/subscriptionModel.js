@@ -72,6 +72,17 @@ async function isEventAlreadyProcessed(stripeEventId) {
  */
 async function create(subscriptionData) {
   const cols = Object.keys(subscriptionData);
+  // Anti-inyección por IDENTIFICADOR: los VALORES van parametrizados ($n), pero el
+  // nombre de columna se interpola (SQL no permite bindear identificadores). Se
+  // valida cada clave contra un patrón estricto de nombre de columna; cualquier
+  // clave con comillas/espacios/caracteres raros se rechaza antes de tocar el SQL.
+  for (const c of cols) {
+    if (!/^[a-z_][a-z0-9_]*$/.test(c)) {
+      const e = new Error(`create(): nombre de columna inválido: ${c}`);
+      e.status = 400;
+      throw e;
+    }
+  }
   const vals = Object.values(subscriptionData);
   const colList = cols.map((c) => `"${c}"`).join(', ');
   const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
