@@ -179,6 +179,7 @@ function createJwtVerifyMiddleware(opts = {}) {
         email: decoded.email,
         role:  decoded.role,
         jti:   decoded.jti,    // Necesario para revocar en logout
+        exp:   decoded.exp,    // exp VERIFICADO → TTL del blacklist sin re-decodificar
       };
 
       next();

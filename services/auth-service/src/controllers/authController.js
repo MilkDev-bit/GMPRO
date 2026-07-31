@@ -292,15 +292,14 @@ async function oauthLogin(req, res, next) {
  */
 async function logout(req, res, next) {
   try {
-    const { id: userId, jti } = req.user;
-
-    // Decodificar exp del token para calcular TTL del blacklist
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.decode(req.headers['authorization'].slice(7));
+    // exp proviene del token YA VERIFICADO por el middleware jwtVerify (req.user).
+    // NO se re-decodifica el header con jwt.decode() (que no valida la firma):
+    // así el TTL del blacklist se basa exclusivamente en un token con firma válida.
+    const { id: userId, jti, exp } = req.user;
 
     // Revocar access token (agregar JTI a blacklist de Redis)
-    if (req.redisClient && decoded?.exp) {
-      await tokenService.revokeAccessToken(jti, decoded.exp, req.redisClient);
+    if (req.redisClient && exp) {
+      await tokenService.revokeAccessToken(jti, exp, req.redisClient);
     }
 
     // Revocar SOLO la familia de ESTE dispositivo (multi-dispositivo: no cierra

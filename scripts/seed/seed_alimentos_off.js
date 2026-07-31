@@ -43,6 +43,7 @@
 'use strict';
 
 const fs        = require('fs');
+const path      = require('path');
 const readline  = require('readline');
 const https     = require('https');
 const http      = require('http');
@@ -350,8 +351,33 @@ async function insertBatch(batch) {
   stats.insertados += batch.length;
 }
 
+/**
+ * Sanitiza la ruta de `--file` (input externo) contra Local File Inclusion:
+ * la resuelve a absoluta y exige que quede DENTRO de un directorio base
+ * permitido (cwd por defecto, o SEED_DATA_DIR). Rechaza `..`, rutas absolutas
+ * fuera de la base y bytes nulos. Así `--file ../../etc/passwd` no puede leer
+ * fuera del área de datos del seed.
+ * @param {string} rawPath
+ * @returns {string} ruta absoluta segura
+ */
+function resolveSafeSeedPath(rawPath) {
+  if (typeof rawPath !== 'string' || rawPath.length === 0 || rawPath.includes('\0')) {
+    console.error('❌ Ruta de --file inválida.');
+    process.exit(1);
+  }
+  const baseDir  = path.resolve(process.env.SEED_DATA_DIR || process.cwd());
+  const resolved = path.resolve(baseDir, rawPath);
+  if (resolved !== baseDir && !resolved.startsWith(baseDir + path.sep)) {
+    console.error(`❌ Ruta de --file fuera del directorio permitido (${baseDir}): ${rawPath}`);
+    console.error('   Coloca el dump dentro de ese directorio o ajusta SEED_DATA_DIR.');
+    process.exit(1);
+  }
+  return resolved;
+}
+
 // ─── MODO A: Seeding desde archivo JSONL ─────────────────────────────────────
-async function seedDesdeArchivo(filePath) {
+async function seedDesdeArchivo(rawFilePath) {
+  const filePath = resolveSafeSeedPath(rawFilePath);
   if (!fs.existsSync(filePath)) {
     console.error(`❌ Archivo no encontrado: ${filePath}`);
     console.error('   Descarga el dump con:');

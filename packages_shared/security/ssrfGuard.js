@@ -68,15 +68,34 @@ function isBlockedIp(ip) {
 }
 
 /**
+ * ¿El hostname está en la whitelist? Coincidencia exacta o subdominio.
+ * `cdn.example.com` está permitido por la entrada `example.com` (subdominio),
+ * pero `evilexample.com` NO (se exige separación por punto).
+ * @param {string} hostname
+ * @param {string[]} allowedHosts
+ * @returns {boolean}
+ */
+function isHostAllowed(hostname, allowedHosts) {
+  const h = String(hostname).toLowerCase().replace(/\.$/, ''); // quita punto FQDN final
+  return allowedHosts.some((allowed) => {
+    const a = String(allowed).toLowerCase().replace(/^\.+|\.$/g, '');
+    return a.length > 0 && (h === a || h.endsWith('.' + a));
+  });
+}
+
+/**
  * Valida que una URL de USUARIO sea segura para que el servidor la solicite.
  * Lanza SsrfError si no lo es.
  *
  * @param {string} rawUrl
  * @param {object} [opts]
  * @param {string[]} [opts.allowedProtocols=['https:']]
+ * @param {string[]} [opts.allowedHosts=[]]  - WHITELIST de dominios. Si se
+ *   provee (no vacía), el host DEBE coincidir (exacto o subdominio) o se rechaza.
+ *   Se aplica ADEMÁS del bloqueo de IPs privadas (defensa en profundidad).
  * @returns {Promise<{ url: URL, ip: string }>} la URL parseada y la IP validada
  */
-async function assertSafePublicUrl(rawUrl, { allowedProtocols = ['https:'] } = {}) {
+async function assertSafePublicUrl(rawUrl, { allowedProtocols = ['https:'], allowedHosts = [] } = {}) {
   let u;
   try { u = new URL(String(rawUrl)); }
   catch { throw new SsrfError('URL inválida.'); }
@@ -90,6 +109,15 @@ async function assertSafePublicUrl(rawUrl, { allowedProtocols = ['https:'] } = {
   }
 
   const host = u.hostname.replace(/^\[|\]$/g, ''); // quitar corchetes de IPv6
+
+  // WHITELIST de dominios (si se configuró): el host debe estar permitido.
+  // Se comprueba ANTES de resolver DNS (fail-fast) y NO sustituye al bloqueo de
+  // IPs privadas de abajo — ambos deben pasar.
+  if (Array.isArray(allowedHosts) && allowedHosts.length > 0) {
+    if (!isHostAllowed(host, allowedHosts)) {
+      throw new SsrfError(`Host no permitido por la whitelist: ${host}.`);
+    }
+  }
 
   // Host que ya es IP literal: validar directamente.
   if (net.isIP(host)) {
@@ -119,11 +147,12 @@ async function assertSafePublicUrl(rawUrl, { allowedProtocols = ['https:'] } = {
  * @param {object} [opts]
  * @param {number} [opts.timeoutMs=4000]
  * @param {string[]} [opts.allowedProtocols=['https:']]
+ * @param {string[]} [opts.allowedHosts=[]]  - whitelist de dominios (ver assertSafePublicUrl)
  * @param {object} [opts.fetchOptions={}]  - headers, method, etc. (redirect se fuerza a 'error')
  * @returns {Promise<Response>}
  */
-async function safeFetch(rawUrl, { timeoutMs = 4000, allowedProtocols = ['https:'], fetchOptions = {} } = {}) {
-  const { url } = await assertSafePublicUrl(rawUrl, { allowedProtocols });
+async function safeFetch(rawUrl, { timeoutMs = 4000, allowedProtocols = ['https:'], allowedHosts = [], fetchOptions = {} } = {}) {
+  const { url } = await assertSafePublicUrl(rawUrl, { allowedProtocols, allowedHosts });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -138,4 +167,4 @@ async function safeFetch(rawUrl, { timeoutMs = 4000, allowedProtocols = ['https:
   }
 }
 
-module.exports = { assertSafePublicUrl, safeFetch, isBlockedIp, SsrfError };
+module.exports = { assertSafePublicUrl, safeFetch, isBlockedIp, isHostAllowed, SsrfError };

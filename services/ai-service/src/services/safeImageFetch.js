@@ -22,19 +22,32 @@ const { safeFetch, SsrfError } = require('../../../../packages_shared/security/s
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+// Whitelist de dominios permitidos para descargar imágenes de usuario.
+// Configurable por env (coma-separada), p.ej.:
+//   AI_IMAGE_ALLOWED_HOSTS="storage.googleapis.com,cdn.gympro.com"
+// Vacía = sin whitelist (solo se aplica el bloqueo de IPs privadas del guard);
+// en producción se RECOMIENDA definirla para restringir a tus CDNs/buckets.
+const DEFAULT_ALLOWED_HOSTS = String(process.env.AI_IMAGE_ALLOWED_HOSTS || '')
+  .split(',')
+  .map((h) => h.trim())
+  .filter(Boolean);
+
 /**
  * Descarga una imagen desde una URL de usuario de forma segura.
  * @param {string} rawUrl
  * @param {object} [opts]
  * @param {number} [opts.maxBytes]
+ * @param {string[]} [opts.allowedHosts]  - whitelist de dominios; por defecto la
+ *   de env AI_IMAGE_ALLOWED_HOSTS. Si está vacía, solo aplica el bloqueo de IPs privadas.
  * @returns {Promise<{buffer: Buffer, contentType: string}>}
  * @throws {SsrfError} si la URL es interna/privada, el protocolo no es https, o
  *   el contenido no es una imagen permitida / excede el tamaño.
  */
-async function fetchUserImage(rawUrl, { maxBytes = MAX_BYTES } = {}) {
+async function fetchUserImage(rawUrl, { maxBytes = MAX_BYTES, allowedHosts = DEFAULT_ALLOWED_HOSTS } = {}) {
   const res = await safeFetch(rawUrl, {
     timeoutMs: 4000,
     allowedProtocols: ['https:'], // solo https para URLs de usuario
+    allowedHosts,                 // whitelist de dominios (env AI_IMAGE_ALLOWED_HOSTS)
     fetchOptions: { method: 'GET' },
   });
 
