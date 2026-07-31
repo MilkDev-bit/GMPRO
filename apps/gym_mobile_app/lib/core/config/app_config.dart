@@ -54,27 +54,57 @@ class AppConfig {
   static String _local(int port) => 'http://$_localHost:$port';
 
   // ───────────────────────────────────────────────────────────────────
+  // URLs REMOTAS (producción) — parametrizadas por --dart-define para NO
+  // hardcodear el entorno. El default es la URL REAL de Railway, así que un
+  // build release sin defines ya apunta a producción. Para staging u otro
+  // entorno se sobreescriben:
+  //   flutter build ... --dart-define=AUTH_SERVICE_URL=https://.../api/v1/auth
+  //   (o en CI/Codemagic con --dart-define-from-file=env/prod.json)
+  // Cada URL incluye YA su prefijo de ruta (/api/v1/... ) del servicio.
+  // ───────────────────────────────────────────────────────────────────
+  static const String _authRemote = String.fromEnvironment(
+    'AUTH_SERVICE_URL',
+    defaultValue: 'https://auth-production-dfc1.up.railway.app/api/v1/auth',
+  );
+  static const String _accessRemote = String.fromEnvironment(
+    'ACCESS_SERVICE_URL',
+    defaultValue: 'https://acces-production-f054.up.railway.app/api/v1/access',
+  );
+  static const String _paymentRemote = String.fromEnvironment(
+    'PAYMENT_SERVICE_URL',
+    defaultValue: 'https://payment-production-262a.up.railway.app/api/v1/payments',
+  );
+  static const String _fitnessRemote = String.fromEnvironment(
+    'FITNESS_SERVICE_URL',
+    defaultValue: 'https://ftness-production.up.railway.app/api/v1',
+  );
+  static const String _aiRemote = String.fromEnvironment(
+    'AI_SERVICE_URL',
+    defaultValue: 'https://ia-production-372f.up.railway.app/api/v1',
+  );
+
+  // ───────────────────────────────────────────────────────────────────
   // URLs de los microservicios
   // ───────────────────────────────────────────────────────────────────
   static String get authServiceBaseUrl => useLocalBackend
       ? '${_local(_authPort)}/api/v1/auth'
-      : 'https://auth-service.up.railway.app/api/v1/auth';
+      : _authRemote;
 
   static String get accessServiceBaseUrl => useLocalBackend
       ? '${_local(_accessPort)}/api/v1/access'
-      : 'https://access-service.up.railway.app/api/v1/access';
+      : _accessRemote;
 
   static String get paymentServiceBaseUrl => useLocalBackend
       ? '${_local(_paymentPort)}/api/v1/payments'
-      : 'https://payment-service.up.railway.app/api/v1/payments';
+      : _paymentRemote;
 
   static String get fitnessServiceBaseUrl => useLocalBackend
       ? '${_local(_fitnessPort)}/api/v1'
-      : 'https://fitness-service.up.railway.app/api/v1';
+      : _fitnessRemote;
 
   static String get aiServiceBaseUrl => useLocalBackend
       ? '${_local(_aiPort)}/api/v1'
-      : 'https://ai-service.up.railway.app/api/v1';
+      : _aiRemote;
 
   /// Resumen para loguear al arrancar: evita el clásico "¿por qué no
   /// veo mis cambios?" cuando la app apunta al entorno equivocado.

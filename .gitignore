@@ -97,7 +97,8 @@ graphify-out/
 # ── CI/CD móvil: secretos y artefactos decodificados en el runner ──────────────
 # NUNCA versionar keystores, certificados, perfiles, service accounts ni el .env
 # de producción que el pipeline materializa desde GitHub Secrets (Base64).
-apps/*/env/
+# Se ignoran los .json reales (con secretos); las plantillas *.example SÍ se versionan.
+apps/*/env/*.json
 # Android (nombres pelados → matchean en cualquier subdirectorio)
 *.jks
 *.keystore

@@ -1,0 +1,15 @@
+{
+  "_comment": "Plantilla de defines de PRODUCCIÓN. Copia a env/prod.json (NO versionado) y rellena los secretos. Uso: flutter build ... --dart-define-from-file=env/prod.json",
+
+  "FIREBASE_ANDROID_API_KEY": "PON_AQUI_LA_KEY_ANDROID",
+  "FIREBASE_IOS_API_KEY": "PON_AQUI_LA_KEY_IOS",
+
+  "SUPABASE_URL": "https://<project-ref>.supabase.co",
+  "SUPABASE_ANON_KEY": "PON_AQUI_LA_ANON_KEY",
+
+  "AUTH_SERVICE_URL": "https://auth-production-dfc1.up.railway.app/api/v1/auth",
+  "ACCESS_SERVICE_URL": "https://acces-production-f054.up.railway.app/api/v1/access",
+  "PAYMENT_SERVICE_URL": "https://payment-production-262a.up.railway.app/api/v1/payments",
+  "FITNESS_SERVICE_URL": "https://ftness-production.up.railway.app/api/v1",
+  "AI_SERVICE_URL": "https://ia-production-372f.up.railway.app/api/v1"
+}
