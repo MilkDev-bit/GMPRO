@@ -119,7 +119,7 @@ jobs:
         run: docker build -f services/${{ matrix.service }}/Dockerfile -t gympro/${{ matrix.service }}:scan .
       - name: Trivy scan (report-only)
         # TODO pin SHA (rate limit al resolver): git ls-remote https://github.com/aquasecurity/trivy-action refs/tags/0.28.0
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: gympro/${{ matrix.service }}:scan
           format: sarif
