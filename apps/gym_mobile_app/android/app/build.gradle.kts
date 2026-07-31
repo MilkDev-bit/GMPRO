@@ -23,7 +23,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.gympro.mobile"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36   // freerasp 7.5 compila contra API 36; AGP 8.9.1+ lo soporta
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
