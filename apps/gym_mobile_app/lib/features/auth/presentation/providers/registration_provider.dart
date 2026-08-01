@@ -8,6 +8,7 @@
 ///   POST /otp/verify          → valida el código y habilita el registro de Passkey
 /// Mientras tanto simulan la latencia de red para mantener la UX end-to-end.
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_provider.dart';
 
@@ -163,16 +164,35 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
     }
   }
 
-  // ── Integración con auth-service (simulada por ahora) ──────────────────────
+  // ── Integración con auth-service ───────────────────────────────────────────
+  // POST /register es idempotente para email no verificado (sirve para reenviar).
   Future<void> _requestOtp(String email) async {
-    // TODO(backend): POST /register { fullName, birthDate, phone, email }
-    await Future.delayed(const Duration(milliseconds: 900));
+    final api = _ref.read(apiClientProvider);
+    await api.post('/register', data: {
+      'email': email,
+      'nombre': state.fullName.trim(),
+      if (state.phone.trim().isNotEmpty) 'telefono': state.phone.trim(),
+      if (state.birthDate != null)
+        'fecha_nacimiento':
+            state.birthDate!.toIso8601String().split('T').first, // YYYY-MM-DD
+    });
   }
 
   Future<bool> _verifyOtp(String email, String code) async {
-    // TODO(backend): POST /otp/verify { email, code } → 200 = válido
-    await Future.delayed(const Duration(milliseconds: 900));
-    return code.length == 6; // Aceptación provisional en cliente.
+    final api = _ref.read(apiClientProvider);
+    try {
+      final res = await api.post('/otp/verify', data: {
+        'email': email,
+        'codigo': code,
+      });
+      return res.statusCode == 200;
+    } on DioException catch (e) {
+      // 400 (código inválido/expirado) o 429 (demasiados intentos) → otpError,
+      // no un error genérico. Otros códigos (500, red) sí se propagan.
+      final sc = e.response?.statusCode;
+      if (sc == 400 || sc == 429) return false;
+      rethrow;
+    }
   }
 }
 
