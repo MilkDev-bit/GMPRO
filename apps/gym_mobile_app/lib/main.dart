@@ -73,11 +73,15 @@ void main() async {
   await NotificationServiceImpl.instance.initialize();
 
   // ── RASP (root/jailbreak, emulador, debugger, Frida, tampering) ─────────────
-  // La advertencia no bloqueante se enruta al ToastService (global vía
-  // navigatorKey). Las amenazas activas cierran la app desde el propio guard.
-  await SecurityGuard.instance.initialize(
-    onWarning: (message) => ToastService.showWarningToast(message: message),
-  );
+  // Solo en release/profile. En debug NO se inicializa: (1) detectaría el propio
+  // debugger conectado, y (2) freerasp 7.x valida la config al construirse y los
+  // hashes centinela (PENDIENTE_*) no son válidos → excepción. La advertencia no
+  // bloqueante se enruta al ToastService; las amenazas activas cierran la app.
+  if (!kDebugMode) {
+    await SecurityGuard.instance.initialize(
+      onWarning: (message) => ToastService.showWarningToast(message: message),
+    );
+  }
 
   // Configurar barra de estado superior y navegación translúcida (el tema dinámico gobierna el brillo)
   SystemChrome.setSystemUIOverlayStyle(
