@@ -66,11 +66,7 @@ router.post(
       .normalizeEmail()
       .isLength({ max: 320 }).withMessage('Email demasiado largo.'),
 
-    body('password')
-      .isLength({ min: 8, max: 72 }).withMessage('La contraseña debe tener entre 8 y 72 caracteres.')
-      .matches(/[A-Z]/).withMessage('La contraseña debe contener al menos una mayúscula.')
-      .matches(/[0-9]/).withMessage('La contraseña debe contener al menos un número.')
-      .matches(/[^A-Za-z0-9]/).withMessage('La contraseña debe contener al menos un carácter especial.'),
+    // Registro PASSWORDLESS (Passkey): NO se pide contraseña.
 
     body('nombre')
       .trim().notEmpty().withMessage('El nombre es requerido.')
@@ -78,7 +74,8 @@ router.post(
       .matches(/^[a-zA-ZÀ-ÿ\s'-]+$/).withMessage('El nombre solo puede contener letras.'),
 
     body('apellido_paterno')
-      .trim().notEmpty().withMessage('El apellido paterno es requerido.')
+      .optional()
+      .trim()
       .isLength({ max: 100 })
       .matches(/^[a-zA-ZÀ-ÿ\s'-]+$/),
 
@@ -91,9 +88,30 @@ router.post(
     body('telefono')
       .optional()
       .isMobilePhone('es-MX').withMessage('Número de teléfono mexicano inválido.'),
+
+    body('fecha_nacimiento')
+      .optional()
+      .isISO8601().withMessage('Fecha de nacimiento inválida (usa YYYY-MM-DD).'),
   ],
   validate,
   authController.register
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/v1/auth/otp/verify  (verifica el código de 6 dígitos del registro)
+// Anti fuerza bruta: límite de intentos por código en Redis (ver controller).
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/otp/verify',
+  [
+    body('email').isEmail().withMessage('Email inválido.').normalizeEmail(),
+    body('codigo')
+      .trim()
+      .isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos.')
+      .isNumeric().withMessage('El código solo puede contener dígitos.'),
+  ],
+  validate,
+  authController.verifyOtp
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

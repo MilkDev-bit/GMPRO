@@ -61,16 +61,19 @@ async function create(userData) {
     const { rows } = await query(
       `INSERT INTO usuarios
          (email, password_hash, nombre, apellido_paterno, apellido_materno,
-          telefono, rol, email_verificado, activo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,false,true)
+          telefono, fecha_nacimiento, rol, email_verificado, activo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false,true)
        RETURNING ${SAFE_COLUMNS}`,
       [
         userData.email.toLowerCase().trim(),
         userData.password_hash,
         userData.nombre,
-        userData.apellido_paterno,
+        // apellido_paterno es NOT NULL; en el flujo passwordless (solo nombre) se
+        // permite vacío para no forzar una migración de columna.
+        userData.apellido_paterno || '',
         userData.apellido_materno || null,
         userData.telefono || null,
+        userData.fecha_nacimiento || null,
         userData.rol || 'miembro',
       ],
     );

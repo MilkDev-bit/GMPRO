@@ -10,6 +10,7 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/auth_response_model.dart';
 import 'auth_provider.dart';
 
 // ── Enumeraciones del flujo ──────────────────────────────────────────────────
@@ -28,6 +29,10 @@ class RegistrationState {
   final String? errorMessage;
   final bool otpError;
 
+  /// True cuando el código OTP ya se validó y la sesión quedó abierta. Evita
+  /// re-verificar (el código se consume) al reintentar el registro de Passkey.
+  final bool otpVerified;
+
   const RegistrationState({
     this.step = RegistrationStep.personalInfo,
     this.status = RegistrationStatus.idle,
@@ -37,6 +42,7 @@ class RegistrationState {
     this.email = '',
     this.errorMessage,
     this.otpError = false,
+    this.otpVerified = false,
   });
 
   bool get isSubmitting => status == RegistrationStatus.submitting;
@@ -50,6 +56,7 @@ class RegistrationState {
     String? email,
     String? errorMessage,
     bool? otpError,
+    bool? otpVerified,
   }) {
     return RegistrationState(
       step: step ?? this.step,
@@ -60,6 +67,7 @@ class RegistrationState {
       email: email ?? this.email,
       errorMessage: errorMessage,
       otpError: otpError ?? this.otpError,
+      otpVerified: otpVerified ?? this.otpVerified,
     );
   }
 }
@@ -110,15 +118,23 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
     state = state.copyWith(status: RegistrationStatus.submitting, otpError: false);
 
     try {
-      final ok = await _verifyOtp(state.email, code);
-      if (!ok) {
-        state = state.copyWith(status: RegistrationStatus.idle, otpError: true);
-        return;
+      // El OTP se valida UNA vez (consume el código y abre sesión). En reintentos
+      // de Passkey ya no se re-verifica.
+      if (!state.otpVerified) {
+        final ok = await _verifyOtp(state.email, code);
+        if (!ok) {
+          state = state.copyWith(status: RegistrationStatus.idle, otpError: true);
+          return;
+        }
+        state = state.copyWith(otpVerified: true);
       }
 
-      // Cierre passwordless: registra la Passkey (FIDO2) en el chip del móvil.
+      // Con la sesión ya abierta (JWT en secure storage), registra la Passkey
+      // (FIDO2) en el chip del móvil — el endpoint exige estar autenticado.
       final registered = await _ref.read(authProvider.notifier).registerPasskey();
       if (registered) {
+        // Refleja el estado global como autenticado (lee la sesión cacheada).
+        await _ref.read(authProvider.notifier).checkInitialStatus();
         state = state.copyWith(
           step: RegistrationStep.done,
           status: RegistrationStatus.idle,
@@ -185,7 +201,15 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
         'email': email,
         'codigo': code,
       });
-      return res.statusCode == 200;
+      if (res.statusCode == 200 && res.data != null) {
+        // /otp/verify abre sesión (access + refresh). Persistirla en el almacén
+        // seguro hace que el AuthInterceptor adjunte el Bearer en la siguiente
+        // llamada (registro de Passkey, que exige JWT).
+        final session = AuthResponseModel.fromJson(res.data['data'] ?? res.data);
+        await _ref.read(authLocalDataSourceProvider).cacheSession(session);
+        return true;
+      }
+      return false;
     } on DioException catch (e) {
       // 400 (código inválido/expirado) o 429 (demasiados intentos) → otpError,
       // no un error genérico. Otros códigos (500, red) sí se propagan.

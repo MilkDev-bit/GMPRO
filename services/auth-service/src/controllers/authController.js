@@ -64,33 +64,69 @@ async function startSession(req, res, user) {
  * Registra un nuevo usuario miembro.
  * No logea automáticamente tras el registro — requiere verificación de email primero.
  */
+const OTP_TTL_SECONDS = 10 * 60;   // 10 min de validez del código
+const OTP_MAX_ATTEMPTS = 5;        // intentos de verificación por código
+
+/** Genera un código OTP de 6 dígitos criptográficamente seguro. */
+function generateOtp() {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+}
+
+/** Genera, guarda en Redis (TTL) y envía por email un OTP de 6 dígitos. */
+async function issueAndSendOtp(req, { email, nombre }) {
+  const emailKey = String(email).toLowerCase().trim();
+  const codigo = generateOtp();
+  if (req.redisClient) {
+    await req.redisClient.setex(`otp:verify:${emailKey}`, OTP_TTL_SECONDS, codigo);
+    await req.redisClient.del(`otp:verify_attempts:${emailKey}`);
+  } else {
+    logger.error('Redis no disponible: no se pudo almacenar el OTP de verificación', { email: emailKey });
+  }
+  await emailService.sendVerificationCodeEmail({
+    email, nombre, codigo, ttlMin: OTP_TTL_SECONDS / 60,
+  });
+}
+
 async function register(req, res, next) {
   try {
-    const { email, password, nombre, apellido_paterno, apellido_materno, telefono } = req.body;
+    const { email, nombre, apellido_paterno, apellido_materno, telefono, fecha_nacimiento } = req.body;
 
-    // Hashear contraseña con bcrypt (work factor configurado en env)
-    // OWASP A02: bcrypt aplica salt automáticamente — nunca almacenar MD5/SHA
-    const password_hash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
+    // Registro PASSWORDLESS: la Passkey es la credencial real. Como password_hash
+    // es NOT NULL, se genera un hash aleatorio inservible para login por contraseña
+    // (mismo patrón que las cuentas OAuth).
+    const password_hash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), env.BCRYPT_ROUNDS);
 
-    // Crear usuario en DB
-    const user = await userModel.create({
-      email,
-      password_hash,
-      nombre,
-      apellido_paterno,
-      apellido_materno,
-      telefono,
-      rol: 'miembro',
-    });
+    let user;
+    try {
+      user = await userModel.create({
+        email, password_hash, nombre, apellido_paterno, apellido_materno,
+        telefono, fecha_nacimiento, rol: 'miembro',
+      });
+    } catch (err) {
+      // Idempotencia para "reenviar": si el email ya existe pero NO está verificado,
+      // reenviamos el código en vez de fallar. Si ya está verificado → 409 real.
+      if (err.status === 409) {
+        const { query } = require('../config/database');
+        const { rows } = await query(
+          `SELECT id, nombre, email, email_verificado FROM usuarios
+           WHERE email = $1 AND eliminado_en IS NULL LIMIT 1`,
+          [String(email).toLowerCase().trim()],
+        );
+        const existing = rows[0];
+        if (existing && !existing.email_verificado) {
+          await issueAndSendOtp(req, { email: existing.email, nombre: existing.nombre });
+          return res.status(200).json({
+            success: true,
+            data: { email: existing.email, email_verificado: false, mensaje: 'Código reenviado a tu email.' },
+            error: null,
+          });
+        }
+      }
+      throw err;   // email verificado u otro error → propagar (409 real, etc.)
+    }
 
-    // Enviar email de verificación (no bloqueante — el fallo no cancela el registro)
-    await emailService.sendVerificationEmail({
-      email:             user.email,
-      nombre:            user.nombre,
-      verificationToken: user.token_verificacion,
-    });
-
-    logger.info('Usuario registrado exitosamente', { userId: user.id, email: user.email });
+    await issueAndSendOtp(req, { email: user.email, nombre: user.nombre });
+    logger.info('Usuario registrado (passwordless); OTP enviado', { userId: user.id, email: user.email });
 
     return res.status(201).json({
       success: true,
@@ -99,7 +135,90 @@ async function register(req, res, next) {
         email:            user.email,
         nombre:           user.nombre,
         email_verificado: user.email_verificado,
-        mensaje:          'Registro exitoso. Por favor, verifica tu email para activar tu cuenta.',
+        mensaje:          'Registro exitoso. Te enviamos un código de 6 dígitos para verificar tu email.',
+      },
+      error: null,
+    });
+
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── POST /api/v1/auth/otp/verify ───────────────────────────────────────────────
+/**
+ * Verifica el código OTP de 6 dígitos enviado al email en el registro.
+ * Al validar, marca email_verificado=true y borra el código de Redis.
+ */
+async function verifyOtp(req, res, next) {
+  try {
+    const { email, codigo } = req.body;
+    if (!email || !codigo) {
+      return res.status(400).json({ success: false, data: null, error: 'Email y código son requeridos.' });
+    }
+    const emailKey = String(email).toLowerCase().trim();
+
+    if (!req.redisClient) {
+      return res.status(503).json({ success: false, data: null, error: 'Servicio de verificación no disponible.' });
+    }
+
+    // Límite de intentos (anti fuerza bruta del código de 6 dígitos)
+    const attemptsKey = `otp:verify_attempts:${emailKey}`;
+    const attempts = Number(await req.redisClient.get(attemptsKey)) || 0;
+    if (attempts >= OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({ success: false, data: null, error: 'Demasiados intentos. Solicita un nuevo código.' });
+    }
+
+    const stored = await req.redisClient.get(`otp:verify:${emailKey}`);
+    if (!stored || String(stored) !== String(codigo).trim()) {
+      await req.redisClient.incr(attemptsKey);
+      await req.redisClient.expire(attemptsKey, OTP_TTL_SECONDS);
+      return res.status(400).json({ success: false, data: null, error: 'Código inválido o expirado.' });
+    }
+
+    // Código correcto → marcar verificado, limpiar Redis y ABRIR SESIÓN.
+    // Emitir tokens aquí resuelve el huevo-y-gallina passwordless: el cliente
+    // queda autenticado y puede registrar su Passkey (endpoint que exige JWT)
+    // sin necesidad de contraseña ni Passkey previa.
+    const { query } = require('../config/database');
+    const { rows } = await query(
+      `SELECT id, email, nombre, apellido_paterno, rol, activo, email_verificado
+         FROM usuarios WHERE email = $1 AND eliminado_en IS NULL LIMIT 1`,
+      [emailKey],
+    );
+    const user = rows[0];
+    if (!user) {
+      return res.status(404).json({ success: false, data: null, error: 'Usuario no encontrado.' });
+    }
+    if (!user.activo) {
+      return res.status(403).json({ success: false, data: null, error: 'Esta cuenta ha sido desactivada.' });
+    }
+
+    await userModel.verifyEmail(user.id);
+    await req.redisClient.del(`otp:verify:${emailKey}`);
+    await req.redisClient.del(attemptsKey);
+
+    // Sesión (mismo patrón que login): access token + refresh (cookie HttpOnly).
+    const verifiedUser = { ...user, email_verificado: true };
+    const accessToken = tokenService.generateAccessToken(verifiedUser);
+    await startSession(req, res, verifiedUser);
+
+    logger.info('Email verificado por OTP; sesión iniciada', { userId: user.id });
+    return res.status(200).json({
+      success: true,
+      data: {
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: env.JWT_EXPIRES_IN,
+        mensaje:   'Email verificado correctamente.',
+        user: {
+          id:               user.id,
+          email:            user.email,
+          nombre:           user.nombre,
+          apellido_paterno: user.apellido_paterno,
+          rol:              user.rol,
+          email_verificado: true,
+        },
       },
       error: null,
     });
@@ -525,4 +644,4 @@ async function verifyEmail(req, res, next) {
   }
 }
 
-module.exports = { register, login, oauthLogin, logout, refreshToken, getMe, verifyEmail };
+module.exports = { register, verifyOtp, login, oauthLogin, logout, refreshToken, getMe, verifyEmail };

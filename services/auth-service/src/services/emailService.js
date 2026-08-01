@@ -96,6 +96,40 @@ async function sendVerificationEmail({ email, nombre, verificationToken, appDeep
 }
 
 /**
+ * Envía el email con el CÓDIGO OTP de verificación (6 dígitos).
+ * Reemplaza al flujo de enlace: la app pide un código, no un link.
+ *
+ * @param {object} params
+ * @param {string} params.email
+ * @param {string} params.nombre
+ * @param {string} params.codigo   - Código de 6 dígitos (texto plano; vive en Redis con TTL)
+ * @param {number} [params.ttlMin] - Minutos de validez (para el texto del email)
+ */
+async function sendVerificationCodeEmail({ email, nombre, codigo, ttlMin = 10 }) {
+  await send({
+    to:      email,
+    subject: `Tu código de verificación GymPro: ${codigo}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #1a1a2e;">¡Hola, ${nombre}! 💪</h1>
+        <p>Usa este código para verificar tu cuenta en <strong>GymPro</strong>:</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <span style="display: inline-block; font-size: 34px; letter-spacing: 10px;
+                       font-weight: bold; color: #4f46e5; background: #f3f4ff;
+                       padding: 16px 24px; border-radius: 12px;">${codigo}</span>
+        </div>
+        <p style="color: #666; font-size: 14px;">
+          El código expira en <strong>${ttlMin} minutos</strong>.<br>
+          Si no creaste esta cuenta, ignora este email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">GymPro · Tu gimnasio inteligente</p>
+      </div>
+    `,
+  });
+}
+
+/**
  * Envía el email de restablecimiento de contraseña.
  *
  * @param {object} params
@@ -135,4 +169,4 @@ async function sendPasswordResetEmail({ email, nombre, resetToken }) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail };
+module.exports = { sendVerificationEmail, sendVerificationCodeEmail, sendPasswordResetEmail };
