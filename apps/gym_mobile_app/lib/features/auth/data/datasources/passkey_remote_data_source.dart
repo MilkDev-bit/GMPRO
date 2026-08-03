@@ -108,12 +108,17 @@ class PasskeyRemoteDataSourceImpl implements PasskeyRemoteDataSource {
       final authRequest = AuthenticateRequestType.fromJson(optionsMap);
       final authResponse = await _authenticator.authenticate(authRequest);
 
-      // 3. Enviar firma verificada al servidor para validación y emisión de JWT
+      // 3. Enviar firma verificada al servidor para validación y emisión de JWT.
+      //    Se reenvía el `challenge` original: en login usernameless (sin email)
+      //    el backend no puede reconstruir la key `login:<userId>`, pero SÍ
+      //    recupera el reto por su valor (fallback req.body.challenge). Para el
+      //    login con email es inocuo (allí usa login:<userId>).
       final verifyRes = await _apiClient.post(
         '/passkey/verify-login',
         data: {
           'response': authResponse.toJson(),
           if (email != null) 'email': email,
+          if (optionsMap['challenge'] != null) 'challenge': optionsMap['challenge'],
         },
       );
 
