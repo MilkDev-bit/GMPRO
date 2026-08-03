@@ -309,7 +309,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                         builder: (_) => const LoginCodeScreen()),
                                   ),
                           child: Text(
-                            '¿Perdiste tu teléfono? Entrar con código',
+                            'Entrar con código',
                             style: AppTypography.caption.copyWith(
                               color: AppColors.neonPink,
                               fontWeight: FontWeight.w700,
