@@ -115,6 +115,28 @@ router.post(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/v1/auth/login/otp/request  — enviar código de acceso (recuperación)
+// POST /api/v1/auth/login/otp/verify   — validar código y emitir sesión
+// ─────────────────────────────────────────────────────────────────────────────
+router.post(
+  '/login/otp/request',
+  [ body('email').isEmail().withMessage('Email inválido.').normalizeEmail() ],
+  validate,
+  authController.loginOtpRequest
+);
+
+router.post(
+  '/login/otp/verify',
+  [
+    body('email').isEmail().withMessage('Email inválido.').normalizeEmail(),
+    body('codigo').trim().isLength({ min: 6, max: 6 }).isNumeric()
+      .withMessage('El código debe tener 6 dígitos.'),
+  ],
+  validate,
+  authController.loginOtpVerify
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/v1/auth/login
 // ─────────────────────────────────────────────────────────────────────────────
 router.post(

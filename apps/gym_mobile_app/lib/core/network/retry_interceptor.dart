@@ -11,7 +11,10 @@ import 'package:flutter/foundation.dart';
 class RetryInterceptor extends Interceptor {
   final Dio dio;
   final int maxRetries;
-  final List<int> _retryStatuses = const [500, 502, 503, 504, 408, 429];
+  // OJO: 429 (Too Many Requests) NO se reintenta. Reintentarlo multiplica las
+  // peticiones (cada intento = 1 + N reintentos) y MANTIENE agotado el rate
+  // limit. Ante 429 el cliente debe parar y respetar el Retry-After.
+  final List<int> _retryStatuses = const [500, 502, 503, 504, 408];
 
   RetryInterceptor({
     required this.dio,

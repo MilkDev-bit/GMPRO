@@ -72,15 +72,18 @@ function generateOtp() {
   return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
-/** Genera, guarda en Redis (TTL) y envía por email un OTP de 6 dígitos. */
-async function issueAndSendOtp(req, { email, nombre }) {
+/**
+ * Genera, guarda en Redis (TTL) y envía por email un OTP de 6 dígitos.
+ * `purpose` separa namespaces: 'verify' (alta) vs 'login' (recuperación/acceso).
+ */
+async function issueAndSendOtp(req, { email, nombre, purpose = 'verify' }) {
   const emailKey = String(email).toLowerCase().trim();
   const codigo = generateOtp();
   if (req.redisClient) {
-    await req.redisClient.setex(`otp:verify:${emailKey}`, OTP_TTL_SECONDS, codigo);
-    await req.redisClient.del(`otp:verify_attempts:${emailKey}`);
+    await req.redisClient.setex(`otp:${purpose}:${emailKey}`, OTP_TTL_SECONDS, codigo);
+    await req.redisClient.del(`otp:${purpose}_attempts:${emailKey}`);
   } else {
-    logger.error('Redis no disponible: no se pudo almacenar el OTP de verificación', { email: emailKey });
+    logger.error('Redis no disponible: no se pudo almacenar el OTP', { email: emailKey, purpose });
   }
   await emailService.sendVerificationCodeEmail({
     email, nombre, codigo, ttlMin: OTP_TTL_SECONDS / 60,
@@ -223,6 +226,98 @@ async function verifyOtp(req, res, next) {
       error: null,
     });
 
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── POST /api/v1/auth/login/otp/request ────────────────────────────────────────
+/**
+ * Recuperación/acceso SIN passkey: envía un OTP de 6 dígitos a un usuario
+ * EXISTENTE y verificado. Respuesta genérica (anti user-enumeration): no revela
+ * si el email está registrado.
+ */
+async function loginOtpRequest(req, res, next) {
+  try {
+    const emailKey = String(req.body.email || '').toLowerCase().trim();
+    const user = await userModel.findByEmailForAuth(emailKey);
+    if (user && user.activo && user.email_verificado) {
+      await issueAndSendOtp(req, { email: user.email, nombre: user.nombre, purpose: 'login' });
+      logger.info('OTP de login enviado', { userId: user.id });
+    } else {
+      logger.info('OTP de login: email no elegible (respuesta genérica)', {
+        emailDomain: emailKey.split('@')[1] || null,
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      data: { mensaje: 'Si el correo está registrado, te enviamos un código de acceso.' },
+      error: null,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── POST /api/v1/auth/login/otp/verify ─────────────────────────────────────────
+/**
+ * Verifica el OTP de login y emite sesión (access + refresh). Permite entrar en
+ * un dispositivo NUEVO sin passkey; desde ahí el usuario registra una passkey.
+ */
+async function loginOtpVerify(req, res, next) {
+  try {
+    const { email, codigo } = req.body;
+    if (!email || !codigo) {
+      return res.status(400).json({ success: false, data: null, error: 'Email y código son requeridos.' });
+    }
+    const emailKey = String(email).toLowerCase().trim();
+    if (!req.redisClient) {
+      return res.status(503).json({ success: false, data: null, error: 'Servicio de verificación no disponible.' });
+    }
+
+    const attemptsKey = `otp:login_attempts:${emailKey}`;
+    const attempts = Number(await req.redisClient.get(attemptsKey)) || 0;
+    if (attempts >= OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({ success: false, data: null, error: 'Demasiados intentos. Solicita un nuevo código.' });
+    }
+
+    const stored = await req.redisClient.get(`otp:login:${emailKey}`);
+    if (!stored || String(stored) !== String(codigo).trim()) {
+      await req.redisClient.incr(attemptsKey);
+      await req.redisClient.expire(attemptsKey, OTP_TTL_SECONDS);
+      return res.status(400).json({ success: false, data: null, error: 'Código inválido o expirado.' });
+    }
+
+    const user = await userModel.findByEmailForAuth(emailKey);
+    if (!user || !user.activo) {
+      return res.status(403).json({ success: false, data: null, error: 'Cuenta no disponible.' });
+    }
+
+    await req.redisClient.del(`otp:login:${emailKey}`);
+    await req.redisClient.del(attemptsKey);
+
+    const accessToken = tokenService.generateAccessToken(user);
+    await userModel.recordSuccessfulLogin(user.id);
+    await startSession(req, res, user);
+
+    logger.info('Login por OTP exitoso', { userId: user.id });
+    return res.status(200).json({
+      success: true,
+      data: {
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: env.JWT_EXPIRES_IN,
+        user: {
+          id:               user.id,
+          email:            user.email,
+          nombre:           user.nombre,
+          apellido_paterno: user.apellido_paterno,
+          rol:              user.rol,
+          email_verificado: user.email_verificado,
+        },
+      },
+      error: null,
+    });
   } catch (err) {
     next(err);
   }
@@ -644,4 +739,4 @@ async function verifyEmail(req, res, next) {
   }
 }
 
-module.exports = { register, verifyOtp, login, oauthLogin, logout, refreshToken, getMe, verifyEmail };
+module.exports = { register, verifyOtp, loginOtpRequest, loginOtpVerify, login, oauthLogin, logout, refreshToken, getMe, verifyEmail };

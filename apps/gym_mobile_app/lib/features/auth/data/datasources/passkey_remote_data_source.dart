@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:passkeys/authenticator.dart';
 import 'package:passkeys/types.dart';
@@ -42,6 +43,7 @@ class PasskeyRemoteDataSourceImpl implements PasskeyRemoteDataSource {
 
       // 2. Solicitar opciones de desafío (challenge) al backend
       final optionsRes = await _apiClient.post('/passkey/register-options');
+      debugPrint('🔑 [Passkey] register-options → status=${optionsRes.statusCode}');
       if (optionsRes.statusCode != 200 || optionsRes.data == null || optionsRes.data['data'] == null) {
         throw const PasskeyException('No se pudieron obtener las opciones de desafío criptográfico.');
       }
@@ -50,7 +52,9 @@ class PasskeyRemoteDataSourceImpl implements PasskeyRemoteDataSource {
 
       // 3. Invocar al prompt biométrico nativo del SO (Face ID / Android StrongBox)
       final registerRequest = RegisterRequestType.fromJson(optionsMap);
+      debugPrint('🔑 [Passkey] opciones OK, invocando prompt nativo…');
       final registerResponse = await _authenticator.register(registerRequest);
+      debugPrint('🔑 [Passkey] prompt nativo OK, enviando a verify-register…');
 
       // 4. Enviar la credencial firmada de regreso al servidor para validación webauthn
       final verifyRes = await _apiClient.post(
@@ -68,20 +72,26 @@ class PasskeyRemoteDataSourceImpl implements PasskeyRemoteDataSource {
         throw const PasskeyException('El servidor no pudo validar la firma criptográfica de la Passkey.');
       }
     } on PasskeyAuthCancelledException {
+      debugPrint('🔑 [Passkey] CANCELADO por el usuario');
       throw const UserCancelledException('El usuario canceló el registro biométrico de la Passkey.');
     } on NoCredentialsAvailableException {
+      debugPrint('🔑 [Passkey] NoCredentialsAvailable (¿sin lock screen / sin cuenta Google?)');
       throw const BiometricNotAvailableException('No hay credenciales disponibles en el dispositivo.');
     } on DeviceNotSupportedException {
+      debugPrint('🔑 [Passkey] DeviceNotSupported (emulador/SO sin soporte Passkey)');
       throw const BiometricNotAvailableException('El dispositivo o sistema operativo actual no soporta Passkeys.');
     } on PlatformException catch (e) {
+      debugPrint('🔑 [Passkey] PlatformException code=${e.code} msg=${e.message}');
       if (e.code == 'cancelled' || e.code.contains('CANCELED')) {
         throw const UserCancelledException('Registro de Passkey cancelado.');
       }
       throw PasskeyException('Error nativo biométrico: ${e.message ?? e.code}');
     } on DioException catch (e) {
+      debugPrint('🔑 [Passkey] DioException status=${e.response?.statusCode} body=${e.response?.data}');
       final errorMsg = e.response?.data?['error']?.toString() ?? 'Error al conectar con el servicio de Passkeys.';
       throw PasskeyException(errorMsg);
     } catch (e) {
+      debugPrint('🔑 [Passkey] error inesperado: $e');
       if (e is UserCancelledException || e is BiometricNotAvailableException || e is PasskeyException) {
         rethrow;
       }

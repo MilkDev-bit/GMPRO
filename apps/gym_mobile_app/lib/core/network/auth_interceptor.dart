@@ -55,10 +55,21 @@ class AuthInterceptor extends Interceptor {
   ) async {
     // Candado anti token-leakage: el Bearer SOLO va a hosts del backend.
     final isBackend = AppConfig.isBackendHost(options.uri.host);
-    final isPublicEndpoint = options.path.contains('/login') ||
-        options.path.contains('/register') ||
-        options.path.contains('/oauth-login') ||
-        options.path.contains('/verify-email');
+    // Endpoints PÚBLICOS (no llevan Bearer). Coincidencia EXACTA de ruta: con
+    // `contains` antes, `/passkey/register-options` matcheaba "/register" y se
+    // trataba como público → 401 al crear la passkey (que SÍ requiere JWT).
+    final path = options.path.split('?').first;
+    const publicPaths = <String>{
+      '/register',
+      '/login',
+      '/oauth-login',
+      '/verify-email',
+      '/otp/verify',
+      '/refresh',
+      '/passkey/login-options',
+      '/passkey/verify-login',
+    };
+    final isPublicEndpoint = publicPaths.contains(path);
 
     if (isBackend && !isPublicEndpoint) {
       final token = await _storageService.getAccessToken();

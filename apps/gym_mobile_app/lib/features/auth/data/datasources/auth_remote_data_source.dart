@@ -22,6 +22,18 @@ abstract class AuthRemoteDataSource {
 
   /// Solicita el cierre de sesión remoto en el backend (/logout).
   Future<void> logoutRemote();
+
+  /// Login por email + contraseña (/login). Recuperación en dispositivo nuevo.
+  Future<AuthResponseModel> loginWithPassword({required String email, required String password});
+
+  /// Pide un código OTP de acceso al email (/login/otp/request). No revela si existe.
+  Future<void> requestLoginOtp(String email);
+
+  /// Valida el código de acceso y devuelve sesión (/login/otp/verify).
+  Future<AuthResponseModel> verifyLoginOtp({required String email, required String code});
+
+  /// Dispara el email de restablecimiento de contraseña (/password/forgot).
+  Future<void> forgotPassword(String email);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -159,6 +171,66 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       await _googleSignIn.signOut();
     } catch (_) {
       // Ignorar errores al desconectar si el token ya expiró
+    }
+  }
+
+  @override
+  Future<AuthResponseModel> loginWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final res = await _apiClient.post('/login', data: {'email': email, 'password': password});
+      if (res.statusCode == 200 && res.data != null) {
+        return AuthResponseModel.fromJson(res.data['data'] ?? res.data);
+      }
+      throw AuthException('Respuesta inesperada del servidor (${res.statusCode}).');
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ??
+          'No se pudo iniciar sesión. Verifica tus credenciales.';
+      throw AuthException(msg, statusCode: e.response?.statusCode);
+    }
+  }
+
+  @override
+  Future<void> requestLoginOtp(String email) async {
+    try {
+      // Siempre 200 (respuesta genérica anti-enumeration); no lanzamos por 4xx de contenido.
+      await _apiClient.post('/login/otp/request', data: {'email': email});
+    } on DioException catch (e) {
+      // Solo propagamos errores de red/servidor reales.
+      if (e.response == null) {
+        throw const ServerException('No se pudo contactar el servidor.');
+      }
+    }
+  }
+
+  @override
+  Future<AuthResponseModel> verifyLoginOtp({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final res = await _apiClient.post('/login/otp/verify', data: {'email': email, 'codigo': code});
+      if (res.statusCode == 200 && res.data != null) {
+        return AuthResponseModel.fromJson(res.data['data'] ?? res.data);
+      }
+      throw const AuthException('Código inválido.');
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ?? 'Código inválido o expirado.';
+      throw AuthException(msg, statusCode: e.response?.statusCode);
+    }
+  }
+
+  @override
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _apiClient.post('/password/forgot', data: {'email': email});
+    } on DioException catch (e) {
+      if (e.response == null) {
+        throw const ServerException('No se pudo contactar el servidor.');
+      }
+      // 4xx de contenido → respuesta genérica (no revelar si el email existe).
     }
   }
 }
