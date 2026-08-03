@@ -15,6 +15,8 @@ import '../widgets/neon_glow_background.dart';
 import '../widgets/neon_text_field.dart';
 import '../widgets/social_login_button.dart';
 import 'registration_screen.dart';
+import 'login_code_screen.dart';
+import 'login_password_screen.dart';
 import '../../../../features/home/presentation/screens/home_dashboard_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -274,6 +276,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           fontSize: 12.5,
                         ),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // ── Acceso alternativo si se perdió la Passkey ─────────────
+                  Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 2,
+                      children: [
+                        TextButton(
+                          onPressed: isBusy
+                              ? null
+                              : () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const LoginPasswordScreen()),
+                                  ),
+                          child: Text(
+                            'Entrar con contraseña',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.darkTextSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: isBusy
+                              ? null
+                              : () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const LoginCodeScreen()),
+                                  ),
+                          child: Text(
+                            '¿Perdiste tu teléfono? Entrar con código',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.neonPink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 6),
