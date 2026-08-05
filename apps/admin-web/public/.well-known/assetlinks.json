@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.gympro.mobile",
+      "sha256_cert_fingerprints": [
+        "1E:FD:24:3A:7E:BE:85:C5:EC:38:2B:4E:31:69:1F:1B:3F:EC:13:0B:A9:F7:EF:3E:34:21:67:6A:89:59:89:6E"
+      ]
+    }
+  }
+]
