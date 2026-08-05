@@ -19,9 +19,12 @@ class SubscriptionRemoteDataSourceImpl implements SubscriptionRemoteDataSource {
   @override
   Future<UserSubscriptionModel> fetchSubscriptionStatus() async {
     try {
-      // Consultamos el endpoint de membresía (o fallback a /me si se unificó)
+      // Ruta REAL del backend: GET /api/v1/subscriptions/active (plural).
+      // Normalizamos el base porque PAYMENT_SERVICE_URL puede traer '/payments'
+      // (antes pedía '/payments/subscription/my-status' → 404 → siempre "vencido").
+      final base = AppConfig.paymentServiceBaseUrl.replaceFirst(RegExp(r'/payments/?$'), '');
       final response = await _apiClient.get(
-        '${AppConfig.paymentServiceBaseUrl}/subscription/my-status',
+        '$base/subscriptions/active',
         options: Options(
           validateStatus: (status) => status != null && status < 500,
         ),
