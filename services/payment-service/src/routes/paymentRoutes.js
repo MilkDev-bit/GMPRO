@@ -30,8 +30,15 @@ router.post(
     // mapea a STRIPE_PRICE_ID_* (ver createCheckoutSession).
     body('plan').optional().isIn(['mensual', 'trimestral', 'anual'])
       .withMessage('Plan inválido (usa "mensual", "trimestral" o "anual").'),
-    body('successUrl').optional().isURL().withMessage('URL de éxito inválida.'),
-    body('cancelUrl').optional().isURL().withMessage('URL de cancelación inválida.'),
+    body('successUrl').optional().custom((value) => {
+      // Aceptar URLs estándar (https://) Y deep links de apps móviles (gympro://)
+      if (/^https?:\/\/.+/.test(value) || /^[a-z][a-z0-9+.-]*:\/\/.+/i.test(value)) return true;
+      throw new Error('URL de éxito inválida.');
+    }),
+    body('cancelUrl').optional().custom((value) => {
+      if (/^https?:\/\/.+/.test(value) || /^[a-z][a-z0-9+.-]*:\/\/.+/i.test(value)) return true;
+      throw new Error('URL de cancelación inválida.');
+    }),
     body('offerCode').optional({ nullable: true }).isString().trim()
       .matches(/^[A-Za-z0-9_-]{3,40}$/).withMessage('Código promocional inválido.'),
   ],
