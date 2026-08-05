@@ -265,9 +265,27 @@ async function ensureStripeCoupon(stripe, offer) {
  */
 async function createCheckoutSession(req, res, next) {
   try {
-    const { priceId, successUrl, cancelUrl, offerCode } = req.body;
+    const { plan, successUrl, cancelUrl, offerCode } = req.body;
     const userId    = req.user.id;
     const userEmail = req.user.email;
+
+    // SEGURIDAD: el precio se resuelve SIEMPRE en el servidor desde el env
+    // (STRIPE_PRICE_ID_*), nunca se confía en un priceId arbitrario del cliente
+    // (evita que un cliente manipulado imponga un precio de $0).
+    const PRICE_BY_PLAN = {
+      mensual:    process.env.STRIPE_PRICE_ID_MENSUAL,
+      trimestral: process.env.STRIPE_PRICE_ID_TRIMESTRAL,
+      anual:      process.env.STRIPE_PRICE_ID_ANUAL,
+    };
+    const planKey = String(plan || 'mensual').toLowerCase();
+    const priceId = PRICE_BY_PLAN[planKey];
+    if (!priceId) {
+      return res.status(400).json({
+        success: false,
+        data:    null,
+        error:   'Plan de membresía inválido o no configurado en el servidor.',
+      });
+    }
 
     const stripe = getStripeClient();
 

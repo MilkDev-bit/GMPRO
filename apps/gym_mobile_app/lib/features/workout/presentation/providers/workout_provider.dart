@@ -77,7 +77,7 @@ class WorkoutNotifier extends StateNotifier<WorkoutState> {
   }
 
   /// Plan demostrativo offline enriquecido con mapeo anatómico exacto (Fitia / Jefit style)
-  static final WorkoutPlan _fallbackPlan = WorkoutPlan(
+  static const WorkoutPlan _fallbackPlan = WorkoutPlan(
     nombre: 'Hipertrofia Estética — División 4 Días',
     descripcion: 'Enfoque en proporción anatómica en forma de V (Hombros anchos, cintura compacta y piernas fuertes).',
     nivel: 'intermedio',

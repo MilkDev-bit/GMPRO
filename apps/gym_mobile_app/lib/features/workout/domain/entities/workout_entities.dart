@@ -1,5 +1,9 @@
 /// @file lib/features/workout/domain/entities/workout_entities.dart
 /// @description Entidades del dominio para rutinas IA con datos anatómicos completos.
+// Los campos `musculos_primarios`/`musculos_secundarios` usan snake_case a propósito:
+// reflejan EXACTAMENTE las claves del JSON del backend (ai-service). Renombrarlos
+// rompería el parseo, así que se silencia el lint de estilo en este archivo.
+// ignore_for_file: non_constant_identifier_names
 
 import 'package:flutter/foundation.dart';
 

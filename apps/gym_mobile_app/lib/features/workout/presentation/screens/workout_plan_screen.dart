@@ -300,22 +300,25 @@ class _ExerciseCard extends StatelessWidget {
         : 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
           color: isActive ? AppColors.surfaceElevatedOf(context) : AppColors.surfaceOf(context),
-          borderRadius: BorderRadius.circular(8),
-          border: isActive
-              ? Border.all(color: accentColor.withValues(alpha: 0.35), width: 1.5)
-              : null,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive
+                ? accentColor.withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.05),
+            width: isActive ? 1.5 : 1,
+          ),
         ),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Row(
           children: [
             // Cover Image
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(14),
               child: SizedBox(
                 width: 64,
                 height: 64,
@@ -397,17 +400,25 @@ class _MiniPlayerState extends State<_MiniPlayer> {
 
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: AppColors.surfaceElevatedOf(context),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.30),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           children: [
             // Cover
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(12),
               child: SizedBox(
                 width: 40,
                 height: 40,

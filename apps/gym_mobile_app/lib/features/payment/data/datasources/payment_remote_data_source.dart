@@ -29,7 +29,10 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
       final response = await _apiClient.post(
         '${AppConfig.paymentServiceBaseUrl}/payments/create-checkout-session',
         data: {
-          'priceId': priceId,
+          // `priceId` transporta ahora el PLAN ('mensual'/'trimestral'); el
+          // backend resuelve el Stripe Price ID real desde su env (nunca se
+          // confía en un precio dictado por el cliente).
+          'plan': priceId,
           if (successUrl != null) 'successUrl': successUrl,
           if (cancelUrl != null) 'cancelUrl': cancelUrl,
         },
@@ -38,10 +41,19 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
       if (response.statusCode == 200 && response.data?['data']?['url'] != null) {
         return response.data['data']['url'].toString();
       } else {
-        throw ServerException('No se recibió la URL de sesión de pago Stripe.');
+        throw const ServerException('No se recibió la URL de sesión de pago Stripe.');
       }
     } on DioException catch (e) {
-      throw ServerException('Error al contactar con el portal de pagos Stripe: ${e.message}');
+      // Mensaje AMIGABLE mapeado por status; NO volcamos la excepción cruda de
+      // Dio en pantalla (antes salía un bloque rojo enorme e ilegible).
+      final sc = e.response?.statusCode ?? 0;
+      final msg = switch (sc) {
+        401 || 403 => 'El servicio de pagos no está disponible en este momento. Inténtalo más tarde.',
+        404 => 'No encontramos el plan de pago. Contacta a soporte.',
+        >= 500 => 'El servidor de pagos tuvo un problema. Inténtalo en unos minutos.',
+        _ => 'No pudimos iniciar el pago. Revisa tu conexión e inténtalo de nuevo.',
+      };
+      throw ServerException(msg);
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException('Error procesando solicitud de pago: $e');

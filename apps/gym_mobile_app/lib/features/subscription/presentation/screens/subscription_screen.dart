@@ -299,7 +299,7 @@ class _GradientButton extends StatelessWidget {
               ? []
               : [
                   BoxShadow(
-                    color: AppColors.neonPink.withValues(alpha: 0.35),
+                    color: AppColors.neonPink.withValues(alpha: 0.22),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),

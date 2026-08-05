@@ -49,7 +49,7 @@ class PaymentNotifier extends StateNotifier<PaymentCheckoutState> {
 
   /// Inicia el flujo real de Stripe Checkout en modo de prueba o producción.
   Future<bool> launchStripeCheckout({
-    String priceId = 'price_test_vip_ai_coach', // ID de precio en entorno Stripe Test Mode
+    String priceId = 'mensual', // PLAN ('mensual'/'trimestral'); el backend lo mapea al Stripe Price ID real del env
   }) async {
     if (state.status == PaymentCheckoutStatus.loading) return false;
     state = const PaymentCheckoutState(status: PaymentCheckoutStatus.loading);

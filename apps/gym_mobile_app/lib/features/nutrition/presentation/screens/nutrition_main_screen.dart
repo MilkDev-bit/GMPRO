@@ -13,6 +13,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
+import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_provider.dart';
@@ -78,15 +79,15 @@ class NutritionMainScreen extends ConsumerWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(38),
+                    borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: AppColors.neonPink.withValues(alpha: 0.55),
-                      width: 1.8,
+                      color: AppColors.neonPink.withValues(alpha: 0.22),
+                      width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.neonPink.withValues(alpha: 0.28),
-                        blurRadius: 40,
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 34,
                         offset: const Offset(0, 16),
                       ),
                     ],
@@ -97,20 +98,15 @@ class NutritionMainScreen extends ConsumerWidget {
                       _PulsingLockIcon(),
                       const SizedBox(height: 26),
                       Text(
-                        'DIETA AI COACH BLOQUEADA',
-                        style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 1.5,
-                        ),
+                        'Dieta con IA bloqueada',
+                        style: AppTypography.titleLarge.copyWith(fontSize: 20),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       Text(
-                        'El cálculo inteligente de macronutrientes, hidratación y búsqueda de porciones sobre el catálogo Open Food Facts requieren una membresía activa.\n\nRegulariza tu acceso con Stripe para desbloquear en milisegundos todas las herramientas de nutrición de alto rendimiento.',
+                        'El cálculo de macros, hidratación y porciones con alimentos reales requiere membresía activa. Regulariza tu acceso y se desbloquea al instante.',
                         style: AppTypography.bodyMedium.copyWith(
-                          color: const Color(0xFFB8AFE0),
+                          color: AppColors.textSecondary,
                           height: 1.5,
                         ),
                         textAlign: TextAlign.center,
@@ -120,7 +116,7 @@ class NutritionMainScreen extends ConsumerWidget {
                         isLoading: paymentState.status == PaymentCheckoutStatus.loading,
                         onPressed: () {
                           HapticFeedback.heavyImpact();
-                          ref.read(paymentProvider.notifier).launchStripeCheckout();
+                          PlanSelectorSheet.show(context, ref);
                         },
                       ),
                     ],
@@ -152,12 +148,10 @@ class NutritionMainScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 26),
               Text(
-                'GYMBOT AI CALCULANDO TUS MACROS...',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.neonPurple,
-                  letterSpacing: 1.8,
+                'Calculando tus macros',
+                style: AppTypography.titleLarge.copyWith(
+                  color: AppColors.neonPurpleText,
+                  fontSize: 18,
                 ),
               ),
               const SizedBox(height: 8),
@@ -205,10 +199,10 @@ class NutritionMainScreen extends ConsumerWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.neonCyan,
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  elevation: 12,
-                  shadowColor: AppColors.neonCyan.withValues(alpha: 0.4),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                  shadowColor: Colors.transparent,
                 ),
                 onPressed: () {
                   HapticFeedback.mediumImpact();
@@ -331,7 +325,7 @@ class _ElasticStripeButtonState extends State<_ElasticStripeButton>
             borderRadius: BorderRadius.circular(26),
             boxShadow: [
               BoxShadow(
-                color: AppColors.neonPink.withValues(alpha: 0.45),
+                color: AppColors.neonPink.withValues(alpha: 0.22),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),

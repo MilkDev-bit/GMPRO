@@ -16,6 +16,7 @@ import 'package:toastification/toastification.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/domain/entities/auth_user.dart';
@@ -183,6 +184,7 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                           setState(() => _notificationsEnabled = val);
                           if (val) {
                             await NotificationServiceImpl.instance.requestPermissions();
+                            if (!context.mounted) return;
                             toastification.show(
                               context: context,
                               type: ToastificationType.success,
@@ -629,7 +631,7 @@ class _FailedPaymentCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 14),
+                            const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 14),
                             const SizedBox(width: 6),
                             Text(
                               'PAGO FALLIDO / PAST DUE',
@@ -1026,14 +1028,67 @@ class _InvoicesModalSheet extends ConsumerStatefulWidget {
 }
 
 class _InvoicesModalSheetState extends ConsumerState<_InvoicesModalSheet> {
-  final List<Map<String, dynamic>> _mockInvoices = [
-    {"id": "INV-2026-0701", "date": "01/07/2026", "amount": "\$499 MXN", "status": "Pagado", "plan": "GymPro VIP AI Coach"},
-    {"id": "INV-2026-0601", "date": "01/06/2026", "amount": "\$499 MXN", "status": "Pagado", "plan": "GymPro VIP AI Coach"},
-    {"id": "INV-2026-0501", "date": "01/05/2026", "amount": "\$499 MXN", "status": "Pagado", "plan": "GymPro VIP AI Coach"},
-  ];
+  List<Map<String, dynamic>> _invoices = [];
+  bool _loadingInvoices = true;
+  String? _invoicesError;
 
   bool _isDownloading = false;
   String? _downloadingId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInvoices();
+  }
+
+  /// Trae el historial REAL de facturas/recibos del payment-service
+  /// (GET /subscription/history). Antes esta lista era un mock hardcodeado.
+  Future<void> _fetchInvoices() async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final res = await apiClient.get('${AppConfig.paymentServiceBaseUrl}/subscription/history');
+      final raw = (res.data is Map ? res.data['data'] : res.data) as List? ?? [];
+      final mapped = raw.map<Map<String, dynamic>>((row) {
+        final r = Map<String, dynamic>.from(row as Map);
+        return {
+          'id': (r['id'] ?? r['stripe_invoice_id'] ?? '—').toString(),
+          'date': _fmtDate(r['creado_en'] ?? r['fecha_inicio'] ?? r['valido_hasta']),
+          'plan': (r['plan_nombre'] ?? r['plan'] ?? 'Membresía GymPro').toString(),
+          'amount': _fmtAmount(r['precio'] ?? r['monto'], r['moneda']),
+          'status': (r['estado'] ?? r['status'] ?? 'Pagado').toString(),
+        };
+      }).toList();
+      if (mounted) {
+        setState(() {
+          _invoices = mapped;
+          _loadingInvoices = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _invoicesError = 'No pudimos cargar tus facturas.';
+          _loadingInvoices = false;
+        });
+      }
+    }
+  }
+
+  String _fmtDate(dynamic v) {
+    if (v == null) return '';
+    try {
+      final d = DateTime.parse(v.toString());
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return v.toString();
+    }
+  }
+
+  String _fmtAmount(dynamic amount, dynamic currency) {
+    if (amount == null) return '';
+    final cur = (currency ?? 'MXN').toString().toUpperCase();
+    return '\$$amount $cur';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1075,13 +1130,29 @@ class _InvoicesModalSheetState extends ConsumerState<_InvoicesModalSheet> {
               ),
               Divider(color: AppColors.glassBorderOf(context), height: 1),
               Expanded(
-                child: ListView.separated(
+                child: _loadingInvoices
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.neonPink))
+                    : (_invoicesError != null || _invoices.isEmpty)
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Text(
+                                _invoicesError ?? 'Aún no tienes facturas registradas.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondaryOf(context),
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
                   controller: scrollController,
                   padding: const EdgeInsets.all(24),
-                  itemCount: _mockInvoices.length,
+                  itemCount: _invoices.length,
                   separatorBuilder: (ctx, i) => const SizedBox(height: 14),
                   itemBuilder: (ctx, index) {
-                    final inv = _mockInvoices[index];
+                    final inv = _invoices[index];
                     final isBusy = _isDownloading && _downloadingId == inv['id'];
 
                     return Container(

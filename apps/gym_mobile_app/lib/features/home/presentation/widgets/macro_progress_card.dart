@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../nutrition/presentation/providers/nutrition_provider.dart';
+import '../../../subscription/presentation/providers/subscription_provider.dart';
 
 class MacroProgressCard extends ConsumerStatefulWidget {
   const MacroProgressCard({super.key});
@@ -44,9 +44,13 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
     _progressAnim = CurvedAnimation(parent: _progressController, curve: Curves.easeOutCubic);
 
     Future.microtask(() {
-      if (mounted) {
-        _entryController.forward();
-        _progressController.forward();
+      if (!mounted) return;
+      _entryController.forward();
+      _progressController.forward();
+      // Carga el plan REAL desde el ai-service (si el usuario tiene acceso).
+      // Los miembros ven macros calculados por el backend en vez del stub.
+      if (ref.read(isAccessValidProvider)) {
+        ref.read(nutritionProvider.notifier).ensureTodayPlanLoaded();
       }
     });
   }

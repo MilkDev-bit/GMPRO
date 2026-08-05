@@ -46,9 +46,21 @@ class NutritionState {
 }
 
 class NutritionNotifier extends StateNotifier<NutritionState> {
-  NutritionNotifier(this._apiClient) : super(NutritionState(plan: _defaultStubPlan));
+  NutritionNotifier(this._apiClient) : super(const NutritionState(plan: _defaultStubPlan));
 
   final ApiClient _apiClient;
+
+  // Evita re-generar en cada rebuild del dashboard: una sola carga por sesión.
+  bool _autoLoaded = false;
+
+  /// Carga el plan REAL del backend una vez por sesión (para el card del
+  /// dashboard). El backend no expone un GET del plan actual, así que se dispara
+  /// la generación vía ai-service en lugar de mostrar el stub por defecto.
+  Future<void> ensureTodayPlanLoaded() async {
+    if (_autoLoaded || state.isLoading) return;
+    _autoLoaded = true;
+    await generateDietPlan();
+  }
 
   /// Genera o recalcula una nueva dieta personalizada desde el ai-service.
   Future<void> generateDietPlan({
@@ -229,7 +241,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
   ];
 
   /// Plan nutricional inicial completo con datos de Open Food Facts
-  static final NutritionPlan _defaultStubPlan = NutritionPlan(
+  static const NutritionPlan _defaultStubPlan = NutritionPlan(
     id: 'plan_diet_ai_01',
     nombre: 'Hipertrofia Limpia & Rendimiento Óptimo',
     descripcion: 'Reparto calórico 40% carbohidratos, 35% proteína y 25% grasas saludables.',
@@ -246,7 +258,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         nombre: 'Desayuno Anabólico — Avena & Huevos',
         horaSugerida: '07:30 AM',
         alimentos: [
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501008012345',
             nombre: 'Avena Integral en Hojuelas',
             marca: 'Quaker',
@@ -256,7 +268,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
             carbohidratos100g: 66.0,
             grasas100g: 7.0,
           ),
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501111122222',
             nombre: 'Claras de Huevo Pasteurizadas + 2 Enteros',
             marca: 'San Juan',
@@ -266,7 +278,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
             carbohidratos100g: 0.8,
             grasas100g: 4.5,
           ),
-          const FoodItem(
+          FoodItem(
             codigoBarras: '0000000001234',
             nombre: 'Plátano Tabasco en rebanadas',
             marca: 'Natural Orgánico',
@@ -284,7 +296,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         nombre: 'Comida Principal — Pollo y Arroz Integral',
         horaSugerida: '01:30 PM',
         alimentos: [
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501000111111',
             nombre: 'Pechuga de Pollo Asada a las Hierbas',
             marca: 'Bachoco',
@@ -294,7 +306,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
             carbohidratos100g: 0.0,
             grasas100g: 3.6,
           ),
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501099998888',
             nombre: 'Arroz Súper Extra Integral Cocido',
             marca: 'Verde Valle',
@@ -304,7 +316,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
             carbohidratos100g: 28.0,
             grasas100g: 0.8,
           ),
-          const FoodItem(
+          FoodItem(
             codigoBarras: '0000000009999',
             nombre: 'Aguacate Hass en cubos',
             marca: 'Uruapan Selecto',
@@ -322,7 +334,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         nombre: 'Snack Pre-Entrenamiento Explosivo',
         horaSugerida: '05:00 PM',
         alimentos: [
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501444455555',
             nombre: 'Crema de Cacahuate Natural',
             marca: 'Aladino',
@@ -332,7 +344,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
             carbohidratos100g: 20.0,
             grasas100g: 50.0,
           ),
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501888899999',
             nombre: 'Yogurt Griego Fresa sin Azúcar',
             marca: 'Chobani',
@@ -350,7 +362,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         nombre: 'Cena de Recuperación Nocturna — Atún & Whey',
         horaSugerida: '09:00 PM',
         alimentos: [
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501020304050',
             nombre: 'Atún en Agua en Trozos',
             marca: 'Dolores',
@@ -360,7 +372,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
             carbohidratos100g: 0.0,
             grasas100g: 0.8,
           ),
-          const FoodItem(
+          FoodItem(
             codigoBarras: '7501234567890',
             nombre: 'Batido Proteína Whey Gold Standard',
             marca: 'Optimum Nutrition',

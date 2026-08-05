@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
+import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../../../core/navigation/shell_nav_provider.dart';
 
@@ -328,10 +329,7 @@ class _LockedModuleBottomSheet extends ConsumerWidget {
               ),
               onPressed: isBusy
                   ? null
-                  : () {
-                      Navigator.of(context).pop();
-                      ref.read(paymentProvider.notifier).launchStripeCheckout();
-                    },
+                  : () => PlanSelectorSheet.show(context, ref),
             ),
           ),
           const SizedBox(height: 12),

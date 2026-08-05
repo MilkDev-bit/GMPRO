@@ -92,7 +92,7 @@ class RetryInterceptor extends Interceptor {
 
     // Si no se debe reintentar o se agotaron los intentos (3/3), continuar con el error
     if (currentAttempt >= maxRetries && kDebugMode) {
-      print('❌ [RetryInterceptor] Se agotaron los $maxRetries reintentos para ${requestOptions.path}. Arrojando fallo definitivo.');
+      debugPrint('[RetryInterceptor] Se agotaron los $maxRetries reintentos para ${requestOptions.path}. Arrojando fallo definitivo.');
     }
 
     return super.onError(err, handler);

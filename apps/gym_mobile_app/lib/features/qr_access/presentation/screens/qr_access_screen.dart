@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -35,7 +36,7 @@ class QrAccessScreen extends ConsumerWidget {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [Color(0x449D00FF), Colors.transparent],
+                  colors: [Color(0x268B3FE0), Colors.transparent],
                 ),
               ),
             ),
@@ -49,7 +50,7 @@ class QrAccessScreen extends ConsumerWidget {
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [Color(0x33FF007A), Colors.transparent],
+                  colors: [Color(0x1FFF4D8F), Colors.transparent],
                 ),
               ),
             ),
@@ -180,10 +181,26 @@ class QrAccessScreen extends ConsumerWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
-              width: 200,
-              height: 200,
-              child: Placeholder(), // El DynamicAccessQrCard ya maneja esto
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: QrImageView(
+                data: qrState.qrToken!.token,
+                version: QrVersions.auto,
+                size: 200,
+                gapless: true,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: Color(0xFF0A0912),
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: Color(0xFF0A0912),
+                ),
+              ),
             ),
             const SizedBox(height: 20),
             Text(

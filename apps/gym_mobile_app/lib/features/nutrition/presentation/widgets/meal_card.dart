@@ -52,7 +52,7 @@ class _MealCardState extends ConsumerState<MealCard>
       case 'pre_entreno':
         return AppColors.neonPink;
       case 'cena':
-        return const Color(0xFF9D00FF);
+        return AppColors.neonViolet;
       default:
         return AppColors.neonPurple;
     }
@@ -144,7 +144,7 @@ class _MealCardState extends ConsumerState<MealCard>
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              '🕒 ${meal.horaSugerida}  •  ${meal.alimentos.length} alimentos',
+                              '${meal.horaSugerida}  ·  ${meal.alimentos.length} alimentos',
                               style: AppTypography.captionOf(context).copyWith(
                                 fontWeight: FontWeight.w600,
                               ),

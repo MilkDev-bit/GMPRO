@@ -53,10 +53,10 @@ class _PaymentReturnScreenState extends State<PaymentReturnScreen> {
                   width: 180,
                   height: 180,
                   child: ok
-                      ? LottieView(
+                      ? const LottieView(
                           asset: 'assets/lottie/success.json',
                           repeat: false,
-                          fallback: const Icon(Icons.check_circle_rounded,
+                          fallback: Icon(Icons.check_circle_rounded,
                               color: Colors.greenAccent, size: 120),
                         )
                       : const Icon(Icons.error_rounded,

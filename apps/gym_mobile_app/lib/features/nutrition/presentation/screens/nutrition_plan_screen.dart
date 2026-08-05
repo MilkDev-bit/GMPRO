@@ -40,7 +40,7 @@ class NutritionPlanScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'OPEN FOOD FACTS CATALOG INTEGRATED',
+                        'PLAN NUTRICIONAL',
                         style: GoogleFonts.outfit(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,

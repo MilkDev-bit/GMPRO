@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
+import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../providers/workout_provider.dart';
 import 'workout_plan_screen.dart';
@@ -33,16 +34,16 @@ class WorkoutMainScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
             physics: const BouncingScrollPhysics(),
             child: Container(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: const Color(0xFF181528),
-                borderRadius: BorderRadius.circular(36),
-                border: Border.all(color: Colors.grey.withValues(alpha: 0.25), width: 1.5),
+                gradient: AppColors.cardGradient,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    blurRadius: 32,
-                    offset: const Offset(0, 16),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 30,
+                    offset: const Offset(0, 14),
                   ),
                 ],
               ),
@@ -50,35 +51,30 @@ class WorkoutMainScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(22),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.12),
+                      color: AppColors.surfaceElevated,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                     ),
-                    child: const Icon(Icons.lock_rounded, color: Colors.grey, size: 56),
+                    child: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted, size: 44),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   Text(
-                    'MÓDULO DE RUTINAS IA BLOQUEADO',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
-                    ),
+                    'Rutinas con IA bloqueadas',
+                    style: AppTypography.titleLarge.copyWith(fontSize: 20),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Text(
-                    'Las funciones de Inteligencia Artificial para diseño de rutinas anatómicas están desactivadas temporalmente debido a un adeudo o falta de vigencia en tu membresía.\n\nAl regularizar tu pago en Stripe o mostrador, el generador de rutinas y mapa de músculos se activará instantáneamente.',
+                    'El generador de rutinas y el mapa muscular se activan al instante cuando regularizas tu membresía.',
                     style: AppTypography.bodyMedium.copyWith(
-                      color: const Color(0xFF9E96C0),
+                      color: AppColors.textSecondary,
                       height: 1.5,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -98,14 +94,14 @@ class WorkoutMainScreen extends ConsumerWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.neonPink,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                        elevation: 10,
-                        shadowColor: AppColors.neonPink.withValues(alpha: 0.4),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
                       ),
                       onPressed: paymentState.status == PaymentCheckoutStatus.loading
                           ? null
-                          : () => ref.read(paymentProvider.notifier).launchStripeCheckout(),
+                          : () => PlanSelectorSheet.show(context, ref),
                     ),
                   ),
                 ],
@@ -124,7 +120,7 @@ class WorkoutMainScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 64,
                 height: 64,
                 child: CircularProgressIndicator(
@@ -135,18 +131,14 @@ class WorkoutMainScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'GYMBOT AI DISEÑANDO RUTINA...',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.neonCyan,
-                  letterSpacing: 1.5,
-                ),
+                'Diseñando tu rutina',
+                style: AppTypography.titleLarge.copyWith(color: AppColors.neonCyan, fontSize: 18),
               ),
               const SizedBox(height: 8),
               Text(
                 'Mapeando grupos musculares primarios y secundarios',
                 style: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
+                textAlign: TextAlign.center,
               ),
             ],
           ),

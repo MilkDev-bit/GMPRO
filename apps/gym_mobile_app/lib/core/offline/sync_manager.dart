@@ -14,6 +14,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:isar_community/isar.dart';
 import 'isar_service.dart';
 import 'models/sync_action.dart';
 
@@ -74,12 +75,14 @@ class SyncManager {
     _draining = true;
     try {
       final isar = IsarService.instance.db;
-      final pending = await isar.collection<SyncAction>()
-          .filter()
-          .statusEqualTo(SyncStatus.pending)
-          .or()
-          .statusEqualTo(SyncStatus.failed)
-          .findAll();
+      // Isar community: el builder `.or()` no resuelve tras migrar de isar →
+      // isar_community. Hacemos dos consultas con el MISMO patrón que ya
+      // funcionaba (.filter().statusEqualTo(...).findAll()) y las unimos.
+      final coll = isar.collection<SyncAction>();
+      final pending = [
+        ...await coll.filter().statusEqualTo(SyncStatus.pending).findAll(),
+        ...await coll.filter().statusEqualTo(SyncStatus.failed).findAll(),
+      ];
 
       for (final action in pending) {
         // Re-chequeo de red por si se cayó a mitad del drenado.

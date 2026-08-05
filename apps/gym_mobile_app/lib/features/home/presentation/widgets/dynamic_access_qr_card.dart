@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
+import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../../qr_access/presentation/providers/qr_access_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 
@@ -280,7 +280,7 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard>
                       ? null
                       : () {
                           HapticFeedback.mediumImpact();
-                          ref.read(paymentProvider.notifier).launchStripeCheckout();
+                          PlanSelectorSheet.show(context, ref);
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1EE083), // Verde Esmeralda (Imagen 1)

@@ -23,6 +23,13 @@ dependencies:
   lottie: ^3.1.2                  # Microinteracciones vectoriales JSON (onboarding, éxito)
   audioplayers: ^6.1.0            # Feedback sonoro corto (éxito/error/clic) sincronizado con háptica
   animations: ^2.0.11             # Transiciones Material Motion (Fade Through / Shared Axis)
+  flutter_animate: ^4.5.0         # Micro-interacciones declarativas (fade/slide/scale encadenados)
+
+  # ── Componentes modernos / UX premium ───────────────────────────────────────
+  skeletonizer: ^1.4.2            # Placeholders "skeleton" en carga (sensación de app pulida)
+  fl_chart: ^0.69.0               # Gráficas profesionales (anillo de macros, progreso, barras)
+  auto_size_text: ^3.0.0          # Texto autoajustable — previene overflows de layout
+  hugeicons: ^0.0.11              # Set de iconos finos y modernos (superior a Material por defecto)
 
   # ── Offline-First (Isar) ────────────────────────────────────────────────────
   isar_community: ^3.3.2               # Base de datos local NoSQL reactiva (fork mantenido de isar; declara namespace → compatible AGP 8/9)

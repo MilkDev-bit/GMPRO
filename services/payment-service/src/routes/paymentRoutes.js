@@ -26,7 +26,10 @@ function validate(req, res, next) {
 router.post(
   '/create-checkout-session',
   [
-    body('priceId').notEmpty().withMessage('El priceId de Stripe es requerido.'),
+    // El precio ya NO lo dicta el cliente: se envía un `plan` y el servidor lo
+    // mapea a STRIPE_PRICE_ID_* (ver createCheckoutSession).
+    body('plan').optional().isIn(['mensual', 'trimestral', 'anual'])
+      .withMessage('Plan inválido (usa "mensual", "trimestral" o "anual").'),
     body('successUrl').optional().isURL().withMessage('URL de éxito inválida.'),
     body('cancelUrl').optional().isURL().withMessage('URL de cancelación inválida.'),
     body('offerCode').optional({ nullable: true }).isString().trim()

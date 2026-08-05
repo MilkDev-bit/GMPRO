@@ -160,8 +160,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         RichText(
           text: TextSpan(
             style: AppTypography.displayLarge.copyWith(letterSpacing: 3.0),
-            children: [
-              const TextSpan(
+            children: const [
+              TextSpan(
                 text: 'GYM',
                 style: TextStyle(color: Colors.white),
               ),

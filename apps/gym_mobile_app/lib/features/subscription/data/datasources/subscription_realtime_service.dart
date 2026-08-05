@@ -7,7 +7,6 @@
 /// DISEÑO DEFENSIVO: si Supabase no está inicializado o configurado, el servicio
 /// queda inerte (no lanza), permitiendo que el fallback por HTTP/polling siga operando.
 
-import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/app_config.dart';
 import '../models/user_subscription_model.dart';

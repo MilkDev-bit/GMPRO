@@ -37,6 +37,13 @@ abstract class AuthRemoteDataSource {
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
+  // Web Client ID (OAuth 2.0 tipo "Web") requerido en ANDROID para que Google
+  // devuelva un idToken NO nulo (el backend lo verifica). Se inyecta por
+  // --dart-define=GOOGLE_WEB_CLIENT_ID=xxxx.apps.googleusercontent.com para no
+  // hardcodear el valor en el repo. Sin él, en Android el idToken sale null.
+  static const String _kGoogleWebClientId =
+      String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+
   final ApiClient _apiClient;
   final GoogleSignIn _googleSignIn;
 
@@ -45,7 +52,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     GoogleSignIn? googleSignIn,
   }) : _googleSignIn = googleSignIn ??
             GoogleSignIn(
-              scopes: ['email', 'profile'],
+              scopes: const ['email', 'profile'],
+              serverClientId:
+                  _kGoogleWebClientId.isEmpty ? null : _kGoogleWebClientId,
             );
 
   @override

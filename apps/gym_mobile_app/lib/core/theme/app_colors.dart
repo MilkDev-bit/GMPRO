@@ -108,7 +108,7 @@ class AppColors {
   /// Retorna el color base para contenedores Glassmorphism (BackdropFilter) según el tema del OS.
   static Color glassColorOf(BuildContext context, {double? alpha}) {
     if (isDark(context)) {
-      return Color(0xFF151226).withValues(alpha: alpha ?? 0.42);
+      return const Color(0xFF151226).withValues(alpha: alpha ?? 0.42);
     } else {
       return Colors.white.withValues(alpha: alpha ?? 0.75);
     }
