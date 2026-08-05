@@ -204,13 +204,17 @@ async function verifyOtp(req, res, next) {
     // Sesión (mismo patrón que login): access token + refresh (cookie HttpOnly).
     const verifiedUser = { ...user, email_verificado: true };
     const accessToken = tokenService.generateAccessToken(verifiedUser);
-    await startSession(req, res, verifiedUser);
+    // Capturamos el refresh token que devuelve startSession y lo enviamos en el
+    // BODY: el móvil (Dio sin cookie jar) lo guarda en secure storage y así puede
+    // renovar el access token al expirar. Sin esto, la sesión moría a los minutos.
+    const refreshToken = await startSession(req, res, verifiedUser);
 
     logger.info('Email verificado por OTP; sesión iniciada', { userId: user.id });
     return res.status(200).json({
       success: true,
       data: {
         accessToken,
+        refreshToken,
         tokenType: 'Bearer',
         expiresIn: env.JWT_EXPIRES_IN,
         mensaje:   'Email verificado correctamente.',
@@ -298,13 +302,14 @@ async function loginOtpVerify(req, res, next) {
 
     const accessToken = tokenService.generateAccessToken(user);
     await userModel.recordSuccessfulLogin(user.id);
-    await startSession(req, res, user);
+    const refreshToken = await startSession(req, res, user);
 
     logger.info('Login por OTP exitoso', { userId: user.id });
     return res.status(200).json({
       success: true,
       data: {
         accessToken,
+        refreshToken,   // móvil: secure storage → permite renovar sin re-login
         tokenType: 'Bearer',
         expiresIn: env.JWT_EXPIRES_IN,
         user: {
@@ -407,7 +412,7 @@ async function login(req, res, next) {
     // 5. Access token + abrir familia de sesión (nuevo dispositivo)
     const accessToken = tokenService.generateAccessToken(user);
     await userModel.recordSuccessfulLogin(user.id);   // bookkeeping: ultimo_login, resetea intentos
-    await startSession(req, res, user);                // emite refresh + cookie HttpOnly
+    const refreshToken = await startSession(req, res, user);  // emite refresh + cookie HttpOnly
 
     logger.info('Login exitoso', { userId: user.id, rol: user.rol });
 
@@ -415,6 +420,7 @@ async function login(req, res, next) {
       success: true,
       data: {
         accessToken,
+        refreshToken,   // móvil: secure storage → permite renovar sin re-login
         tokenType:  'Bearer',
         expiresIn:  env.JWT_EXPIRES_IN,
         user: {
@@ -550,7 +556,10 @@ async function logout(req, res, next) {
  */
 async function refreshToken(req, res, next) {
   try {
-    const refreshTokenFromCookie = req.cookies?.refreshToken;
+    // El móvil (Dio sin cookie jar) NO envía cookies: manda el refresh token en el
+    // BODY (guardado en secure storage). La web lo manda como cookie HttpOnly.
+    // Aceptamos ambos para que la renovación funcione en las dos plataformas.
+    const refreshTokenFromCookie = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshTokenFromCookie) {
       return res.status(401).json({
