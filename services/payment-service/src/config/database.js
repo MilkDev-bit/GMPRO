@@ -51,6 +51,11 @@ function getPool() {
     connectionString,
     ssl: { rejectUnauthorized: false },              // Supabase exige TLS (cadena self-signed)
     max: 10,
+    // Sin esto, un problema de red/DB deja la conexión colgada PARA SIEMPRE (default
+    // de pg = 0) → la request nunca responde y el cliente corta con "revisa tu
+    // conexión" sin dejar rastro. Con el timeout, falla rápido con un error claro.
+    connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 30000,
     options: '-c search_path=payment_service_db',    // refuerza el search_path del rol
   });
   pgPool.on('error', (err) => logger.error('Error en pool pg de payment', { error: err.message }));
