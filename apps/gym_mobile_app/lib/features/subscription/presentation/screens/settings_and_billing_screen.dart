@@ -1046,7 +1046,10 @@ class _InvoicesModalSheetState extends ConsumerState<_InvoicesModalSheet> {
   Future<void> _fetchInvoices() async {
     try {
       final apiClient = ref.read(apiClientProvider);
-      final res = await apiClient.get('${AppConfig.paymentServiceBaseUrl}/subscription/history');
+      // Normalizamos el base (puede venir con '/payments') y usamos el namespace
+      // real del backend: /api/v1/subscriptions/history (plural).
+      final base = AppConfig.paymentServiceBaseUrl.replaceFirst(RegExp(r'/payments/?$'), '');
+      final res = await apiClient.get('$base/subscriptions/history');
       final raw = (res.data is Map ? res.data['data'] : res.data) as List? ?? [];
       final mapped = raw.map<Map<String, dynamic>>((row) {
         final r = Map<String, dynamic>.from(row as Map);

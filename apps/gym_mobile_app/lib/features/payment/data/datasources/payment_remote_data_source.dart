@@ -26,8 +26,12 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
     String? cancelUrl,
   }) async {
     try {
+      // El base remoto puede venir CON o SIN '/payments' según la env
+      // (PAYMENT_SERVICE_URL); normalizamos para NO duplicarlo, que producía
+      // '/api/v1/payments/payments/create-checkout-session' → 404.
+      final base = AppConfig.paymentServiceBaseUrl.replaceFirst(RegExp(r'/payments/?$'), '');
       final response = await _apiClient.post(
-        '${AppConfig.paymentServiceBaseUrl}/payments/create-checkout-session',
+        '$base/payments/create-checkout-session',
         data: {
           // `priceId` transporta ahora el PLAN ('mensual'/'trimestral'); el
           // backend resuelve el Stripe Price ID real desde su env (nunca se

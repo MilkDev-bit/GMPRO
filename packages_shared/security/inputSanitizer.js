@@ -93,6 +93,19 @@ const NOSQL_INJECTION_PATTERNS = [
   /\[\$.*\]/,      // Bracket notation con $ (operator injection en JSON)
 ];
 
+// ─── Campos de CREDENCIAL OPACA (exentos del escaneo de inyección) ────────────
+// Son tokens base64url/JWT/firmas que se verifican CRIPTOGRÁFICAMENTE y NUNCA se
+// interpolan en SQL ni se renderizan como HTML. El base64url usa '-' y '_', así
+// que casi siempre contiene '--' → dispara un FALSO POSITIVO del patrón de
+// comentario SQL y bloquea logins válidos (Google/Apple/Passkey). Se saltan la
+// detección de amenazas (no la normalización/escape, que es inofensiva para ellos).
+const OPAQUE_CREDENTIAL_FIELDS = new Set([
+  'idtoken', 'id_token', 'token', 'accesstoken', 'refreshtoken',
+  'identitytoken', 'serverauthcode', 'authorizationcode', 'code', 'codigo',
+  'challenge', 'signature', 'attestation', 'attestationobject', 'assertion',
+  'clientdatajson', 'authenticatordata', 'publickey', 'credential', 'rawid',
+]);
+
 /**
  * Verifica si un string contiene patrones de SQL injection.
  *
@@ -140,7 +153,7 @@ function detectNoSqlInjection(value) {
 // 32 niveles es holgado para JSON legítimo y corta cualquier anidamiento patológico.
 const MAX_SANITIZE_DEPTH = 32;
 
-function sanitizeValue(value, path = 'root', depth = 0) {
+function sanitizeValue(value, path = 'root', depth = 0, opaque = false) {
   const threats = [];
 
   // ── Corte por profundidad (anti-DoS por anidamiento profundo) ──────────────
@@ -155,7 +168,7 @@ function sanitizeValue(value, path = 'root', depth = 0) {
 
   if (Array.isArray(value)) {
     const sanitizedArr = value.map((item, i) => {
-      const result = sanitizeValue(item, `${path}[${i}]`, depth + 1);
+      const result = sanitizeValue(item, `${path}[${i}]`, depth + 1, opaque);
       threats.push(...result.threats);
       return result.sanitized;
     });
@@ -177,7 +190,10 @@ function sanitizeValue(value, path = 'root', depth = 0) {
         threats.push(`PROTOTYPE_POLLUTION:${path}.${key}`);
         continue; // Omitir esta clave completamente
       }
-      const result = sanitizeValue(val, `${path}.${key}`, depth + 1);
+      // Si la clave es una credencial opaca (o ya venimos dentro de una), se
+      // exenta del escaneo de inyección para evitar falsos positivos (base64url).
+      const childOpaque = opaque || OPAQUE_CREDENTIAL_FIELDS.has(String(key).toLowerCase());
+      const result = sanitizeValue(val, `${path}.${key}`, depth + 1, childOpaque);
       threats.push(...result.threats);
       sanitizedObj[key] = result.sanitized;
     }
@@ -186,10 +202,14 @@ function sanitizeValue(value, path = 'root', depth = 0) {
   }
 
   if (typeof value === 'string') {
-    // Paso 0: Detectar intentos de SQL injection (solo detectar, no modificar)
-    const sqlCheck = detectSqlInjection(value);
-    if (sqlCheck.detected) {
-      threats.push(`SQL_INJECTION:${path}`);
+    // Paso 0: Detectar intentos de SQL injection (solo detectar, no modificar).
+    //   Se OMITE en credenciales opacas (JWT/base64url) para no dar falsos
+    //   positivos: '--' es frecuentísimo dentro de un idToken/base64url.
+    if (!opaque) {
+      const sqlCheck = detectSqlInjection(value);
+      if (sqlCheck.detected) {
+        threats.push(`SQL_INJECTION:${path}`);
+      }
     }
 
     // Paso 1: Normalizar Unicode (NFKC) PRIMERO. Colapsa lookalikes/fullwidth
