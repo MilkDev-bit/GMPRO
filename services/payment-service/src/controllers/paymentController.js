@@ -265,6 +265,9 @@ async function ensureStripeCoupon(stripe, offer) {
  */
 async function createCheckoutSession(req, res, next) {
   try {
+    logger.info('createCheckoutSession: 1) REQUEST RECIBIDO (pasó jwtVerify + sanitizer)', {
+      userId: req.user?.id, plan: req.body?.plan,
+    });
     const { plan, successUrl, cancelUrl, offerCode } = req.body;
     const userId    = req.user.id;
     const userEmail = req.user.email;
