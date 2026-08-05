@@ -8,14 +8,14 @@ class AppColors {
   AppColors._();
 
   // ── 1. DARK THEME SEMANTIC PALETTE (Neon Sport Dark) ───────────────────────
-  static const Color darkBackground = Color(0xFF080614);       // Fondo principal profundo
-  static const Color darkSurface = Color(0xFF18152D);          // Tarjetas glassmorphism oscuras
-  static const Color darkSurfaceElevated = Color(0xFF1E1B38);  // Superficie superior (inputs / botones)
-  static const Color darkSurfaceGlass = Color(0x3328234D);     // Glassmorphism translúcido oscuro
-  static const Color darkGlassBorder = Color(0x22FFFFFF);      // Borde sutil para cristal oscuro
-  static const Color darkTextPrimary = Color(0xFFFFFFFF);      // Blanco nítido
-  static const Color darkTextSecondary = Color(0xFFB0A8D4);    // Púrpura pastel legible
-  static const Color darkTextMuted = Color(0xFF68608C);        // Gris violeta apagado
+  static const Color darkBackground = Color(0xFF121212);       // Fondo profundo neutro (menos violáceo)
+  static const Color darkSurface = Color(0xFF181818);          // Tarjeta base (neutra, más aire)
+  static const Color darkSurfaceElevated = Color(0xFF282828);  // Superficie superior (inputs / botones)
+  static const Color darkSurfaceGlass = Color(0x2620203A);     // Glassmorphism translúcido oscuro (más sutil)
+  static const Color darkGlassBorder = Color(0x1AFFFFFF);      // Borde de cristal muy sutil (hairline)
+  static const Color darkTextPrimary = Color(0xFFF4F3F8);      // Blanco cálido (menos clínico que #FFF)
+  static const Color darkTextSecondary = Color(0xFFA7A2C4);    // Gris frío legible (8.1:1)
+  static const Color darkTextMuted = Color(0xFF7C769A);        // Gris apagado LEGIBLE (4.63:1, antes fallaba)
 
   // ── 2. LIGHT THEME SEMANTIC PALETTE (Sport High Contrast Glass) ────────────
   static const Color lightBackground = Color(0xFFF5F6FA);      // Fondo deportivo claro y limpio
@@ -30,14 +30,16 @@ class AppColors {
   static const Color lightTextMuted = Color(0xFF6C6F8C);       // Gris tenue legible (4.53:1)
 
   // ── 3. COLORES NEÓN VIBRANTES (Dark - Alta Luminancia) ─────────────────────
-  static const Color neonPink = Color(0xFFFF007A);         // Rosa eléctrico (5.29:1 sobre oscuro)
-  static const Color neonPinkLight = Color(0xFFFF4D9E);    // Resplandor rosa suave
-  static const Color neonPurple = Color(0xFF9D00FF);       // Púrpura neón (glow/relleno). OJO: 3.71:1 como texto.
-  static const Color neonViolet = Color(0xFF6C00FF);       // Violeta oscuro neón
-  // Púrpura aclarado SOLO para texto/iconos sobre fondo oscuro: 5.16:1 (el #9D00FF falla).
-  static const Color neonPurpleText = Color(0xFFB24DFF);   // Púrpura texto-seguro (dark)
-  static const Color neonCyan = Color(0xFF00F0FF);         // Cian (14:1 sobre oscuro)
-  static const Color neonEmerald = Color(0xFF00E676);      // Verde esmeralda neón (12:1 sobre oscuro)
+  // Neones DESATURADOS a un registro premium: siguen siendo de marca, pero menos
+  // "chillones". Usar como acentos puntuales, no como relleno masivo.
+  static const Color neonPink = Color(0xFF1DB954);         // Rosa premium (6.33:1 sobre oscuro)
+  static const Color neonPinkLight = Color(0xFFFF7DAD);    // Resplandor rosa suave
+  static const Color neonPurple = Color(0xFF8B3FE0);       // Púrpura sobrio (glow/relleno)
+  static const Color neonViolet = Color(0xFF6C33D6);       // Violeta profundo
+  // Púrpura texto/icono sobre oscuro: 8.1:1.
+  static const Color neonPurpleText = Color(0xFFC98BFF);   // Púrpura texto-seguro (dark)
+  static const Color neonCyan = Color(0xFF4FD6E0);         // Cian sereno (11.3:1 sobre oscuro)
+  static const Color neonEmerald = Color(0xFF46E3A0);      // Verde esmeralda suave (12:1 sobre oscuro)
 
   // ── 4. COLORES NEÓN ADAPTADOS (Light - Contraste ≥ 4.5:1 sobre #F5F6FA) ─────
   static const Color lightNeonPink = Color(0xFFC51162);    // Magenta profundo (5.36:1)
@@ -76,15 +78,16 @@ class AppColors {
   );
 
   static const LinearGradient cardGradient = LinearGradient(
-    colors: [Color(0xFF1C1833), Color(0xFF110E21)],
+    colors: [Color(0xFF17151F), Color(0xFF0E0D16)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
+  // Glow ambiental más contenido (acentos puntuales, no baño de color).
   static const RadialGradient backgroundGlow = RadialGradient(
     center: Alignment(-0.6, -0.4),
     radius: 1.2,
-    colors: [Color(0x339D00FF), Color(0x11FF007A), Colors.transparent],
+    colors: [Color(0x1A8B3FE0), Color(0x0DFF4D8F), Colors.transparent],
   );
 
   // ── 8. MÉTODOS Y EXTENSIONES ADAPTATIVAS REACTIVAS AL CONTEXTO ─────────────

@@ -32,6 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _emailController = TextEditingController();
 
   late final AnimationController _entryController;
+  bool _showOtherMethods = false;
 
   @override
   void initState() {
@@ -156,31 +157,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildBrand() {
     return Column(
       children: [
-        Container(
-          width: 92,
-          height: 92,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: _brandGradientSoft,
-            boxShadow: [
-              // Halo contenido: antes 0.5/34 producía un orbe fluorescente.
-              BoxShadow(
-                color: AppColors.neonPink.withValues(alpha: 0.22),
-                blurRadius: 26,
-                offset: const Offset(0, 10),
+        RichText(
+          text: TextSpan(
+            style: AppTypography.displayLarge.copyWith(letterSpacing: 3.0),
+            children: [
+              const TextSpan(
+                text: 'GYM',
+                style: TextStyle(color: Colors.white),
+              ),
+              TextSpan(
+                text: 'PRO',
+                style: TextStyle(color: AppColors.neonCyan),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.fitness_center_rounded,
-            color: Colors.white,
-            size: 44,
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'GYMPRO',
-          style: AppTypography.displayLarge.copyWith(letterSpacing: 3.0),
         ),
       ],
     );
@@ -258,66 +248,91 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                   Center(
                     child: TextButton(
-                      onPressed: isBusy
-                          ? null
-                          : () => ref
-                              .read(authProvider.notifier)
-                              .loginWithPasskey(),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.neonCyan,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                      ),
+                      onPressed: () {
+                        setState(() {
+                          _showOtherMethods = !_showOtherMethods;
+                        });
+                      },
                       child: Text(
-                        '¿Prefieres tu biometría directamente?',
+                        _showOtherMethods ? 'Ocultar opciones' : 'Entrar de otra manera',
                         style: AppTypography.caption.copyWith(
-                          color: AppColors.neonCyan.withValues(alpha: 0.9),
+                          color: AppColors.darkTextSecondary,
                           fontWeight: FontWeight.w600,
-                          fontSize: 12.5,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-
-                  // ── Acceso alternativo si se perdió la Passkey ─────────────
-                  Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 2,
-                      children: [
-                        TextButton(
-                          onPressed: isBusy
-                              ? null
-                              : () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginPasswordScreen()),
+                  
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: _showOtherMethods
+                        ? Column(
+                            children: [
+                              Center(
+                                child: TextButton(
+                                  onPressed: isBusy
+                                      ? null
+                                      : () => ref
+                                          .read(authProvider.notifier)
+                                          .loginWithPasskey(),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.neonCyan,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
                                   ),
-                          child: Text(
-                            'Entrar con contraseña',
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.darkTextSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: isBusy
-                              ? null
-                              : () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                        builder: (_) => const LoginCodeScreen()),
+                                  child: Text(
+                                    '¿Prefieres tu biometría directamente?',
+                                    style: AppTypography.caption.copyWith(
+                                      color: AppColors.neonCyan.withValues(alpha: 0.9),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12.5,
+                                    ),
                                   ),
-                          child: Text(
-                            'Entrar con código',
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.neonPink,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Center(
+                                child: Wrap(
+                                  alignment: WrapAlignment.center,
+                                  spacing: 2,
+                                  children: [
+                                    TextButton(
+                                      onPressed: isBusy
+                                          ? null
+                                          : () => Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                    builder: (_) => const LoginPasswordScreen()),
+                                              ),
+                                      child: Text(
+                                        'Entrar con contraseña',
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.darkTextSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: isBusy
+                                          ? null
+                                          : () => Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                    builder: (_) => const LoginCodeScreen()),
+                                              ),
+                                      child: Text(
+                                        'Entrar con código',
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.neonPink,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
                   ),
                   const SizedBox(height: 6),
 

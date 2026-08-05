@@ -63,6 +63,9 @@ dependencies:
   firebase_core: ^3.8.0           # Núcleo de Firebase para inicialización nativa en app
   firebase_messaging: ^15.1.6     # Recepción de notificaciones push remotes FCM / APNs
   watch_connectivity: ^0.2.9
+  cached_network_image: ^3.4.1
+  palette_generator: ^0.3.3+7
+  intl: ^0.20.3
 
 dev_dependencies:
   flutter_test:

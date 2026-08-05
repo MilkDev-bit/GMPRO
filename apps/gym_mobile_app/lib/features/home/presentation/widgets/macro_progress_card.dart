@@ -1,279 +1,336 @@
-/// @file lib/features/home/presentation/widgets/macro_progress_card.dart
-/// @description Tarjeta de progreso de macronutrientes diarios (Proteínas, Carbos, Grasas).
-/// Usa círculos de progreso concéntricos con gradientes neón y animaciones al montar.
-
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../nutrition/presentation/providers/nutrition_provider.dart';
 
-// ── Datos de macro (en una app real vendrían del AI/Nutrition provider) ──────
-const _kMacros = [
-  _MacroData(label: 'Proteínas', value: 0.72, current: 108, goal: 150, color: Color(0xFFFF007A), unit: 'g'),
-  _MacroData(label: 'Carbohidratos', value: 0.55, current: 138, goal: 250, color: Color(0xFF00F0FF), unit: 'g'),
-  _MacroData(label: 'Grasas', value: 0.40, current: 28, goal: 70, color: Color(0xFFFF9500), unit: 'g'),
-];
-
-class MacroProgressCard extends StatefulWidget {
+class MacroProgressCard extends ConsumerStatefulWidget {
   const MacroProgressCard({super.key});
 
   @override
-  State<MacroProgressCard> createState() => _MacroProgressCardState();
+  ConsumerState<MacroProgressCard> createState() => _MacroProgressCardState();
 }
 
-class _MacroProgressCardState extends State<MacroProgressCard>
+class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
     with TickerProviderStateMixin {
-  late final List<AnimationController> _controllers;
-  late final List<Animation<double>> _anims;
+  late final AnimationController _entryController;
+  late final Animation<Offset> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
+  late final AnimationController _progressController;
+  late final Animation<double> _progressAnim;
 
   @override
   void initState() {
     super.initState();
-    _controllers = List.generate(
-      _kMacros.length,
-      (i) => AnimationController(
-        vsync: this,
-        duration: Duration(milliseconds: 900 + i * 180),
-      ),
-    );
-    _anims = _controllers
-        .asMap()
-        .entries
-        .map((e) => Tween<double>(begin: 0, end: _kMacros[e.key].value)
-            .animate(CurvedAnimation(parent: e.value, curve: Curves.easeOutCubic)))
-        .toList();
 
-    // Stagger de entrada
-    for (var i = 0; i < _controllers.length; i++) {
-      Future.delayed(Duration(milliseconds: 200 + i * 120), () {
-        if (mounted) _controllers[i].forward();
-      });
-    }
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic));
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOut));
+
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _progressAnim = CurvedAnimation(parent: _progressController, curve: Curves.easeOutCubic);
+
+    Future.microtask(() {
+      if (mounted) {
+        _entryController.forward();
+        _progressController.forward();
+      }
+    });
   }
 
   @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
+    _entryController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1C1833), Color(0xFF110E21)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0x22FFFFFF), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neonPurple.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    final nutritionState = ref.watch(nutritionProvider);
+    final plan = nutritionState.plan;
+
+    if (plan == null) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.neonCyan));
+    }
+
+    final int consumed = plan.caloriasConsumidas;
+    final int goal = plan.caloriasMeta;
+    final int remaining = (goal - consumed).clamp(0, goal);
+    final double caloriesProgress = goal > 0 ? (consumed / goal).clamp(0.0, 1.0) : 0.0;
+
+    String formatDateSpanish(DateTime date) {
+      const weekdays = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+      const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+      final weekday = weekdays[date.weekday - 1];
+      final month = months[date.month - 1];
+      return '$weekday ${date.day} de $month, ${date.year}';
+    }
+    final String todayDate = formatDateSpanish(DateTime.now());
+
+    return SlideTransition(
+      position: _slideAnim,
+      child: FadeTransition(
+        opacity: _fadeAnim,
+        child: Container(
+          // Fondo oscuro plano tipo tarjeta (reference image style)
+          decoration: BoxDecoration(
+            color: const Color(0xFF232323),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header de la tarjeta
-          Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.neonPink.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.neonPink.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 24, left: 24, right: 24),
+                child: Column(
+                  children: [
+                    // --- Header: Summary & Date ---
+                    Text(
+                      'Resumen',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white54,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      todayDate,
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // --- Central Circle for Calories ---
+                    AnimatedBuilder(
+                      animation: _progressAnim,
+                      builder: (context, _) => SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: CustomPaint(
+                          painter: _SingleRingPainter(
+                            progress: caloriesProgress * _progressAnim.value,
+                            progressColor: AppColors.neonCyan, // Mantenemos neonCyan para estética GymPro
+                            trackColor: const Color(0xFF383838),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '$consumed / $goal',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Tu meta',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 36),
+
+                    // --- Small Macro Circles ---
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        _MacroSmallCircle(
+                          label: 'Proteínas',
+                          consumed: plan.proteinasConsumidas.toInt(),
+                          goal: plan.proteinasMetaG,
+                          color: AppColors.neonCyan,
+                          animValue: _progressAnim.value,
+                        ),
+                        _MacroSmallCircle(
+                          label: 'Carbos',
+                          consumed: plan.carbohidratosConsumidas.toInt(),
+                          goal: plan.carbohidratosMetaG,
+                          color: AppColors.neonPink,
+                          animValue: _progressAnim.value,
+                        ),
+                        _MacroSmallCircle(
+                          label: 'Grasas',
+                          consumed: plan.grasasConsumidas.toInt(),
+                          goal: plan.grasasMetaG,
+                          color: const Color(0xFFFFB300), // Amarillo neón para grasas
+                          animValue: _progressAnim.value,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 36),
+                  ],
+                ),
+              ),
+
+              // --- Bottom Split Container (Consumed / Remaining) ---
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.local_fire_department_rounded,
-                        color: AppColors.neonPink, size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      '2,140 kcal restantes',
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neonPink,
+                    Expanded(
+                      child: Container(
+                        height: 90,
+                        color: AppColors.neonPurple, // Morado del UI
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$consumed',
+                              style: GoogleFonts.inter(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              'Consumidas',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 90,
+                        color: Colors.white,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$remaining',
+                              style: GoogleFonts.inter(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF232323),
+                              ),
+                            ),
+                            Text(
+                              'Restantes',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF232323).withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const Spacer(),
-              Text(
-                'Hoy',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: AppColors.textMuted,
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 24),
-
-          // Círculos de progreso concéntricos centrados + barras laterales
-          Row(
-            children: [
-              // Anillo concéntrico principal (Calorías totales)
-              SizedBox(
-                width: 110,
-                height: 110,
-                child: AnimatedBuilder(
-                  animation: _controllers[0],
-                  builder: (context, _) => CustomPaint(
-                    painter: _ConcentricRingsPainter(
-                      progresses: _anims.map((a) => a.value).toList(),
-                      colors: _kMacros.map((m) => m.color).toList(),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '67%',
-                            style: GoogleFonts.outfit(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            'Total',
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 24),
-
-              // Barras lineales de cada macro
-              Expanded(
-                child: Column(
-                  children: List.generate(_kMacros.length, (i) {
-                    final macro = _kMacros[i];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: AnimatedBuilder(
-                        animation: _anims[i],
-                        builder: (context, _) => _MacroLinearBar(
-                          macro: macro,
-                          animValue: _anims[i].value,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BARRA LINEAL DE MACRO INDIVIDUAL
+// PEQUEÑOS CÍRCULOS DE MACROS (Protein, Carbs, Fats)
 // ─────────────────────────────────────────────────────────────────────────────
-class _MacroLinearBar extends StatelessWidget {
-  const _MacroLinearBar({required this.macro, required this.animValue});
-  final _MacroData macro;
+class _MacroSmallCircle extends StatelessWidget {
+  const _MacroSmallCircle({
+    required this.label,
+    required this.consumed,
+    required this.goal,
+    required this.color,
+    required this.animValue,
+  });
+
+  final String label;
+  final int consumed;
+  final int goal;
+  final Color color;
   final double animValue;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final double progress = goal > 0 ? (consumed / goal).clamp(0.0, 1.0) : 0.0;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
+        SizedBox(
+          width: 36,
+          height: 36,
+          child: CustomPaint(
+            painter: _SingleRingPainter(
+              progress: progress * animValue,
+              progressColor: color,
+              trackColor: const Color(0xFF383838),
+              strokeWidth: 4.0,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: macro.color,
-                boxShadow: [
-                  BoxShadow(
-                    color: macro.color.withValues(alpha: 0.6),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
             Text(
-              macro.label,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${macro.current}/${macro.goal}${macro.unit}',
+              '${consumed}g / ${goal}g',
               style: GoogleFonts.inter(
-                fontSize: 11,
-                color: AppColors.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.white54,
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(100),
-          child: Stack(
-            children: [
-              // Track
-              Container(
-                height: 6,
-                color: const Color(0xFF1E1B38),
-              ),
-              // Progreso
-              FractionallySizedBox(
-                widthFactor: animValue.clamp(0.0, 1.0),
-                child: Container(
-                  height: 6,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        macro.color.withValues(alpha: 0.7),
-                        macro.color,
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: macro.color.withValues(alpha: 0.4),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -281,86 +338,57 @@ class _MacroLinearBar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PAINTER PARA ANILLOS CONCÉNTRICOS
+// PAINTER PARA UN SOLO ANILLO (Tipo Donut Chart)
 // ─────────────────────────────────────────────────────────────────────────────
-class _ConcentricRingsPainter extends CustomPainter {
-  const _ConcentricRingsPainter({
-    required this.progresses,
-    required this.colors,
+class _SingleRingPainter extends CustomPainter {
+  const _SingleRingPainter({
+    required this.progress,
+    required this.progressColor,
+    required this.trackColor,
+    this.strokeWidth = 14.0,
   });
 
-  final List<double> progresses;
-  final List<Color> colors;
+  final double progress;
+  final Color progressColor;
+  final Color trackColor;
+  final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final baseRadius = size.width / 2 - 4;
-    const trackWidth = 9.0;
-    const gap = 4.0;
+    final radius = size.width / 2 - (strokeWidth / 2);
 
-    for (var i = 0; i < progresses.length; i++) {
-      final radius = baseRadius - i * (trackWidth + gap);
-      final color = colors[i];
+    // Fondo (Track completo)
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
 
-      // Track de fondo
-      final trackPaint = Paint()
-        ..color = color.withValues(alpha: 0.12)
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // Progreso
+    if (progress > 0) {
+      final progressPaint = Paint()
+        ..color = progressColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = trackWidth
+        ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
 
-      canvas.drawCircle(center, radius, trackPaint);
-
-      // Arco de progreso
-      if (progresses[i] > 0) {
-        final progressPaint = Paint()
-        ..shader = SweepGradient(
-          startAngle: -math.pi / 2,
-          endAngle: -math.pi / 2 + 2 * math.pi * progresses[i],
-          colors: [
-            color.withValues(alpha: 0.7),
-            color,
-          ],
-          tileMode: TileMode.clamp,
-        ).createShader(Rect.fromCircle(center: center, radius: radius))
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = trackWidth
-          ..strokeCap = StrokeCap.round;
-
-        canvas.drawArc(
-          Rect.fromCircle(center: center, radius: radius),
-          -math.pi / 2,
-          2 * math.pi * progresses[i],
-          false,
-          progressPaint,
-        );
-      }
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        2 * math.pi * progress,
+        false,
+        progressPaint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_ConcentricRingsPainter old) =>
-      old.progresses != progresses;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODELO DE DATOS
-// ─────────────────────────────────────────────────────────────────────────────
-class _MacroData {
-  const _MacroData({
-    required this.label,
-    required this.value,
-    required this.current,
-    required this.goal,
-    required this.color,
-    required this.unit,
-  });
-
-  final String label;
-  final double value; // 0.0 — 1.0
-  final int current;
-  final int goal;
-  final Color color;
-  final String unit;
+  bool shouldRepaint(_SingleRingPainter old) {
+    return old.progress != progress ||
+           old.progressColor != progressColor ||
+           old.trackColor != trackColor;
+  }
 }

@@ -29,16 +29,35 @@ class HomeDashboardScreen extends ConsumerWidget {
     const double kGlassBarHeight = 72 + 16 + 16;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF09090B),
       // SIN AppBar — el header va dentro del scroll
-      body: RefreshIndicator(
-        color: AppColors.neonPink,
-        backgroundColor: AppColors.surface,
-        displacement: 80,
-        onRefresh: () async {
-          await ref.read(subscriptionProvider.notifier).fetchSubscription();
-          await ref.read(qrAccessProvider.notifier).startDynamicRefresh();
-        },
+      body: Stack(
+        children: [
+          Positioned(
+            top: -150,
+            left: -150,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0x151EE083), // Emerald green with very low opacity
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          RefreshIndicator(
+            color: AppColors.neonPink,
+            backgroundColor: AppColors.surface,
+            displacement: 80,
+            onRefresh: () async {
+              await ref.read(subscriptionProvider.notifier).fetchSubscription();
+              await ref.read(qrAccessProvider.notifier).startDynamicRefresh();
+            },
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
@@ -86,6 +105,8 @@ class HomeDashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
+      ],
+      ),
     );
   }
 
@@ -101,13 +122,13 @@ class HomeDashboardScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$greeting, ${name.split(' ').first}! 💪',
-          style: AppTypography.displayMedium.copyWith(fontSize: 26),
+          '$greeting, ${name.split(' ').first}',
+          style: AppTypography.displayMedium.copyWith(fontSize: 28, height: 1.1),
         ),
         const SizedBox(height: 6),
         Text(
           'Tu entrenamiento inteligente te espera.',
-          style: AppTypography.bodyMedium,
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );
@@ -165,29 +186,29 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
       ),
       child: Row(
             children: [
-              // Logo
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: AppColors.primaryGradient,
-                ),
-                child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
+              // Logo text only
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'GYMPRO AI',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.8,
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                        children: const [
+                          TextSpan(
+                            text: 'GYM',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          TextSpan(
+                            text: 'PRO',
+                            style: TextStyle(color: AppColors.neonCyan),
+                          ),
+                        ],
                       ),
                     ),
                     subAsync.when(

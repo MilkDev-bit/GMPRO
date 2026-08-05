@@ -2,11 +2,12 @@
 /// @description Pantalla completa del plan de rutina con mapa anatómico interactivo,
 /// PageView de ejercicios con swipe, y tarjetas de series/reps con glassmorphism.
 
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:palette_generator/palette_generator.dart';
 
 import '../../../../core/services/index.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -29,6 +30,7 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
   late final TabController _dayTabController;
   int _currentExerciseIndex = 0;
   int _currentDayIndex = 0;
+  Color _headerColor = AppColors.neonPink;
 
   WorkoutDay get _currentDay => widget.plan.dias[_currentDayIndex];
   List<WorkoutExercise> get _currentExercises => _currentDay.ejercicios;
@@ -59,6 +61,7 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
   void _syncCurrentExerciseToWatch(int index) {
     if (index < 0 || index >= _currentExercises.length) return;
     final exercise = _currentExercises[index];
+    _updateHeaderColor(exercise);
     try {
       ref.read(wearableControllerProvider.notifier).syncWorkout(
             exerciseId: exercise.ejercicioId,
@@ -70,6 +73,24 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
           );
     } catch (e) {
       debugPrint('⚠️ [WorkoutPlanScreen] No se pudo sincronizar con reloj: $e');
+    }
+  }
+
+  Future<void> _updateHeaderColor(WorkoutExercise exercise) async {
+    final coverUrl = exercise.videoUrl?.isNotEmpty == true
+        ? exercise.videoUrl!
+        : 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+    try {
+      final palette = await PaletteGenerator.fromImageProvider(
+        CachedNetworkImageProvider(coverUrl),
+      );
+      if (mounted) {
+        setState(() {
+          _headerColor = palette.dominantColor?.color ?? AppColors.neonPink;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error generating palette: $e');
     }
   }
 
@@ -118,10 +139,11 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
                   ),
                 ],
               ),
-              background: Container(
-                decoration: const BoxDecoration(
+              background: AnimatedContainer(
+                duration: const Duration(milliseconds: 500),
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF1A1535), AppColors.background],
+                    colors: [_headerColor.withValues(alpha: 0.6), AppColors.background],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
@@ -232,12 +254,26 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
           ),
         ],
       ),
+      bottomNavigationBar: _MiniPlayer(
+        exercise: _currentExercises.isNotEmpty ? _currentExercises[_currentExerciseIndex] : null,
+        onNext: () {
+          if (_currentExerciseIndex < _currentExercises.length - 1) {
+            final nextIndex = _currentExerciseIndex + 1;
+            setState(() => _currentExerciseIndex = nextIndex);
+            _exercisePageController.animateToPage(
+              nextIndex,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+            );
+          }
+        },
+      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TARJETA DE EJERCICIO con glassmorphism
+// TARJETA DE EJERCICIO
 // ─────────────────────────────────────────────────────────────────────────────
 class _ExerciseCard extends StatelessWidget {
   const _ExerciseCard({
@@ -253,168 +289,177 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Color del primer músculo primario
     Color accentColor = AppColors.neonPink;
     if (exercise.musculos_primarios.isNotEmpty) {
       final m = MuscleCatalog.byKey(exercise.musculos_primarios.first);
       if (m != null) accentColor = m.color;
     }
 
+    final coverUrl = exercise.videoUrl?.isNotEmpty == true
+        ? exercise.videoUrl!
+        : 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color.lerp(const Color(0xFF1A1535), accentColor, isActive ? 0.08 : 0.02)!,
-                const Color(0xFF0F0D1E),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: isActive
-                  ? accentColor.withValues(alpha: 0.35)
-                  : Colors.white.withValues(alpha: 0.07),
-              width: isActive ? 1.5 : 1,
-            ),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: accentColor.withValues(alpha: 0.2),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    )
-                  ]
-                : [],
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Encabezado
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: accentColor.withValues(alpha: 0.15),
-                      border: Border.all(
-                        color: accentColor.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$exerciseNumber',
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: accentColor,
-                        ),
-                      ),
-                    ),
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.surfaceElevatedOf(context) : AppColors.surfaceOf(context),
+          borderRadius: BorderRadius.circular(8),
+          border: isActive
+              ? Border.all(color: accentColor.withValues(alpha: 0.35), width: 1.5)
+              : null,
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            // Cover Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: CachedNetworkImage(
+                  imageUrl: coverUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(color: Colors.grey.withValues(alpha: 0.2)),
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey.withValues(alpha: 0.2),
+                    child: const Icon(Icons.fitness_center, color: Colors.grey),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      exercise.nombre,
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              // Series / Repeticiones / Descanso
-              Row(
-                children: [
-                  _StatBadge(label: 'Series', value: '${exercise.series}', color: accentColor),
-                  const SizedBox(width: 10),
-                  _StatBadge(label: 'Reps', value: exercise.repeticiones, color: AppColors.neonCyan),
-                  const SizedBox(width: 10),
-                  _StatBadge(
-                    label: 'Descanso',
-                    value: '${exercise.descansoSeg}s',
-                    color: AppColors.success,
-                  ),
-                ],
-              ),
-              if (exercise.notas != null && exercise.notas!.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(Icons.info_outline_rounded,
-                        size: 12, color: AppColors.textMuted),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        exercise.notas!,
-                        style: AppTypography.caption,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
                 ),
-              ],
-            ],
-          ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    exercise.nombre,
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: isActive ? accentColor : Colors.white,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${exercise.series} Series • ${exercise.repeticiones}',
+                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                    maxLines: 1,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Play Icon
+            Icon(
+              Icons.play_circle_fill_rounded,
+              color: isActive ? accentColor : Colors.white,
+              size: 32,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _StatBadge extends StatelessWidget {
-  const _StatBadge({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final String label;
-  final String value;
-  final Color color;
+// ─────────────────────────────────────────────────────────────────────────────
+// MINI-PLAYER FLOTANTE (Spotify Style)
+// ─────────────────────────────────────────────────────────────────────────────
+class _MiniPlayer extends StatefulWidget {
+  const _MiniPlayer({this.exercise, required this.onNext});
+  final WorkoutExercise? exercise;
+  final VoidCallback onNext;
+
+  @override
+  State<_MiniPlayer> createState() => _MiniPlayerState();
+}
+
+class _MiniPlayerState extends State<_MiniPlayer> {
+  bool _isPlaying = true;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    if (widget.exercise == null) return const SizedBox.shrink();
+
+    final ex = widget.exercise!;
+    final coverUrl = ex.videoUrl?.isNotEmpty == true
+        ? ex.videoUrl!
+        : 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+
+    return SafeArea(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+          color: AppColors.surfaceElevatedOf(context),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Column(
+        child: Row(
           children: [
-            Text(
-              value,
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: color,
+            // Cover
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: CachedNetworkImage(
+                  imageUrl: coverUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(color: Colors.grey.withValues(alpha: 0.2)),
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey.withValues(alpha: 0.2),
+                    child: const Icon(Icons.fitness_center, size: 20, color: Colors.grey),
+                  ),
+                ),
               ),
             ),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 9,
-                color: AppColors.textMuted,
-                letterSpacing: 0.5,
+            const SizedBox(width: 12),
+            // Text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ex.nombre,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '${ex.series} Series • ${ex.descansoSeg}s desc.',
+                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
+            ),
+            // Controls
+            IconButton(
+              icon: Icon(
+                _isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,
+                color: Colors.white,
+                size: 32,
+              ),
+              onPressed: () => setState(() => _isPlaying = !_isPlaying),
+            ),
+            IconButton(
+              icon: const Icon(Icons.skip_next_rounded, color: Colors.white),
+              onPressed: widget.onNext,
             ),
           ],
         ),

@@ -20,34 +20,45 @@ class AiModulesGrid extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text('COACHING INTELIGENTE (IA)', style: AppTypography.titleLarge),
+            Expanded(
+              child: Text(
+                'Coaching inteligente',
+                style: AppTypography.titleLarge.copyWith(fontSize: 18),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: isAccessValid ? AppColors.surfaceElevated : const Color(0xFF232033),
-                borderRadius: BorderRadius.circular(12),
+                color: isAccessValid
+                    ? AppColors.neonEmerald.withValues(alpha: 0.10)
+                    : AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(999),
                 border: Border.all(
                   color: isAccessValid
-                      ? AppColors.neonPink.withValues(alpha: 0.5)
-                      : Colors.grey.withValues(alpha: 0.3),
+                      ? AppColors.neonEmerald.withValues(alpha: 0.35)
+                      : Colors.white.withValues(alpha: 0.08),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isAccessValid ? Icons.auto_awesome : Icons.lock_rounded,
-                    color: isAccessValid ? AppColors.neonPink : Colors.grey,
-                    size: 14,
+                    isAccessValid ? Icons.verified_rounded : Icons.lock_rounded,
+                    color: isAccessValid ? AppColors.neonEmerald : AppColors.textMuted,
+                    size: 13,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 5),
                   Text(
-                    isAccessValid ? 'VIP IA Activo' : 'Módulos Bloqueados',
+                    isAccessValid ? 'Activo' : 'Bloqueado',
                     style: AppTypography.caption.copyWith(
-                      color: isAccessValid ? AppColors.neonPink : Colors.grey,
+                      color: isAccessValid ? AppColors.neonEmerald : AppColors.textMuted,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ],
@@ -63,9 +74,9 @@ class AiModulesGrid extends ConsumerWidget {
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F1B2C),
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.3), width: 1.2),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
             ),
             child: Row(
               children: [
@@ -82,7 +93,7 @@ class AiModulesGrid extends ConsumerWidget {
                   child: Text(
                     'Las opciones de IA (Dieta y Rutinas) se encuentran desactivadas hasta que se procese correctamente el pago de tu membresía en Stripe.',
                     style: AppTypography.bodyMedium.copyWith(
-                      color: const Color(0xFFB0A8D4),
+                      color: AppColors.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -98,7 +109,7 @@ class AiModulesGrid extends ConsumerWidget {
                 title: 'Rutinas con IA',
                 subtitle: 'Generador hipertrofia y fuerza personalizado',
                 icon: Icons.fitness_center_rounded,
-                gradientColors: const [Color(0xFF6C00FF), Color(0xFF00F0FF)],
+                gradientColors: const [AppColors.neonViolet, AppColors.neonCyan],
                 isLocked: !isAccessValid,
                 onTap: () => _onModuleTapped(context, ref, isAccessValid, 'Rutinas con IA'),
               ),
@@ -109,7 +120,7 @@ class AiModulesGrid extends ConsumerWidget {
                 title: 'Dieta AI Coach',
                 subtitle: 'Plan nutricional macro-ajustado en tiempo real',
                 icon: Icons.restaurant_menu_rounded,
-                gradientColors: const [Color(0xFF9D00FF), Color(0xFFFF007A)],
+                gradientColors: const [AppColors.neonPurple, AppColors.neonPink],
                 isLocked: !isAccessValid,
                 onTap: () => _onModuleTapped(context, ref, isAccessValid, 'Dieta AI Coach'),
               ),
@@ -124,6 +135,7 @@ class AiModulesGrid extends ConsumerWidget {
     if (!isValid) {
       showModalBottomSheet(
         context: context,
+        isScrollControlled: true,
         backgroundColor: AppColors.surface,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -261,11 +273,15 @@ class _LockedModuleBottomSheet extends ConsumerWidget {
     final paymentState = ref.watch(paymentProvider);
     final isBusy = paymentState.status == PaymentCheckoutStatus.loading;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          28, 16, 28, 24 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Container(
             width: 48,
             height: 5,
@@ -321,9 +337,10 @@ class _LockedModuleBottomSheet extends ConsumerWidget {
           const SizedBox(height: 12),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancelar', style: AppTypography.caption.copyWith(color: Colors.grey)),
+            child: Text('Cancelar', style: AppTypography.caption.copyWith(color: AppColors.textMuted)),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

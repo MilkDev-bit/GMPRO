@@ -1,12 +1,9 @@
-/// @file lib/features/home/presentation/widgets/dynamic_access_qr_card.dart
-/// @description Tarjeta visual que muestra el QR de acceso rotativo o la alerta "Acceso Inactivo".
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
 import '../../../qr_access/presentation/providers/qr_access_provider.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
@@ -18,22 +15,43 @@ class DynamicAccessQrCard extends ConsumerStatefulWidget {
   ConsumerState<DynamicAccessQrCard> createState() => _DynamicAccessQrCardState();
 }
 
-class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
+class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animController;
+  late final Animation<Offset> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(() => ref.read(qrAccessProvider.notifier).startDynamicRefresh());
+    
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Escuchar el estado de pago para mostrar errores al abrir Stripe si ocurren
     ref.listen<PaymentCheckoutState>(paymentProvider, (previous, next) {
       if (next.status == PaymentCheckoutStatus.error && next.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage!),
-            backgroundColor: AppColors.error,
+            backgroundColor: const Color(0xFFFF2A5F), // Rosa/Rojo
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -49,28 +67,26 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
         child: const Center(
           child: Padding(
             padding: EdgeInsets.all(32.0),
-            child: CircularProgressIndicator(color: AppColors.neonPink),
+            child: CircularProgressIndicator(color: Color(0xFF1EE083)),
           ),
         ),
       ),
-      error: (err, _) => _buildInactiveAlertCard(
+      error: (err, _) => _buildInactiveAlertCardAnimated(
         title: 'Acceso Inactivo',
         message: 'No fue posible verificar la vigencia de tu membresía. Revisa tu conexión o pagos.',
         isBusy: false,
       ),
       data: (subscription) {
-        // ── CASO 1: SUSCRIPCIÓN INACTIVA (past_due / canceled) ───────────────
         if (!subscription.isAccessValid || qrState.status == QrStatus.paymentRequired) {
-          return _buildInactiveAlertCard(
+          return _buildInactiveAlertCardAnimated(
             title: 'Acceso Inactivo',
             message: subscription.status == 'past_due'
-                ? 'Tu membresía presenta un adeudo o ha expirado. Para ingresar a los torniquetes y utilizar la Inteligencia Artificial, regulariza tu pago.'
+                ? 'Tu membresía presenta un adeudo o ha expirado. Para ingresar a los torniquetes, regulariza tu pago.'
                 : 'Suscripción cancelada o sin vigencia activa en GymPro.',
             isBusy: paymentState.status == PaymentCheckoutStatus.loading,
           );
         }
 
-        // ── CASO 2: SUSCRIPCIÓN ACTIVA & QR DINÁMICO DE 30s ──────────────────
         return _buildCardSurface(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -81,18 +97,19 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
                   Row(
                     children: [
                       Container(
-                        width: 10,
-                        height: 10,
+                        width: 8,
+                        height: 8,
                         decoration: const BoxDecoration(
-                          color: AppColors.success,
+                          color: Color(0xFF1EE083),
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'ACCESO BIOMÉTRICO QR',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.success,
+                        'ACCESO BIOMÉTRICO',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF1EE083),
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
                         ),
@@ -102,15 +119,15 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
+                      color: const Color(0xFF27272A),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.neonPurple.withValues(alpha: 0.4)),
                     ),
                     child: Text(
-                      'AES-256 Dinámico',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.neonCyan,
+                      'AES-256',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF00D0FF),
                         fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -121,7 +138,7 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
               if (qrState.status == QrStatus.loading && qrState.qrToken == null)
                 const SizedBox(
                   height: 200,
-                  child: Center(child: CircularProgressIndicator(color: AppColors.neonCyan)),
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF1EE083))),
                 )
               else if (qrState.status == QrStatus.error && qrState.qrToken == null)
                 SizedBox(
@@ -130,9 +147,9 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.refresh_rounded, color: AppColors.warning, size: 36),
+                        const Icon(Icons.refresh_rounded, color: Color(0xFFFFB300), size: 36),
                         const SizedBox(height: 8),
-                        Text('Reintentando conexión...', style: AppTypography.bodyMedium),
+                        Text('Reintentando...', style: GoogleFonts.inter(color: Colors.white)),
                       ],
                     ),
                   ),
@@ -142,14 +159,7 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.neonCyan.withValues(alpha: 0.25),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: QrImageView(
                     data: qrState.qrToken?.token ?? 'GYMPRO_STUB_${DateTime.now().second}',
@@ -161,7 +171,7 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
                       color: Colors.black,
                     ),
                     dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.circle,
+                      dataModuleShape: QrDataModuleShape.square,
                       color: Colors.black,
                     ),
                   ),
@@ -172,21 +182,22 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     SizedBox(
-                      width: 18,
-                      height: 18,
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(
                         value: qrState.secondsRemaining / 30.0,
-                        strokeWidth: 2.5,
-                        backgroundColor: AppColors.surfaceElevated,
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.neonCyan),
+                        strokeWidth: 2,
+                        backgroundColor: const Color(0xFF27272A),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00D0FF)),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Text(
-                      'Se actualiza en ${qrState.secondsRemaining}s',
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
+                      'Actualiza en ${qrState.secondsRemaining}s',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFFA1A1AA),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -204,94 +215,100 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        color: const Color(0xFF18181B), // Tarjeta plana
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF27272A), width: 1),
       ),
       child: child,
     );
   }
 
-  Widget _buildInactiveAlertCard({
+  Widget _buildInactiveAlertCardAnimated({
     required String title,
     required String message,
     required bool isBusy,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF241320),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.error, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.error.withValues(alpha: 0.25),
-            blurRadius: 30,
-            offset: const Offset(0, 12),
+    return SlideTransition(
+      position: _slideAnim,
+      child: FadeTransition(
+        opacity: _fadeAnim,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1014), // Fondo rojo súper oscuro (Twine style)
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF3F161E), width: 1), // Borde rojo sutil
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.gpp_bad_rounded, color: AppColors.error, size: 48),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: AppTypography.titleLarge.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: isBusy
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Icon(Icons.payment_rounded, size: 20),
-              label: Text(isBusy ? 'Iniciando Stripe...' : 'Regularizar Membresía (Stripe)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF3F161E),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.credit_card_off_rounded, color: Color(0xFFFF2A5F), size: 32),
               ),
-              onPressed: isBusy
-                  ? null
-                  : () {
-                      // Acción financiera primaria: háptica media de confirmación.
-                      HapticFeedback.mediumImpact();
-                      ref.read(paymentProvider.notifier).launchStripeCheckout();
-                    },
-            ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                style: GoogleFonts.inter(
+                  color: const Color(0xFFE4E4E7),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              
+              // Botón Sólido estilo pastilla
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isBusy
+                      ? null
+                      : () {
+                          HapticFeedback.mediumImpact();
+                          ref.read(paymentProvider.notifier).launchStripeCheckout();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1EE083), // Verde Esmeralda (Imagen 1)
+                    disabledBackgroundColor: const Color(0xFF27272A),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 0,
+                  ),
+                  child: isBusy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
+                        )
+                      : Text(
+                          'REGULARIZAR PAGOS',
+                          style: GoogleFonts.inter(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
