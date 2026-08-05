@@ -81,7 +81,9 @@ function isAllowedOrigin(origin) {
  */
 async function registerOptions(req, res, next) {
   try {
-    const userId = req.user?.sub || req.body.userId;
+    // jwtVerify inyecta req.user = { id: decoded.sub, ... } → el id va en `.id`,
+    // NO en `.sub`. Leer `.sub` daba undefined → 401 aunque el Bearer fuese válido.
+    const userId = req.user?.id || req.body.userId;
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -147,7 +149,9 @@ async function registerOptions(req, res, next) {
  */
 async function verifyRegister(req, res, next) {
   try {
-    const userId = req.user?.sub || req.body.userId;
+    // jwtVerify inyecta req.user = { id: decoded.sub, ... } → el id va en `.id`,
+    // NO en `.sub`. Leer `.sub` daba undefined → 401 aunque el Bearer fuese válido.
+    const userId = req.user?.id || req.body.userId;
     const { response: credential, deviceName } = req.body;
 
     if (!userId || !credential) {
@@ -278,7 +282,7 @@ async function verifyLogin(req, res, next) {
       });
     }
 
-    // Buscar la llave pública almacenada en la DB
+    // ── 1. Buscar credencial almacenada ──────────────────────────────────────
     const storedCredential = await passkeyModel.findCredentialById(credential.id);
     if (!storedCredential) {
       return res.status(404).json({
@@ -297,18 +301,40 @@ async function verifyLogin(req, res, next) {
       });
     }
 
-    // Recuperar desafío esperado
-    let expectedChallenge = await passkeyModel.getAndRemoveChallenge(`login:${user.id}`, req.app.get('redisClient') || null);
-    if (!expectedChallenge) {
-      expectedChallenge = await passkeyModel.getAndRemoveChallenge(credential.response?.clientDataJSON ? Buffer.from(credential.response.clientDataJSON, 'base64').toString() : '', req.app.get('redisClient') || null);
-    }
-    // Si no se obtuvo por clave de usuario, intentar buscar por el id en memoria (ya que se guardó también con options.challenge)
-    if (!expectedChallenge) {
-      // Como fallback si el cliente reenvió el challenge original en el body o clientData
-      const clientChallenge = req.body.challenge;
-      if (clientChallenge) {
-        expectedChallenge = await passkeyModel.getAndRemoveChallenge(clientChallenge, req.app.get('redisClient') || null);
+    // ── 2. Recuperar desafío esperado ────────────────────────────────────────
+    // Intento A: por clave de usuario (login con email conocido)
+    const redis = req.app.get('redisClient') || null;
+    let expectedChallenge = await passkeyModel.getAndRemoveChallenge(
+      `login:${user.id}`, redis,
+    );
+
+    // Intento B: extraer el challenge original del clientDataJSON (login usernameless)
+    // FIX BUG-1: WebAuthn codifica clientDataJSON en Base64URL (RFC 7515 §2),
+    //            NO en Base64 estándar. Usar 'base64url' evita corrupción por
+    //            caracteres '+' / '/' / padding '=' que difieren entre ambos.
+    if (!expectedChallenge && credential.response?.clientDataJSON) {
+      try {
+        const clientDataUtf8 = Buffer.from(
+          credential.response.clientDataJSON, 'base64url',
+        ).toString('utf-8');
+        const clientData = JSON.parse(clientDataUtf8);
+        if (clientData.challenge) {
+          expectedChallenge = await passkeyModel.getAndRemoveChallenge(
+            clientData.challenge, redis,
+          );
+        }
+      } catch (parseErr) {
+        logger.warn('No se pudo parsear clientDataJSON para extraer challenge', {
+          error: parseErr.message,
+        });
       }
+    }
+
+    // Intento C: el cliente Flutter reenvía el challenge original en el body
+    if (!expectedChallenge && req.body.challenge) {
+      expectedChallenge = await passkeyModel.getAndRemoveChallenge(
+        req.body.challenge, redis,
+      );
     }
 
     if (!expectedChallenge) {
@@ -319,26 +345,50 @@ async function verifyLogin(req, res, next) {
       });
     }
 
-    // Reconstruir la llave pública en Buffer si viene en base64 o hex
-    let publicKeyBuffer;
-    if (typeof storedCredential.public_key === 'string') {
-      publicKeyBuffer = Buffer.from(storedCredential.public_key, 'base64');
+    // ── 3. Normalizar la clave pública desde PostgreSQL ─────────────────────
+    // FIX BUG-2: PostgreSQL BYTEA devuelve strings con prefijo '\x' (hex)
+    //            cuando se lee como texto. El código anterior asumía siempre
+    //            Base64, produciendo un buffer corrupto que fallaba en la
+    //            verificación COSE. Detectamos el formato antes de convertir.
+    //            @simplewebauthn/server v13 espera Uint8Array, no Buffer.
+    let credentialPublicKey;
+    const rawPk = storedCredential.public_key;
+    if (Buffer.isBuffer(rawPk) || rawPk instanceof Uint8Array) {
+      // Ya es binario (driver pg con bytea = 'buffer')
+      credentialPublicKey = new Uint8Array(rawPk);
+    } else if (typeof rawPk === 'string') {
+      if (rawPk.startsWith('\\x') || rawPk.startsWith('0x')) {
+        // PostgreSQL hex escape format: '\x4d5a90...' o '0x4d5a90...'
+        const hexStr = rawPk.startsWith('\\x') ? rawPk.slice(2) : rawPk.slice(2);
+        credentialPublicKey = new Uint8Array(Buffer.from(hexStr, 'hex'));
+      } else {
+        // Asumimos Base64 (nuestro saveCredential guarda en base64)
+        credentialPublicKey = new Uint8Array(Buffer.from(rawPk, 'base64'));
+      }
     } else {
-      publicKeyBuffer = storedCredential.public_key;
+      logger.error('Formato de clave pública desconocido', {
+        type: typeof rawPk,
+        credentialId: storedCredential.credential_id,
+      });
+      return res.status(500).json({
+        success: false,
+        data: null,
+        error: 'Error interno al procesar la clave criptográfica.',
+      });
     }
 
+    // ── 4. Verificar firma del authenticator ─────────────────────────────────
+    // FIX BUG-3: Reemplazamos el callback inline inseguro que usaba
+    //            `origin.includes(RP_ID)` (substring match vulnerable a phishing)
+    //            con `isAllowedOrigin`, que exige match EXACTO de hostname/hash.
     const verification = await verifyAuthenticationResponse({
       response: credential,
       expectedChallenge,
-      expectedOrigin: (origin) => {
-        if (EXPECTED_ORIGINS.includes(origin)) return true;
-        if (origin.startsWith('android:apk-key-hash:') || origin.includes(RP_ID)) return true;
-        return !env.IS_PRODUCTION;
-      },
+      expectedOrigin: isAllowedOrigin,
       expectedRPID: RP_ID,
-      authenticator: {
-        credentialID: storedCredential.credential_id,
-        credentialPublicKey: publicKeyBuffer,
+      credential: {
+        id: storedCredential.credential_id,
+        publicKey: credentialPublicKey,
         counter: storedCredential.counter || 0,
       },
     });
@@ -351,17 +401,18 @@ async function verifyLogin(req, res, next) {
       });
     }
 
-    // Actualizar contador y registro de acceso
+    // ── 5. Actualizar contador anti-replay ───────────────────────────────────
     const { newCounter } = verification.authenticationInfo;
     await passkeyModel.updateCredentialCounter(storedCredential.credential_id, newCounter);
 
-    // Generar tokens de sesión oficiales
+    // ── 6. Emitir tokens de sesión ───────────────────────────────────────────
     const accessToken              = tokenService.generateAccessToken(user);
     const { token: refreshToken,
             hash:  refreshTokenHash } = tokenService.generateRefreshToken();
 
     await userModel.recordSuccessfulLogin(user.id, refreshTokenHash);
 
+    // Cookie HttpOnly para navegadores web
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure:   env.IS_PRODUCTION,
@@ -372,10 +423,15 @@ async function verifyLogin(req, res, next) {
 
     logger.info('Login por Passkey exitoso', { userId: user.id });
 
+    // FIX BUG-4: Incluimos `refreshToken` dentro de `data` para que la app
+    //            nativa (Flutter/RN) pueda leerlo — en móvil las cookies
+    //            HttpOnly no son accesibles. El modelo AuthResponseModel
+    //            espera { accessToken, refreshToken, expiresIn, user }.
     return res.status(200).json({
       success: true,
       data: {
         accessToken,
+        refreshToken,
         tokenType: 'Bearer',
         expiresIn: env.JWT_EXPIRES_IN,
         user: {

@@ -40,12 +40,16 @@ if (HAS_DB) ({ Pool } = require('pg'));
   }
 
   beforeAll(async () => {
-    const connStr = (process.env.DATABASE_URL || '').replace(/[?&]sslmode=[^&]+/i, '');
-    const isLocal = /localhost|127\.0\.0\.1/.test(connStr);
+    const rawUrl = process.env.DATABASE_URL || '';
+    const connStr = rawUrl.replace(/[?&]sslmode=[^&]+/i, '');
+    // SSL SOLO contra Supabase (exige TLS). Cualquier Postgres de CI/local (el
+    // servicio 'postgres' de GitHub Actions, localhost, 127.0.0.1, etc.) NO soporta
+    // SSL → hay que desactivarlo o pg lanza "The server does not support SSL connections".
+    const needsSsl = /supabase\.(co|com)/i.test(rawUrl) || /sslmode=require/i.test(rawUrl);
     pool = new Pool({
       connectionString: connStr,
       max: 10,   // el Session Pooler de Supabase limita a ~15 clientes; 20 lo excedía
-      ssl: isLocal ? false : { rejectUnauthorized: false },   // Supabase exige TLS; local no soporta SSL
+      ssl: needsSsl ? { rejectUnauthorized: false } : false,
     });
     // DDL alineada con la migración 006 (event_id como PRIMARY KEY).
     await pool.query(`

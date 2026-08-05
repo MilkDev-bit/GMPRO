@@ -4,6 +4,7 @@
 /// REFRESH TOKEN flow concurrente-seguro (single-flight + cola de reintentos).
 
 import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:dio/dio.dart';
 import '../config/app_config.dart';
 import '../logging/app_logger.dart';
@@ -73,6 +74,9 @@ class AuthInterceptor extends Interceptor {
 
     if (isBackend && !isPublicEndpoint) {
       final token = await _storageService.getAccessToken();
+      // DIAGNÓSTICO passkey 401: ¿llega el Bearer a /passkey/register-options?
+      debugPrint('🔐 [Auth] $path backend=$isBackend public=$isPublicEndpoint '
+          'token=${token == null ? "NULL" : (token.isEmpty ? "EMPTY" : "len=${token.length}")}');
       if (token != null && token.isNotEmpty) {
         options.headers['Authorization'] = 'Bearer $token';
       }

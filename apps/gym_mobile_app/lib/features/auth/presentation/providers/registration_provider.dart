@@ -9,6 +9,7 @@
 /// Mientras tanto simulan la latencia de red para mantener la UX end-to-end.
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/auth_response_model.dart';
 import 'auth_provider.dart';
@@ -104,12 +105,39 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
         step: RegistrationStep.otp,
         status: RegistrationStatus.idle,
       );
-    } catch (_) {
+    } catch (e) {
       state = state.copyWith(
         status: RegistrationStatus.error,
-        errorMessage: 'No pudimos enviar el código. Verifica tu correo.',
+        errorMessage: _registerErrorMessage(e),
       );
     }
+  }
+
+  /// Traduce el fallo de /register al mensaje real (antes se ocultaba todo tras
+  /// un genérico "verifica tu correo", imposible de diagnosticar).
+  String _registerErrorMessage(Object e) {
+    if (e is DioException) {
+      final sc = e.response?.statusCode;
+      final data = e.response?.data;
+      final backendMsg = (data is Map)
+          ? (data['error']?.toString() ?? data['mensaje']?.toString())
+          : null;
+      if (sc == 409) {
+        return 'Ese correo ya está registrado y verificado. Usa "Entrar con '
+            'contraseña" o "Entrar con código".';
+      }
+      if (sc == 429) {
+        return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return 'Sin conexión con el servidor. Revisa tu red e inténtalo de nuevo.';
+      }
+      if (backendMsg != null && backendMsg.trim().isNotEmpty) return backendMsg;
+      return 'No pudimos enviar el código (error $sc). Intenta de nuevo.';
+    }
+    return 'No pudimos enviar el código. Verifica tu correo.';
   }
 
   /// Paso 3 → valida el OTP y, si es correcto, vincula la Passkey biométrica.
@@ -184,14 +212,21 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
   // POST /register es idempotente para email no verificado (sirve para reenviar).
   Future<void> _requestOtp(String email) async {
     final api = _ref.read(apiClientProvider);
-    await api.post('/register', data: {
-      'email': email,
-      'nombre': state.fullName.trim(),
-      if (state.phone.trim().isNotEmpty) 'telefono': state.phone.trim(),
-      if (state.birthDate != null)
-        'fecha_nacimiento':
-            state.birthDate!.toIso8601String().split('T').first, // YYYY-MM-DD
-    });
+    try {
+      final res = await api.post('/register', data: {
+        'email': email,
+        'nombre': state.fullName.trim(),
+        if (state.phone.trim().isNotEmpty) 'telefono': state.phone.trim(),
+        if (state.birthDate != null)
+          'fecha_nacimiento':
+              state.birthDate!.toIso8601String().split('T').first, // YYYY-MM-DD
+      });
+      debugPrint('📝 [Register] OK status=${res.statusCode} body=${res.data}');
+    } on DioException catch (e) {
+      debugPrint('📝 [Register] FAIL type=${e.type} status=${e.response?.statusCode} '
+          'body=${e.response?.data}');
+      rethrow;
+    }
   }
 
   Future<bool> _verifyOtp(String email, String code) async {
