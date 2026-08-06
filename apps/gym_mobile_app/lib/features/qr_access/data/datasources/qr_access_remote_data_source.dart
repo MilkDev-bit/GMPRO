@@ -19,8 +19,13 @@ class QrAccessRemoteDataSourceImpl implements QrAccessRemoteDataSource {
   @override
   Future<AccessQrTokenModel> fetchNewDynamicQr() async {
     try {
-      final response = await _apiClient.post(
-        '${AppConfig.accessServiceBaseUrl}/generate-qr',
+      // El endpoint real es GET /api/v1/qr/generate (montado en /api/v1/qr, NO en
+      // /access). Antes se hacía POST a /access/generate-qr → 404 en bucle
+      // ("Ruta no encontrada" + "reintentar" parpadeando). Normalizamos el base
+      // (quita el sufijo /access) y usamos el método y la ruta correctos.
+      final base = AppConfig.accessServiceBaseUrl.replaceFirst(RegExp(r'/access/?$'), '');
+      final response = await _apiClient.get(
+        '$base/qr/generate',
         options: Options(
           validateStatus: (status) => status != null && status < 500,
         ),
