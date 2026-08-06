@@ -333,6 +333,10 @@ async function handleInvoicePaid(event) {
       subscriptionId, customerId,
     });
     await subscriptionModel.create({
+      // ENLACE CON EL USUARIO: sin esto, findActiveByUserId no la encuentra y la
+      // app sigue "inactiva". El id viene del metadata que fijamos al crear la
+      // sesión (subscription_data.metadata.gympro_user_id).
+      usuario_id:             subscription.metadata?.gympro_user_id || null,
       stripe_customer_id:     customerId,
       stripe_subscription_id: subscriptionId,
       plan_nombre:            subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
@@ -542,12 +546,25 @@ async function handleSubscriptionUpdated(event) {
 
   // Sincronizar período actual
   const periodEnd = new Date(subscription.current_period_end * 1000);
-  await subscriptionModel.activateAfterPayment({
-    stripeSubscriptionId: subscriptionId,
-    stripeEventId:        event.id,
-    proximoPagoEn:        periodEnd.toISOString(),
-    duracionDias:         30, // Mantener duración estándar
-  });
+  try {
+    await subscriptionModel.activateAfterPayment({
+      stripeSubscriptionId: subscriptionId,
+      stripeEventId:        event.id,
+      proximoPagoEn:        periodEnd.toISOString(),
+      duracionDias:         30, // Mantener duración estándar
+    });
+  } catch (err) {
+    // Stripe envía subscription.updated e invoice.paid casi simultáneos: si el
+    // update llega ANTES de que invoice.paid cree la fila, no existe localmente.
+    // No es crítico (invoice.paid la crea) → evitamos el 500 y el reintento.
+    if (String(err.message || '').toLowerCase().includes('no encontrada')) {
+      logger.warn('subscription.updated: suscripción aún no existe localmente; se omite (la crea invoice.paid)', {
+        subscriptionId,
+      });
+      return;
+    }
+    throw err;
+  }
 
   logger.info('customer.subscription.updated procesado', { subscriptionId });
 }
