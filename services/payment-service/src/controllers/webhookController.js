@@ -265,26 +265,95 @@ async function handleCheckoutCompleted(event) {
   const session   = event.data.object;
   const offerCode = session.metadata?.offer_code;
 
-  if (!offerCode) {
-    logger.info('checkout.session.completed sin offer_code (sin cupón), nada que canjear', {
-      sessionId: session.id,
-    });
-    return;
+  // 1) Canje de cupón (si la sesión llevaba offer_code).
+  if (offerCode) {
+    const nuevosUsos = await offerModel.incrementOfferUsage(offerCode);
+    if (nuevosUsos == null) {
+      logger.warn('checkout.session.completed: offer_code no encontrado al canjear', {
+        sessionId: session.id, offerCode,
+      });
+    } else {
+      logger.info('Canje de cupón contabilizado', {
+        sessionId: session.id, offerCode, nuevosUsos,
+      });
+    }
   }
 
-  const nuevosUsos = await offerModel.incrementOfferUsage(offerCode);
-
-  if (nuevosUsos == null) {
-    // El código ya no existe (p.ej. eliminado tras crear la sesión). No es crítico.
-    logger.warn('checkout.session.completed: offer_code no encontrado al canjear', {
-      sessionId: session.id, offerCode,
-    });
-    return;
+  // 2) ACTIVACIÓN INMEDIATA de la membresía. Este evento llega en cuanto el pago
+  //    se confirma; antes la activación dependía SOLO de invoice.paid, que puede
+  //    retrasarse o no estar habilitado en el endpoint del webhook → la app
+  //    quedaba "sin membresía" pese a haber pagado. Activamos aquí también.
+  if (session.mode === 'subscription' && session.subscription) {
+    try {
+      const usuarioId = await activateSubscriptionFromStripe(session.subscription, {
+        eventId:        event.id,
+        customerId:     session.customer,
+        amountTotal:    session.amount_total != null ? session.amount_total / 100 : null,
+        currency:       session.currency,
+        fallbackUserId: session.metadata?.gympro_user_id || null,
+      });
+      logger.info('checkout.session.completed: membresía activada', {
+        sessionId: session.id, subscriptionId: session.subscription, usuarioId,
+      });
+    } catch (err) {
+      logger.error('checkout.session.completed: fallo activando la membresía', {
+        sessionId: session.id, subscriptionId: session.subscription, error: err.message,
+      });
+    }
   }
+}
 
-  logger.info('Canje de cupón contabilizado', {
-    sessionId: session.id, offerCode, nuevosUsos,
-  });
+/**
+ * Crea o actualiza (a estado 'active') la fila de suscripción local a partir de
+ * una suscripción de Stripe. Reutilizado por checkout.session.completed e
+ * invoice.paid. Idempotente: si ya existe la fila (por stripe_subscription_id) la
+ * actualiza; si no, la crea. El usuario se liga vía metadata.gympro_user_id.
+ */
+async function activateSubscriptionFromStripe(subscriptionId, opts = {}) {
+  const { eventId, customerId, amountTotal, currency, fallbackUserId } = opts;
+  const stripe       = getStripeClient();
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+  const usuarioId    = subscription.metadata?.gympro_user_id || fallbackUserId || null;
+  const periodStart  = new Date(subscription.current_period_start * 1000);
+  const periodEnd    = new Date(subscription.current_period_end   * 1000);
+  const duracionDias = Math.round((periodEnd - periodStart) / (1000 * 60 * 60 * 24));
+  const proximoPagoEn = periodEnd.toISOString();
+  const precio = amountTotal != null
+    ? amountTotal
+    : (subscription.items.data[0]?.price?.unit_amount ?? 0) / 100;
+  const moneda = (currency || subscription.currency || 'mxn').toUpperCase();
+
+  const localSub = await subscriptionModel.findByStripeSubscriptionId(subscriptionId);
+
+  if (!localSub) {
+    await subscriptionModel.create({
+      usuario_id:             usuarioId,
+      stripe_customer_id:     customerId || subscription.customer,
+      stripe_subscription_id: subscriptionId,
+      plan_nombre:            subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
+      plan_precio:            precio,
+      plan_duracion_dias:     duracionDias,
+      monto:                  precio,
+      moneda,
+      metodo_pago:            'stripe',
+      estado:                 'active',
+      valido_desde:           periodStart.toISOString(),
+      valido_hasta:           periodEnd.toISOString(),
+      ultimo_pago_en:         new Date().toISOString(),
+      proximo_pago_en:        proximoPagoEn,
+      stripe_event_id_ultimo: eventId,
+    });
+  } else {
+    await subscriptionModel.activateAfterPayment({
+      stripeSubscriptionId: subscriptionId,
+      stripeEventId:        eventId,
+      proximoPagoEn,
+      duracionDias,
+      usuarioId,
+    });
+  }
+  return usuarioId;
 }
 
 /**

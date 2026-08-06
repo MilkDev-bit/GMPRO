@@ -85,12 +85,27 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Refresco inmediato + un reintento tras unos segundos para dar tiempo a
-      // que el webhook de Stripe procese el pago y active la suscripción.
-      final notifier = ref.read(subscriptionProvider.notifier);
-      notifier.fetchSubscription();
-      Future.delayed(const Duration(seconds: 4), () {
-        if (mounted) notifier.fetchSubscription();
+      _pollSubscriptionAfterResume();
+    }
+  }
+
+  /// Al volver a primer plano (típicamente tras pagar en el navegador), el webhook
+  /// de Stripe puede tardar unos segundos en activar la membresía. Refrescamos
+  /// varias veces y paramos en cuanto quede activa (evita que el socio tenga que
+  /// recargar a mano).
+  void _pollSubscriptionAfterResume() {
+    const delays = [Duration.zero, Duration(seconds: 3), Duration(seconds: 6),
+                    Duration(seconds: 10), Duration(seconds: 15)];
+    for (final d in delays) {
+      Future.delayed(d, () {
+        if (!mounted) return;
+        // Si ya está activa, no seguimos consultando.
+        final active = ref.read(subscriptionProvider).maybeWhen(
+              data: (s) => s.isAccessValid,
+              orElse: () => false,
+            );
+        if (active) return;
+        ref.read(subscriptionProvider.notifier).fetchSubscription();
       });
     }
   }
