@@ -153,8 +153,12 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
           ),
 
           // ── TABS DE DÍAS ────────────────────────────────────────────────
+          // pinned: false → antes, con el SliverAppBar pinned + este header
+          // pinned encima, el segundo se quedaba sin paintExtent y Flutter
+          // lanzaba "layoutExtent exceeds paintExtent", rompiendo TODO el
+          // viewport (pantalla negra + cascada de "Null check"/overflow).
           SliverPersistentHeader(
-            pinned: true,
+            pinned: false,
             delegate: _DayTabsDelegate(
               tabController: _dayTabController,
               days: widget.plan.dias,

@@ -17,6 +17,7 @@ import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_provider.dart';
+import '../widgets/diet_profile_sheet.dart';
 import 'nutrition_plan_screen.dart';
 
 class NutritionMainScreen extends ConsumerWidget {
@@ -206,7 +207,7 @@ class NutritionMainScreen extends ConsumerWidget {
                 ),
                 onPressed: () {
                   HapticFeedback.mediumImpact();
-                  ref.read(nutritionProvider.notifier).generateDietPlan();
+                  DietProfileSheet.show(context);
                 },
               ),
             ],

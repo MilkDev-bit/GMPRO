@@ -62,6 +62,24 @@ class SecureStorageService {
     return await _storage.read(key: AppConfig.keyRefreshToken);
   }
 
+  /// Guarda el perfil de dieta (objetivo, peso, estatura, edad, actividad).
+  Future<void> saveDietProfile(Map<String, dynamic> profile) async {
+    await _storage.write(key: AppConfig.keyDietProfile, value: jsonEncode(profile));
+  }
+
+  /// Recupera el perfil de dieta persistido, o null si aún no se ha configurado.
+  Future<Map<String, dynamic>?> getDietProfile() async {
+    final jsonStr = await _storage.read(key: AppConfig.keyDietProfile);
+    if (jsonStr != null && jsonStr.isNotEmpty) {
+      try {
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   /// Obtiene el mapa del perfil de usuario almacenado localmente.
   Future<Map<String, dynamic>?> getUserData() async {
     const key = AppConfig.keyUserData;

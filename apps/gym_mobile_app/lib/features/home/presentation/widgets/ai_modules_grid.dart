@@ -8,7 +8,8 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
 import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
-import '../../../../core/navigation/shell_nav_provider.dart';
+import '../../../workout/presentation/screens/workout_main_screen.dart';
+import '../../../nutrition/presentation/screens/nutrition_main_screen.dart';
 
 class AiModulesGrid extends ConsumerWidget {
   const AiModulesGrid({super.key});
@@ -144,11 +145,14 @@ class AiModulesGrid extends ConsumerWidget {
         builder: (_) => _LockedModuleBottomSheet(moduleName: moduleName),
       );
     } else {
-      if (moduleName == 'Rutinas con IA') {
-        ref.read(shellNavProvider.notifier).state = 3;
-      } else {
-        ref.read(shellNavProvider.notifier).state = 2;
-      }
+      // Abrimos la pantalla DIRECTAMENTE con Navigator.push. Antes se usaba
+      // shellNavProvider para cambiar de pestaña, pero el login navega directo a
+      // HomeDashboardScreen (fuera del AppShell), así que ese provider no tenía
+      // efecto → los módulos "no abrían". Con push funciona en ambos casos.
+      final Widget screen = moduleName == 'Rutinas con IA'
+          ? const WorkoutMainScreen()
+          : const NutritionMainScreen();
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     }
   }
 }

@@ -11,6 +11,7 @@ import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_provider.dart';
 import '../widgets/macro_summary_dashboard.dart';
 import '../widgets/meal_card.dart';
+import '../widgets/diet_profile_sheet.dart';
 
 class NutritionPlanScreen extends ConsumerWidget {
   const NutritionPlanScreen({super.key, required this.plan});
@@ -72,7 +73,7 @@ class NutritionPlanScreen extends ConsumerWidget {
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, color: AppColors.neonCyan),
                     tooltip: 'Recalcular Dieta con IA',
-                    onPressed: () => ref.read(nutritionProvider.notifier).generateDietPlan(),
+                    onPressed: () => DietProfileSheet.show(context),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -154,7 +155,7 @@ class NutritionPlanScreen extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             ),
-                            onPressed: () => ref.read(nutritionProvider.notifier).generateDietPlan(),
+                            onPressed: () => DietProfileSheet.show(context),
                             child: Text(
                               'Reajustar IA',
                               style: GoogleFonts.outfit(fontWeight: FontWeight.w800),

@@ -2,12 +2,91 @@
 /// @description Proveedor Riverpod para la gestión en tiempo real de la dieta IA,
 /// conteo de macros, agua y búsqueda sobre el catálogo precargado Open Food Facts.
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/nutrition_entities.dart';
+
+/// Perfil de dieta del socio: los datos reales que alimentan la fórmula
+/// científica del ai-service. Se persiste (secure storage) y se edita desde
+/// el formulario o desde Ajustes.
+class DietProfile {
+  const DietProfile({
+    this.objetivo = 'hipertrofia',
+    this.pesoKg = 75.0,
+    this.estaturaCm = 175.0,
+    this.edad = 25,
+    this.actividad = 'moderado',
+    this.isComplete = false,
+  });
+
+  final String objetivo;
+  final double pesoKg;
+  final double estaturaCm;
+  final int edad;
+  final String actividad;
+
+  /// true una vez que el socio guardó/generó con sus propios datos.
+  final bool isComplete;
+
+  static const Map<String, String> objetivoLabels = {
+    'hipertrofia': 'Hipertrofia',
+    'definicion': 'Definición',
+    'mantenimiento': 'Mantenimiento',
+    'fuerza': 'Fuerza',
+  };
+  static const Map<String, String> actividadLabels = {
+    'sedentario': 'Sedentario',
+    'moderado': 'Moderado',
+    'activo': 'Activo',
+    'muy_activo': 'Muy activo',
+  };
+
+  String get objetivoLabel => objetivoLabels[objetivo] ?? objetivo;
+  String get actividadLabel => actividadLabels[actividad] ?? actividad;
+
+  DietProfile copyWith({
+    String? objetivo,
+    double? pesoKg,
+    double? estaturaCm,
+    int? edad,
+    String? actividad,
+    bool? isComplete,
+  }) {
+    return DietProfile(
+      objetivo: objetivo ?? this.objetivo,
+      pesoKg: pesoKg ?? this.pesoKg,
+      estaturaCm: estaturaCm ?? this.estaturaCm,
+      edad: edad ?? this.edad,
+      actividad: actividad ?? this.actividad,
+      isComplete: isComplete ?? this.isComplete,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'objetivo': objetivo,
+        'pesoKg': pesoKg,
+        'estaturaCm': estaturaCm,
+        'edad': edad,
+        'actividad': actividad,
+        'isComplete': isComplete,
+      };
+
+  factory DietProfile.fromJson(Map<String, dynamic> j) => DietProfile(
+        objetivo: (j['objetivo'] as String?) ?? 'hipertrofia',
+        pesoKg: (j['pesoKg'] as num?)?.toDouble() ?? 75.0,
+        estaturaCm: (j['estaturaCm'] as num?)?.toDouble() ?? 175.0,
+        edad: (j['edad'] as num?)?.toInt() ?? 25,
+        actividad: (j['actividad'] as String?) ?? 'moderado',
+        isComplete: (j['isComplete'] as bool?) ?? true,
+      );
+}
 
 class NutritionState {
   const NutritionState({
@@ -17,6 +96,7 @@ class NutritionState {
     this.isSearching = false,
     this.searchResults = const [],
     this.waterConsumedMl = 1750,
+    this.profile = const DietProfile(),
   });
 
   final NutritionPlan? plan;
@@ -26,6 +106,9 @@ class NutritionState {
   final List<FoodItem> searchResults;
   final int waterConsumedMl;
 
+  /// Perfil actual del socio (persistido). isComplete=false hasta que lo configura.
+  final DietProfile profile;
+
   NutritionState copyWith({
     NutritionPlan? plan,
     bool? isLoading,
@@ -33,6 +116,7 @@ class NutritionState {
     bool? isSearching,
     List<FoodItem>? searchResults,
     int? waterConsumedMl,
+    DietProfile? profile,
   }) {
     return NutritionState(
       plan:            plan ?? this.plan,
@@ -41,41 +125,108 @@ class NutritionState {
       isSearching:     isSearching ?? this.isSearching,
       searchResults:   searchResults ?? this.searchResults,
       waterConsumedMl: waterConsumedMl ?? this.waterConsumedMl,
+      profile:         profile ?? this.profile,
     );
   }
 }
 
 class NutritionNotifier extends StateNotifier<NutritionState> {
-  NutritionNotifier(this._apiClient) : super(const NutritionState(plan: _defaultStubPlan));
-
-  final ApiClient _apiClient;
-
-  // Evita re-generar en cada rebuild del dashboard: una sola carga por sesión.
-  bool _autoLoaded = false;
-
-  /// Carga el plan REAL del backend una vez por sesión (para el card del
-  /// dashboard). El backend no expone un GET del plan actual, así que se dispara
-  /// la generación vía ai-service en lugar de mostrar el stub por defecto.
-  Future<void> ensureTodayPlanLoaded() async {
-    if (_autoLoaded || state.isLoading) return;
-    _autoLoaded = true;
-    await generateDietPlan();
+  // Arranca SIN plan (plan == null): el dashboard muestra "completa tu perfil"
+  // hasta que el usuario genere su dieta con datos reales. Ya NO autogeneramos
+  // con valores por defecto ni mostramos el stub.
+  NutritionNotifier(this._apiClient, this._storage) : super(const NutritionState()) {
+    _loadProfile();
   }
 
-  /// Genera o recalcula una nueva dieta personalizada desde el ai-service.
-  Future<void> generateDietPlan({
-    String objetivo = 'hipertrofia',
-    double pesoKg = 75.0,
-    double estaturaCm = 175.0,
+  final ApiClient _apiClient;
+  final SecureStorageService _storage;
+
+  // Último perfil usado (se recuerda para recalcular y pre-llenar el formulario).
+  String lastObjetivo   = 'hipertrofia';
+  double lastPesoKg     = 75.0;
+  double lastEstaturaCm = 175.0;
+  int    lastEdad       = 25;
+  String lastActividad  = 'moderado';
+
+  /// Carga el perfil persistido al arrancar (para prellenar el formulario y que
+  /// Ajustes muestre los datos reales del socio). No genera dieta automáticamente.
+  Future<void> _loadProfile() async {
+    final json = await _storage.getDietProfile();
+    if (json == null) return;
+    final p = DietProfile.fromJson(json);
+    lastObjetivo   = p.objetivo;
+    lastPesoKg     = p.pesoKg;
+    lastEstaturaCm = p.estaturaCm;
+    lastEdad       = p.edad;
+    lastActividad  = p.actividad;
+    if (mounted) state = state.copyWith(profile: p);
+  }
+
+  DietProfile get _profileFromLast => DietProfile(
+        objetivo: lastObjetivo,
+        pesoKg: lastPesoKg,
+        estaturaCm: lastEstaturaCm,
+        edad: lastEdad,
+        actividad: lastActividad,
+        isComplete: true,
+      );
+
+  Future<void> _persistProfile(DietProfile p) => _storage.saveDietProfile(p.toJson());
+
+  /// Guarda el perfil editado desde Ajustes. Persiste y, si ya existe una dieta
+  /// generada, la recalcula con los nuevos datos.
+  Future<void> updateProfile({
+    String? objetivo,
+    double? pesoKg,
+    double? estaturaCm,
+    int? edad,
+    String? actividad,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    lastObjetivo   = objetivo   ?? lastObjetivo;
+    lastPesoKg     = pesoKg     ?? lastPesoKg;
+    lastEstaturaCm = estaturaCm ?? lastEstaturaCm;
+    lastEdad       = edad       ?? lastEdad;
+    lastActividad  = actividad  ?? lastActividad;
+    final p = _profileFromLast;
+    state = state.copyWith(profile: p);
+    await _persistProfile(p);
+    if (state.plan != null) await generateDietPlan();
+  }
+
+  /// Genera o recalcula una dieta PERSONALIZADA desde el ai-service, que aplica
+  /// la fórmula científica con los datos reales del socio (peso, estatura, edad,
+  /// objetivo, actividad). Los valores nulos conservan el último perfil usado.
+  Future<void> generateDietPlan({
+    String? objetivo,
+    double? pesoKg,
+    double? estaturaCm,
+    int? edad,
+    String? actividad,
+  }) async {
+    lastObjetivo   = objetivo   ?? lastObjetivo;
+    lastPesoKg     = pesoKg     ?? lastPesoKg;
+    lastEstaturaCm = estaturaCm ?? lastEstaturaCm;
+    lastEdad       = edad       ?? lastEdad;
+    lastActividad  = actividad  ?? lastActividad;
+
+    // Persistimos el perfil: queda como fuente de verdad para prellenar el
+    // formulario y editarlo desde Ajustes aunque se cierre la app.
+    final profile = _profileFromLast;
+    unawaited(_persistProfile(profile));
+
+    state = state.copyWith(isLoading: true, error: null, profile: profile);
     try {
       final response = await _apiClient.dio.post(
-        '/api/v1/recommendations/diet',
+        // URL ABSOLUTA del ai-service. Antes era relativa → se resolvía contra el
+        // baseUrl del dio (auth-service) → 404 → la app se quedaba con el STUB
+        // (por eso salían datos mockeados en vez de la dieta calculada real).
+        '${AppConfig.aiServiceBaseUrl}/recommendations/diet',
         data: {
-          'objetivo': objetivo,
-          'pesoKg': pesoKg,
-          'estaturaCm': estaturaCm,
+          'objetivo':   lastObjetivo,
+          'pesoKg':     lastPesoKg,
+          'estaturaCm': lastEstaturaCm,
+          'edad':       lastEdad,
+          'actividad':  lastActividad,
         },
       );
 
@@ -107,7 +258,9 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     state = state.copyWith(isSearching: true, error: null);
     try {
       final response = await _apiClient.dio.get(
-        '/api/v1/foods/search',
+        // URL ABSOLUTA del fitness-service (búsqueda Open Food Facts). Antes
+        // relativa → iba al auth-service → 404.
+        '${AppConfig.fitnessServiceBaseUrl}/foods/search',
         queryParameters: {'q': query.trim()},
       );
 
@@ -240,152 +393,6 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     ),
   ];
 
-  /// Plan nutricional inicial completo con datos de Open Food Facts
-  static const NutritionPlan _defaultStubPlan = NutritionPlan(
-    id: 'plan_diet_ai_01',
-    nombre: 'Hipertrofia Limpia & Rendimiento Óptimo',
-    descripcion: 'Reparto calórico 40% carbohidratos, 35% proteína y 25% grasas saludables.',
-    objetivo: 'hipertrofia',
-    caloriasMeta: 2650,
-    proteinasMetaG: 185,
-    carbohidratosMetaG: 310,
-    grasasMetaG: 75,
-    aguaMetaMl: 3500,
-    comidas: [
-      Meal(
-        id: 'meal_desayuno',
-        tipo: 'desayuno',
-        nombre: 'Desayuno Anabólico — Avena & Huevos',
-        horaSugerida: '07:30 AM',
-        alimentos: [
-          FoodItem(
-            codigoBarras: '7501008012345',
-            nombre: 'Avena Integral en Hojuelas',
-            marca: 'Quaker',
-            porcionG: 80,
-            calorias100g: 370,
-            proteinas100g: 13.5,
-            carbohidratos100g: 66.0,
-            grasas100g: 7.0,
-          ),
-          FoodItem(
-            codigoBarras: '7501111122222',
-            nombre: 'Claras de Huevo Pasteurizadas + 2 Enteros',
-            marca: 'San Juan',
-            porcionG: 220,
-            calorias100g: 95,
-            proteinas100g: 12.0,
-            carbohidratos100g: 0.8,
-            grasas100g: 4.5,
-          ),
-          FoodItem(
-            codigoBarras: '0000000001234',
-            nombre: 'Plátano Tabasco en rebanadas',
-            marca: 'Natural Orgánico',
-            porcionG: 100,
-            calorias100g: 89,
-            proteinas100g: 1.1,
-            carbohidratos100g: 22.8,
-            grasas100g: 0.3,
-          ),
-        ],
-      ),
-      Meal(
-        id: 'meal_almuerzo',
-        tipo: 'almuerzo',
-        nombre: 'Comida Principal — Pollo y Arroz Integral',
-        horaSugerida: '01:30 PM',
-        alimentos: [
-          FoodItem(
-            codigoBarras: '7501000111111',
-            nombre: 'Pechuga de Pollo Asada a las Hierbas',
-            marca: 'Bachoco',
-            porcionG: 180,
-            calorias100g: 165,
-            proteinas100g: 31.0,
-            carbohidratos100g: 0.0,
-            grasas100g: 3.6,
-          ),
-          FoodItem(
-            codigoBarras: '7501099998888',
-            nombre: 'Arroz Súper Extra Integral Cocido',
-            marca: 'Verde Valle',
-            porcionG: 180,
-            calorias100g: 130,
-            proteinas100g: 2.8,
-            carbohidratos100g: 28.0,
-            grasas100g: 0.8,
-          ),
-          FoodItem(
-            codigoBarras: '0000000009999',
-            nombre: 'Aguacate Hass en cubos',
-            marca: 'Uruapan Selecto',
-            porcionG: 60,
-            calorias100g: 160,
-            proteinas100g: 2.0,
-            carbohidratos100g: 8.5,
-            grasas100g: 14.7,
-          ),
-        ],
-      ),
-      Meal(
-        id: 'meal_pre_entreno',
-        tipo: 'pre_entreno',
-        nombre: 'Snack Pre-Entrenamiento Explosivo',
-        horaSugerida: '05:00 PM',
-        alimentos: [
-          FoodItem(
-            codigoBarras: '7501444455555',
-            nombre: 'Crema de Cacahuate Natural',
-            marca: 'Aladino',
-            porcionG: 25,
-            calorias100g: 588,
-            proteinas100g: 25.0,
-            carbohidratos100g: 20.0,
-            grasas100g: 50.0,
-          ),
-          FoodItem(
-            codigoBarras: '7501888899999',
-            nombre: 'Yogurt Griego Fresa sin Azúcar',
-            marca: 'Chobani',
-            porcionG: 150,
-            calorias100g: 59,
-            proteinas100g: 10.0,
-            carbohidratos100g: 3.6,
-            grasas100g: 0.2,
-          ),
-        ],
-      ),
-      Meal(
-        id: 'meal_cena',
-        tipo: 'cena',
-        nombre: 'Cena de Recuperación Nocturna — Atún & Whey',
-        horaSugerida: '09:00 PM',
-        alimentos: [
-          FoodItem(
-            codigoBarras: '7501020304050',
-            nombre: 'Atún en Agua en Trozos',
-            marca: 'Dolores',
-            porcionG: 140,
-            calorias100g: 110,
-            proteinas100g: 26.0,
-            carbohidratos100g: 0.0,
-            grasas100g: 0.8,
-          ),
-          FoodItem(
-            codigoBarras: '7501234567890',
-            nombre: 'Batido Proteína Whey Gold Standard',
-            marca: 'Optimum Nutrition',
-            porcionG: 32,
-            calorias100g: 388,
-            proteinas100g: 78.0,
-            carbohidratos100g: 9.7,
-            grasas100g: 3.2,
-          ),
-        ],
-      ),
-    ],
-  );
 }
 
 extension on List<FoodItem> {
@@ -396,5 +403,6 @@ extension on List<FoodItem> {
 
 final nutritionProvider = StateNotifierProvider<NutritionNotifier, NutritionState>((ref) {
   final api = ref.watch(apiClientProvider);
-  return NutritionNotifier(api);
+  final storage = ref.watch(secureStorageProvider);
+  return NutritionNotifier(api, storage);
 });

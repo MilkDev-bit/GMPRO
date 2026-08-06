@@ -136,6 +136,10 @@ class AppConfig {
   static const String keyRefreshToken = 'gympro_refresh_token';
   static const String keyUserData = 'gympro_user_json';
 
+  /// Perfil de dieta del socio (peso, estatura, edad, objetivo, actividad).
+  /// Persistido para prellenar el formulario y editarlo desde Ajustes.
+  static const String keyDietProfile = 'gympro_diet_profile';
+
   /// Conjunto de HOSTS propios del backend (derivado de las base URLs).
   /// Úsalo para decidir a quién se le adjunta el Bearer token: NUNCA se debe
   /// enviar el JWT a un host que no esté aquí (evita token leakage a terceros

@@ -138,8 +138,10 @@ class WearableServiceImpl implements WearableService {
     // C. Canal nativo complementario para servicios en segundo plano de Android/iOS
     try {
       await _nativeChannel.invokeMethod('syncWorkout', map);
-    } on PlatformException catch (e) {
-      debugPrint('ℹ️ [Wearable] Canal nativo MethodChannel syncWorkout ignorado/no conectado: ${e.message}');
+    } catch (e) {
+      // Catch amplio: cubre PlatformException Y MissingPluginException (emulador
+      // / sin reloj). Antes MissingPluginException se escapaba sin manejar.
+      debugPrint('ℹ️ [Wearable] Canal nativo syncWorkout no disponible (sin reloj): $e');
     }
   }
 
@@ -164,8 +166,11 @@ class WearableServiceImpl implements WearableService {
 
     try {
       await _nativeChannel.invokeMethod('syncQrToken', map);
-    } on PlatformException catch (e) {
-      debugPrint('ℹ️ [Wearable] Canal nativo MethodChannel syncQrToken ignorado/no conectado: ${e.message}');
+    } catch (e) {
+      // Catch amplio A PROPÓSITO: cubre PlatformException Y MissingPluginException
+      // (emulador / dispositivo sin reloj). Antes solo atrapaba PlatformException
+      // → MissingPluginException se escapaba como excepción no manejada cada 30s.
+      debugPrint('ℹ️ [Wearable] Canal nativo syncQrToken no disponible (sin reloj): $e');
     }
   }
 

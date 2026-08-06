@@ -23,6 +23,8 @@ import '../../../auth/domain/entities/auth_user.dart';
 import '../providers/subscription_provider.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
 import '../../domain/entities/user_subscription.dart';
+import '../../../nutrition/presentation/providers/nutrition_provider.dart';
+import '../../../nutrition/presentation/widgets/diet_profile_sheet.dart';
 
 class SettingsAndBillingScreen extends ConsumerStatefulWidget {
   const SettingsAndBillingScreen({super.key});
@@ -39,9 +41,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
   // Estados locales para el menú de configuración
   bool _notificationsEnabled = true;
   bool _passkeysEnabled = true;
-  String _pesoKg = "75.0";
-  String _estaturaCm = "178";
-  String _alergias = "Ninguna";
 
   @override
   void initState() {
@@ -69,6 +68,7 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
     final user = authState.user;
     final subAsync = ref.watch(subscriptionProvider);
     final paymentState = ref.watch(paymentProvider);
+    final dietProfile = ref.watch(nutritionProvider).profile;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
@@ -169,9 +169,11 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                       _SettingsItem(
                         icon: Icons.monitor_weight_outlined,
                         iconColor: AppColors.neonCyan,
-                        title: 'Datos Físicos y Perfil Biométrico',
-                        subtitle: 'Peso: $_pesoKg kg • Estatura: $_estaturaCm cm • Alergias: $_alergias',
-                        onTap: () => _showPhysicalDataModal(context),
+                        title: 'Datos Físicos y Objetivo',
+                        subtitle: dietProfile.isComplete
+                            ? '${dietProfile.objetivoLabel} • ${dietProfile.pesoKg.toStringAsFixed(0)} kg • ${dietProfile.estaturaCm.toStringAsFixed(0)} cm • ${dietProfile.edad} años • ${dietProfile.actividadLabel}'
+                            : 'Sin configurar — toca para completar tu perfil',
+                        onTap: () => DietProfileSheet.show(context),
                       ),
                       Divider(color: AppColors.glassBorderOf(context), height: 1),
                       _SettingsSwitchItem(
@@ -328,112 +330,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _InvoicesModalSheet(userId: user?.id ?? 'USR-001'),
-    );
-  }
-
-  // ── MODAL PARA MODIFICAR DATOS FÍSICOS ─────────────────────────────────────
-  void _showPhysicalDataModal(BuildContext context) {
-    final pesoCtrl = TextEditingController(text: _pesoKg);
-    final estCtrl = TextEditingController(text: _estaturaCm);
-    final alCtrl = TextEditingController(text: _alergias);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: Container(
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceElevatedOf(ctx),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-            border: Border(top: BorderSide(color: AppColors.glassBorderOf(ctx), width: 1)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Actualizar Perfil Biométrico',
-                style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimaryOf(ctx)),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Estos datos alimentan a la Inteligencia Artificial (Fitia/MuscleWiki style).',
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMutedOf(ctx)),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildInputTextField('Peso (kg)', pesoCtrl, TextInputType.number),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildInputTextField('Estatura (cm)', estCtrl, TextInputType.number),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildInputTextField('Alergias / Restricciones médicas', alCtrl, TextInputType.text),
-              const SizedBox(height: 24),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _pesoKg = pesoCtrl.text.trim();
-                    _estaturaCm = estCtrl.text.trim();
-                    _alergias = alCtrl.text.trim().isEmpty ? 'Ninguna' : alCtrl.text.trim();
-                  });
-                  Navigator.pop(ctx);
-                  toastification.show(
-                    context: context,
-                    type: ToastificationType.success,
-                    style: ToastificationStyle.minimal,
-                    title: const Text('Perfil Biométrico Guardado'),
-                    description: const Text('Tus datos corporales se han sincronizado en auth_service_db.'),
-                    autoCloseDuration: const Duration(seconds: 3),
-                  );
-                },
-                child: Container(
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [AppColors.neonPurple, AppColors.neonPink]),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Guardar Cambios',
-                      style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputTextField(String label, TextEditingController ctrl, TextInputType type) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondaryOf(context))),
-        const SizedBox(height: 6),
-        TextField(
-          controller: ctrl,
-          keyboardType: type,
-          style: GoogleFonts.inter(color: AppColors.textPrimaryOf(context), fontSize: 15),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.isDark(context) ? const Color(0xFF1E1E2C) : const Color(0xFFF0F2F8),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-          ),
-        ),
-      ],
     );
   }
 

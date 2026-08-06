@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../nutrition/presentation/providers/nutrition_provider.dart';
-import '../../../subscription/presentation/providers/subscription_provider.dart';
+import '../../../nutrition/presentation/widgets/diet_profile_sheet.dart';
 
 class MacroProgressCard extends ConsumerStatefulWidget {
   const MacroProgressCard({super.key});
@@ -47,11 +47,8 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
       if (!mounted) return;
       _entryController.forward();
       _progressController.forward();
-      // Carga el plan REAL desde el ai-service (si el usuario tiene acceso).
-      // Los miembros ven macros calculados por el backend en vez del stub.
-      if (ref.read(isAccessValidProvider)) {
-        ref.read(nutritionProvider.notifier).ensureTodayPlanLoaded();
-      }
+      // Ya NO autogeneramos con defaults: el usuario genera su plan con datos
+      // reales desde el formulario (ver estado "completa tu perfil" abajo).
     });
   }
 
@@ -68,7 +65,58 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
     final plan = nutritionState.plan;
 
     if (plan == null) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.neonCyan));
+      // Generando: spinner. Sin plan aún: invitación a completar el perfil.
+      if (nutritionState.isLoading) {
+        return Container(
+          height: 220,
+          decoration: BoxDecoration(
+            color: const Color(0xFF232323),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Center(child: CircularProgressIndicator(color: AppColors.neonCyan)),
+        );
+      }
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF232323),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.restaurant_menu_rounded, color: AppColors.neonCyan, size: 40),
+            const SizedBox(height: 12),
+            Text(
+              'Completa tu perfil',
+              style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Dinos tu peso, estatura, edad y objetivo para calcular tu plan con la fórmula científica.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 13, height: 1.4, color: Colors.white54),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: Text('Generar mi plan',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.neonCyan,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () => DietProfileSheet.show(context),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     final int consumed = plan.caloriasConsumidas;

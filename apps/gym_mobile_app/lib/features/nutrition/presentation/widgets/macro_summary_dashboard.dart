@@ -254,8 +254,9 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
+                  Expanded(
+                    child: Row(
+                      children: [
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 500),
                         curve: Curves.elasticOut,
@@ -324,6 +325,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                         ],
                       ),
                     ],
+                    ),
                   ),
                   Row(
                     children: [
