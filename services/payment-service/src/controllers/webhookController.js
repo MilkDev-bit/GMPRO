@@ -340,6 +340,7 @@ async function handleInvoicePaid(event) {
       stripe_customer_id:     customerId,
       stripe_subscription_id: subscriptionId,
       plan_nombre:            subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
+      plan_precio:            invoice.amount_paid / 100, // columna NOT NULL (precio del plan)
       plan_duracion_dias:     duracionDias,
       monto:                  invoice.amount_paid / 100, // Stripe maneja centavos
       moneda:                 invoice.currency.toUpperCase(),
