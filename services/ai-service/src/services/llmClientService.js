@@ -51,7 +51,7 @@ async function generateChatStreamSSE(res, systemPrompt, userMessage, history = [
  * Transmisión SSE con Google Gemini REST API (streamGenerateContent?alt=sse)
  */
 async function streamGeminiSSE(res, systemPrompt, userMessage, history) {
-  const model = env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
   const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${env.GEMINI_API_KEY}`;
 
   // Formatear historial al esquema de Gemini ({ role: 'user'|'model', parts: [{ text }] })
@@ -219,8 +219,8 @@ async function generateStructuredContent(systemPrompt, userPrompt, options = fal
 
   try {
     if (provider === 'gemini') {
-      const primaryModel  = useProModel ? (env.GEMINI_MODEL_PRO || 'gemini-2.5-pro') : (env.GEMINI_MODEL || 'gemini-2.0-flash');
-      const fallbackModel = env.GEMINI_MODEL || 'gemini-2.0-flash';
+      const primaryModel  = useProModel ? (env.GEMINI_MODEL_PRO || 'gemini-3.5-flash') : (env.GEMINI_MODEL || 'gemini-3.5-flash');
+      const fallbackModel = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
       const generationConfig = {
         temperature:      env.AI_TEMPERATURE || 0.3,

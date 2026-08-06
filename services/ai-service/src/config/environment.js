@@ -83,8 +83,12 @@ module.exports = {
   JWT_ALGORITHM:              process.env.JWT_ALGORITHM || 'HS512',
   AI_PROVIDER:                (process.env.AI_PROVIDER || 'gemini').toLowerCase(),
   GEMINI_API_KEY:             process.env.GEMINI_API_KEY,
-  GEMINI_MODEL:               process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-  GEMINI_MODEL_PRO:           process.env.GEMINI_MODEL_PRO || 'gemini-2.5-pro',
+  // gemini-2.0-flash se apagó el 1-jun-2026 y gemini-2.5-pro devuelve 404. Los IDs
+  // vigentes (ago-2026) son gemini-3.5-flash (GA) y gemini-3.5-flash-lite. Estos
+  // son solo DEFAULTS: si en Railway está GEMINI_MODEL/GEMINI_MODEL_PRO con un
+  // modelo muerto, hay que actualizar esas variables de entorno.
+  GEMINI_MODEL:               process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+  GEMINI_MODEL_PRO:           process.env.GEMINI_MODEL_PRO || 'gemini-3.5-flash',
   OPENAI_API_KEY:             process.env.OPENAI_API_KEY,
   OPENAI_MODEL:               process.env.OPENAI_MODEL || 'gpt-4o-mini',
   OPENAI_MODEL_PRO:           process.env.OPENAI_MODEL_PRO || 'gpt-4o',
