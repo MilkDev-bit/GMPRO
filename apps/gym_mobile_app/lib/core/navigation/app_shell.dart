@@ -147,24 +147,38 @@ class CustomGlassBottomBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(32),
+      borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           height: 72,
           decoration: BoxDecoration(
-            color: AppColors.glassColorOf(context, alpha: 0.45),
-            borderRadius: BorderRadius.circular(32),
+            // Fondo OSCURO sólido (no adaptativo al OS): el contenido del shell
+            // siempre es oscuro, así que la barra debe serlo también. Antes usaba
+            // glassColorOf(context) → en modo claro del sistema se pintaba BLANCA
+            // translúcida sobre el fondo oscuro y se veía como una mancha gris.
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF232030), Color(0xFF171522)],
+            ),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: AppColors.glassBorderOf(context),
-              width: 1.2,
+              color: Colors.white.withValues(alpha: 0.10),
+              width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.neonPurple.withValues(alpha: 0.18),
-                blurRadius: 24,
-                spreadRadius: -4,
-                offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 26,
+                spreadRadius: -2,
+                offset: const Offset(0, 12),
+              ),
+              BoxShadow(
+                color: AppColors.neonPurple.withValues(alpha: 0.14),
+                blurRadius: 22,
+                spreadRadius: -6,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -281,9 +295,12 @@ class _GlassNavItemState extends State<_GlassNavItem>
                         ? widget.destination.iconSelected
                         : widget.destination.icon,
                     size: 24,
+                    // Inactivo: gris claro fijo (visible sobre la barra oscura),
+                    // no textMutedOf(context) que en modo claro del OS quedaba casi
+                    // invisible sobre la barra.
                     color: widget.isSelected
                         ? accentColor
-                        : AppColors.textMutedOf(context).withValues(alpha: 0.8),
+                        : Colors.white.withValues(alpha: 0.62),
                   ),
                 ),
               ),
@@ -291,8 +308,10 @@ class _GlassNavItemState extends State<_GlassNavItem>
                 duration: const Duration(milliseconds: 220),
                 style: GoogleFonts.outfit(
                   fontSize: 10,
-                  fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w400,
-                  color: widget.isSelected ? accentColor : AppColors.textMutedOf(context),
+                  fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: widget.isSelected
+                      ? accentColor
+                      : Colors.white.withValues(alpha: 0.6),
                 ),
                 child: Text(widget.destination.label),
               ),
