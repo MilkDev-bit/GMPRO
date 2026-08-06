@@ -116,21 +116,27 @@ async function activateAfterPayment({
   validoHasta.setDate(validoHasta.getDate() + duracionDias);
 
   try {
+    // Cada columna con su PROPIO parámetro. Antes valido_desde/ultimo_pago_en/
+    // actualizado_en compartían $2; si esas columnas tienen tipos distintos
+    // (p.ej. date vs timestamptz), Postgres no puede deducir un tipo único para
+    // $2 → "inconsistent types deduced for parameter $2". Con params separados
+    // cada uno se infiere por su columna.
+    const nowIso = ahora.toISOString();
     const { rows } = await query(
       `UPDATE suscripciones SET
          estado = 'active',
          usuario_id = COALESCE(usuario_id, $6),  -- backfill si la fila era huérfana (sin usuario)
          valido_desde = $2,
          valido_hasta = $3,
-         ultimo_pago_en = $2,
+         ultimo_pago_en = $7,
          proximo_pago_en = $4,
          cancelado_en = NULL,
          acceso_facial_revocado_en = NULL,   -- re-habilita el alta biométrica al re-pagar
          stripe_event_id_ultimo = $5,
-         actualizado_en = $2
+         actualizado_en = $8
        WHERE stripe_subscription_id = $1
        RETURNING ${SAFE_COLUMNS}`,
-      [stripeSubscriptionId, ahora.toISOString(), validoHasta.toISOString(), proximoPagoEn, stripeEventId, usuarioId],
+      [stripeSubscriptionId, nowIso, validoHasta.toISOString(), proximoPagoEn, stripeEventId, usuarioId, nowIso, nowIso],
     );
     if (!rows[0]) throw new Error(`Suscripción no encontrada para stripe_subscription_id=${stripeSubscriptionId}`);
     const data = rows[0];
