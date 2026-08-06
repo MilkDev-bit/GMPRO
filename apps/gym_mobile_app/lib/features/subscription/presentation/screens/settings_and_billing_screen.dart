@@ -25,6 +25,8 @@ import '../../../payment/presentation/providers/payment_provider.dart';
 import '../../domain/entities/user_subscription.dart';
 import '../../../nutrition/presentation/providers/nutrition_provider.dart';
 import '../../../nutrition/presentation/widgets/diet_profile_sheet.dart';
+import '../../../workout/presentation/providers/workout_provider.dart';
+import '../../../workout/presentation/widgets/workout_profile_sheet.dart';
 
 class SettingsAndBillingScreen extends ConsumerStatefulWidget {
   const SettingsAndBillingScreen({super.key});
@@ -69,6 +71,7 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
     final subAsync = ref.watch(subscriptionProvider);
     final paymentState = ref.watch(paymentProvider);
     final dietProfile = ref.watch(nutritionProvider).profile;
+    final workoutProfile = ref.watch(workoutProvider).profile;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
@@ -174,6 +177,16 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                             ? '${dietProfile.objetivoLabel} • ${dietProfile.pesoKg.toStringAsFixed(0)} kg • ${dietProfile.estaturaCm.toStringAsFixed(0)} cm • ${dietProfile.edad} años • ${dietProfile.actividadLabel}'
                             : 'Sin configurar — toca para completar tu perfil',
                         onTap: () => DietProfileSheet.show(context),
+                      ),
+                      Divider(color: AppColors.glassBorderOf(context), height: 1),
+                      _SettingsItem(
+                        icon: Icons.fitness_center_rounded,
+                        iconColor: AppColors.neonPurple,
+                        title: 'Rutina y Entrenamiento',
+                        subtitle: workoutProfile.isComplete
+                            ? '${workoutProfile.objetivoLabel} • ${workoutProfile.nivelLabel} • ${workoutProfile.diasPorSemana} días/semana'
+                            : 'Sin configurar — toca para generar tu rutina',
+                        onTap: () => WorkoutProfileSheet.show(context),
                       ),
                       Divider(color: AppColors.glassBorderOf(context), height: 1),
                       _SettingsSwitchItem(

@@ -13,6 +13,7 @@ import '../../../payment/presentation/providers/payment_provider.dart';
 import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../../subscription/presentation/providers/subscription_provider.dart';
 import '../providers/workout_provider.dart';
+import '../widgets/workout_profile_sheet.dart';
 import 'workout_plan_screen.dart';
 
 class WorkoutMainScreen extends ConsumerWidget {
@@ -165,7 +166,7 @@ class WorkoutMainScreen extends ConsumerWidget {
               Text('Generador de Rutinas IA', style: AppTypography.displayMedium),
               const SizedBox(height: 12),
               Text(
-                'Calculamos tus series, descansos y foco anatómico en base a tus objetivos.',
+                'Armamos tu rutina con ejercicios reales del catálogo wger, en base a tu objetivo, nivel y tus datos.',
                 style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
@@ -177,11 +178,7 @@ class WorkoutMainScreen extends ConsumerWidget {
                   backgroundColor: AppColors.neonPurple,
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
                 ),
-                onPressed: () => ref.read(workoutProvider.notifier).generateRoutinePlan(
-                  objetivo: 'hipertrofia',
-                  nivel: 'intermedio',
-                  lesiones: const ['ninguna'],
-                ),
+                onPressed: () => WorkoutProfileSheet.show(context),
               ),
             ],
           ),

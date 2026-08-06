@@ -15,6 +15,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/workout_entities.dart';
 import '../../domain/muscle_catalog.dart';
 import '../widgets/interactive_anatomy_map.dart';
+import '../widgets/workout_profile_sheet.dart';
 
 class WorkoutPlanScreen extends ConsumerStatefulWidget {
   const WorkoutPlanScreen({super.key, required this.plan});
@@ -150,6 +151,14 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
                 ),
               ),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: AppColors.neonPurple),
+                tooltip: 'Regenerar rutina con IA',
+                onPressed: () => WorkoutProfileSheet.show(context),
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
 
           // ── TABS DE DÍAS ────────────────────────────────────────────────

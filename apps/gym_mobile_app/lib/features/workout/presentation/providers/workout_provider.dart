@@ -1,12 +1,87 @@
 /// @file lib/features/workout/presentation/providers/workout_provider.dart
-/// @description Proveedor Riverpod para el estado del plan de rutina IA con datos anatómicos.
+/// @description Proveedor Riverpod para el estado del plan de rutina IA. La rutina
+/// se genera EN EL BACKEND (ai-service), que arma los ejercicios a partir del
+/// catálogo de wger y de las características del socio. Ya NO hay plan mock local:
+/// arranca sin plan hasta que el socio genera con sus datos reales.
+
+import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/workout_entities.dart';
+
+/// Perfil de entrenamiento del socio: los datos que alimentan la generación de
+/// rutinas del ai-service (objetivo, nivel, días/semana, lesiones). Se persiste
+/// y se edita desde el formulario o desde Ajustes.
+class WorkoutProfile {
+  const WorkoutProfile({
+    this.objetivo = 'hipertrofia',
+    this.nivel = 'intermedio',
+    this.diasPorSemana = 4,
+    this.lesiones = 'ninguna',
+    this.isComplete = false,
+  });
+
+  final String objetivo;
+  final String nivel;
+  final int diasPorSemana;
+  final String lesiones;
+
+  /// true una vez que el socio generó/guardó con sus propios datos.
+  final bool isComplete;
+
+  static const Map<String, String> objetivoLabels = {
+    'hipertrofia': 'Hipertrofia',
+    'fuerza': 'Fuerza',
+    'resistencia': 'Resistencia',
+    'perdida_grasa': 'Pérdida de grasa',
+  };
+  static const Map<String, String> nivelLabels = {
+    'principiante': 'Principiante',
+    'intermedio': 'Intermedio',
+    'avanzado': 'Avanzado',
+  };
+
+  String get objetivoLabel => objetivoLabels[objetivo] ?? objetivo;
+  String get nivelLabel => nivelLabels[nivel] ?? nivel;
+
+  WorkoutProfile copyWith({
+    String? objetivo,
+    String? nivel,
+    int? diasPorSemana,
+    String? lesiones,
+    bool? isComplete,
+  }) {
+    return WorkoutProfile(
+      objetivo: objetivo ?? this.objetivo,
+      nivel: nivel ?? this.nivel,
+      diasPorSemana: diasPorSemana ?? this.diasPorSemana,
+      lesiones: lesiones ?? this.lesiones,
+      isComplete: isComplete ?? this.isComplete,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'objetivo': objetivo,
+        'nivel': nivel,
+        'diasPorSemana': diasPorSemana,
+        'lesiones': lesiones,
+        'isComplete': isComplete,
+      };
+
+  factory WorkoutProfile.fromJson(Map<String, dynamic> j) => WorkoutProfile(
+        objetivo: (j['objetivo'] as String?) ?? 'hipertrofia',
+        nivel: (j['nivel'] as String?) ?? 'intermedio',
+        diasPorSemana: (j['diasPorSemana'] as num?)?.toInt() ?? 4,
+        lesiones: (j['lesiones'] as String?) ?? 'ninguna',
+        isComplete: (j['isComplete'] as bool?) ?? true,
+      );
+}
 
 // Estado de la pantalla de rutina
 class WorkoutState {
@@ -14,46 +89,92 @@ class WorkoutState {
     this.plan,
     this.isLoading = false,
     this.error,
+    this.profile = const WorkoutProfile(),
   });
 
   final WorkoutPlan? plan;
   final bool isLoading;
   final String? error;
 
-  WorkoutState copyWith({WorkoutPlan? plan, bool? isLoading, String? error}) {
+  /// Perfil actual del socio (persistido). isComplete=false hasta configurarlo.
+  final WorkoutProfile profile;
+
+  WorkoutState copyWith({
+    WorkoutPlan? plan,
+    bool? isLoading,
+    String? error,
+    WorkoutProfile? profile,
+  }) {
     return WorkoutState(
       plan:      plan ?? this.plan,
       isLoading: isLoading ?? this.isLoading,
       error:     error,
+      profile:   profile ?? this.profile,
     );
   }
 }
 
 class WorkoutNotifier extends StateNotifier<WorkoutState> {
-  WorkoutNotifier(this._apiClient) : super(const WorkoutState()) {
-    // Cargar plan o fallback al iniciar
-    if (state.plan == null) {
-      state = state.copyWith(plan: _fallbackPlan);
-    }
+  // Arranca SIN plan (plan == null): la pantalla muestra "genera tu rutina" hasta
+  // que el socio la crea con sus datos reales. Ya NO cargamos un plan mock.
+  WorkoutNotifier(this._apiClient, this._storage) : super(const WorkoutState()) {
+    _loadProfile();
   }
 
   final ApiClient _apiClient;
+  final SecureStorageService _storage;
 
-  /// Solicita al ai-service en Railway una nueva rutina personalizada
+  /// Carga el perfil de entrenamiento persistido al arrancar (para prellenar el
+  /// formulario y que Ajustes muestre los datos reales). No genera rutina sola.
+  Future<void> _loadProfile() async {
+    final json = await _storage.getWorkoutProfile();
+    if (json == null) return;
+    final p = WorkoutProfile.fromJson(json);
+    if (mounted) state = state.copyWith(profile: p);
+  }
+
+  Future<void> _persistProfile(WorkoutProfile p) =>
+      _storage.saveWorkoutProfile(p.toJson());
+
+  /// Solicita al ai-service (Railway) una nueva rutina personalizada. El backend
+  /// arma los ejercicios desde el catálogo de wger y aplica las características
+  /// del socio. Los datos físicos (peso/estatura/edad/actividad) se toman del
+  /// perfil de dieta persistido para que la rutina también los considere.
   Future<void> generateRoutinePlan({
-    required String objetivo,
-    required String nivel,
-    required List<String> lesiones,
+    String? objetivo,
+    String? nivel,
+    int? diasPorSemana,
+    String? lesiones,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    final profile = state.profile.copyWith(
+      objetivo: objetivo,
+      nivel: nivel,
+      diasPorSemana: diasPorSemana,
+      lesiones: lesiones,
+      isComplete: true,
+    );
+    unawaited(_persistProfile(profile));
+
+    state = state.copyWith(isLoading: true, error: null, profile: profile);
 
     try {
+      // Datos físicos compartidos desde el perfil de dieta (si existe).
+      final diet = await _storage.getDietProfile();
+
       final response = await _apiClient.dio.post(
-        '/api/v1/ai/routine',
+        // URL ABSOLUTA del ai-service. Antes era '/api/v1/ai/routine' relativa →
+        // se resolvía contra el baseUrl del dio (auth-service) → 404 → la app se
+        // quedaba con el plan MOCK. El endpoint real es /recommendations/routine.
+        '${AppConfig.aiServiceBaseUrl}/recommendations/routine',
         data: {
-          'objetivo':      objetivo,
-          'nivel':         nivel,
-          'lesiones':      lesiones,
+          'objetivo':      profile.objetivo,
+          'nivel':         profile.nivel,
+          'diasPorSemana': profile.diasPorSemana,
+          'lesiones':      profile.lesiones,
+          if (diet != null) 'pesoKg':     diet['pesoKg'],
+          if (diet != null) 'estaturaCm': diet['estaturaCm'],
+          if (diet != null) 'edad':       diet['edad'],
+          if (diet != null) 'actividad':  diet['actividad'],
         },
       );
 
@@ -71,177 +192,34 @@ class WorkoutNotifier extends StateNotifier<WorkoutState> {
     } on DioException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.message ?? 'Error de conexión. Mostrando rutina demostrativa.',
+        error: e.message ?? 'Error de conexión al generar tu rutina.',
       );
     }
   }
 
-  /// Plan demostrativo offline enriquecido con mapeo anatómico exacto (Fitia / Jefit style)
-  static const WorkoutPlan _fallbackPlan = WorkoutPlan(
-    nombre: 'Hipertrofia Estética — División 4 Días',
-    descripcion: 'Enfoque en proporción anatómica en forma de V (Hombros anchos, cintura compacta y piernas fuertes).',
-    nivel: 'intermedio',
-    objetivo: 'hipertrofia',
-    dias: [
-      WorkoutDay(
-        dia: 'Día 1 — Pecho y Tríceps (Empuje)',
-        enfoqueMusculares: ['Fuerza Superior y Tensión Mecánica'],
-        ejercicios: [
-          WorkoutExercise(
-            ejercicioId: 'wger-123',
-            nombre: 'Press de Banca Inclinado con Mancuernas',
-            musculos_primarios: ['pectoral_mayor_superior', 'triceps_braquial'],
-            musculos_secundarios: ['deltoides_anterior'],
-            series: 4,
-            repeticiones: '8-10',
-            descansoSeg: 90,
-            notas: 'Contrae 2 segundos arriba. Ángulo de banca a 30° exactos.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-124',
-            nombre: 'Fondos en Paralelas con Lastre (Dips)',
-            musculos_primarios: ['pectoral_mayor_inferior', 'triceps_braquial'],
-            musculos_secundarios: ['deltoides_anterior'],
-            series: 4,
-            repeticiones: '10-12',
-            descansoSeg: 75,
-            notas: 'Inclina el torso ligeramente al frente para enfatizar el pectoral inferior.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-125',
-            nombre: 'Aperturas en Polea Alta (Crossover)',
-            musculos_primarios: ['pectoral_mayor_medio'],
-            musculos_secundarios: [],
-            series: 3,
-            repeticiones: '12-15',
-            descansoSeg: 60,
-            notas: 'Cruza las manos al frente y mantén contracción isométrica 1 segundo.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-126',
-            nombre: 'Extensión de Tríceps en Polea con Cuerda',
-            musculos_primarios: ['triceps_braquial'],
-            musculos_secundarios: ['anconeo'],
-            series: 4,
-            repeticiones: '12-15',
-            descansoSeg: 60,
-            notas: 'Separa la cuerda al final del movimiento abriendo las muñecas.',
-          ),
-        ],
-      ),
-      WorkoutDay(
-        dia: 'Día 2 — Espalda y Bíceps (Tracción)',
-        enfoqueMusculares: ['Amplitud dorsal y densidad del core'],
-        ejercicios: [
-          WorkoutExercise(
-            ejercicioId: 'wger-201',
-            nombre: 'Dominadas Pronadas con Carga (Pull-ups)',
-            musculos_primarios: ['dorsal_ancho'],
-            musculos_secundarios: ['biceps_braquial', 'trapecio', 'romboide'],
-            series: 4,
-            repeticiones: '6-8',
-            descansoSeg: 120,
-            notas: 'Rango de recorrido completo desde bloqueo escapular inferior.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-202',
-            nombre: 'Remo con Barra Pendlay',
-            musculos_primarios: ['dorsal_ancho', 'trapecio', 'romboide'],
-            musculos_secundarios: ['biceps_braquial', 'erector_espinal'],
-            series: 4,
-            repeticiones: '8-10',
-            descansoSeg: 90,
-            notas: 'Torso paralelo al suelo. Explosivo concéntrico y control excéntrico.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-203',
-            nombre: 'Curl de Bíceps con Barra EZ en Banco Scott',
-            musculos_primarios: ['biceps_braquial', 'braquial_anterior'],
-            musculos_secundarios: ['braquiorradial'],
-            series: 4,
-            repeticiones: '10-12',
-            descansoSeg: 60,
-            notas: 'Mantén los codos pegados al cojín sin balanceo.',
-          ),
-        ],
-      ),
-      WorkoutDay(
-        dia: 'Día 3 — Pierna Completa (Cuádriceps & Glúteo)',
-        enfoqueMusculares: ['Desarrollo de tren inferior y estabilidad'],
-        ejercicios: [
-          WorkoutExercise(
-            ejercicioId: 'wger-301',
-            nombre: 'Sentadilla Trasera con Barra Alta (Back Squat)',
-            musculos_primarios: ['cuadriceps', 'gluteo_mayor'],
-            musculos_secundarios: ['isquiotibiales', 'erector_espinal'],
-            series: 5,
-            repeticiones: '6-8',
-            descansoSeg: 150,
-            notas: 'Profundidad bajo la paralela con core activo en todo momento.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-302',
-            nombre: 'Prensa Inclinada a 45 Grados',
-            musculos_primarios: ['cuadriceps'],
-            musculos_secundarios: ['gluteo_mayor'],
-            series: 4,
-            repeticiones: '12-15',
-            descansoSeg: 90,
-            notas: 'No bloquees las rodillas al extender en la parte superior.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-303',
-            nombre: 'Elevación de Talones de Pie para Pantorrilla',
-            musculos_primarios: ['gastrocnemio', 'soleo'],
-            musculos_secundarios: [],
-            series: 4,
-            repeticiones: '15-20',
-            descansoSeg: 45,
-            notas: 'Pausa de 2 segundos en el máximo estiramiento inferior.',
-          ),
-        ],
-      ),
-      WorkoutDay(
-        dia: 'Día 4 — Hombro y Core (Deltoides & Abdomen)',
-        enfoqueMusculares: ['Estética 3D de hombro y cinturón abdominal'],
-        ejercicios: [
-          WorkoutExercise(
-            ejercicioId: 'wger-401',
-            nombre: 'Press Militar con Mancuernas Sentado',
-            musculos_primarios: ['deltoides_anterior', 'deltoides_lateral'],
-            musculos_secundarios: ['triceps_braquial', 'trapecio'],
-            series: 4,
-            repeticiones: '8-10',
-            descansoSeg: 90,
-            notas: 'Empuje vertical sin arquería excesiva en la zona lumbar.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-402',
-            nombre: 'Elevaciones Laterales con Polea Baja',
-            musculos_primarios: ['deltoides_lateral'],
-            musculos_secundarios: [],
-            series: 4,
-            repeticiones: '12-15',
-            descansoSeg: 60,
-            notas: 'Tensión constante en todo el recorrido cruzando el cable tras el cuerpo.',
-          ),
-          WorkoutExercise(
-            ejercicioId: 'wger-403',
-            nombre: 'Elevación de Piernas Colgado en Barra (Hanging Leg Raise)',
-            musculos_primarios: ['recto_abdominal', 'oblicuos'],
-            musculos_secundarios: [],
-            series: 4,
-            repeticiones: '12-15',
-            descansoSeg: 60,
-            notas: 'Enróscate elevando la pelvis, no solo flexionando las caderas.',
-          ),
-        ],
-      ),
-    ],
-  );
+  /// Guarda el perfil editado desde Ajustes. Persiste y, si ya existe una rutina
+  /// generada, la recalcula con los nuevos datos.
+  Future<void> updateProfile({
+    String? objetivo,
+    String? nivel,
+    int? diasPorSemana,
+    String? lesiones,
+  }) async {
+    final p = state.profile.copyWith(
+      objetivo: objetivo,
+      nivel: nivel,
+      diasPorSemana: diasPorSemana,
+      lesiones: lesiones,
+      isComplete: true,
+    );
+    state = state.copyWith(profile: p);
+    await _persistProfile(p);
+    if (state.plan != null) await generateRoutinePlan();
+  }
 }
 
 final workoutProvider = StateNotifierProvider<WorkoutNotifier, WorkoutState>((ref) {
   final api = ref.watch(apiClientProvider);
-  return WorkoutNotifier(api);
+  final storage = ref.watch(secureStorageProvider);
+  return WorkoutNotifier(api, storage);
 });

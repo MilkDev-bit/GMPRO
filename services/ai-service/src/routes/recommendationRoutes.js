@@ -28,6 +28,11 @@ router.post(
   [
     body('objetivo').optional().isString(),
     body('diasPorSemana').optional().isInt({ min: 1, max: 7 }),
+    body('nivel').optional().isString(),
+    body('pesoKg').optional().isNumeric(),
+    body('estaturaCm').optional().isNumeric(),
+    body('edad').optional().isInt({ min: 12, max: 100 }),
+    body('actividad').optional().isString(),
   ],
   validate,
   recommendationController.generateRoutinePlan

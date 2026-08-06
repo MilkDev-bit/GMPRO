@@ -80,6 +80,24 @@ class SecureStorageService {
     return null;
   }
 
+  /// Guarda el perfil de entrenamiento (objetivo, nivel, días/semana, lesiones).
+  Future<void> saveWorkoutProfile(Map<String, dynamic> profile) async {
+    await _storage.write(key: AppConfig.keyWorkoutProfile, value: jsonEncode(profile));
+  }
+
+  /// Recupera el perfil de entrenamiento persistido, o null si no se ha configurado.
+  Future<Map<String, dynamic>?> getWorkoutProfile() async {
+    final jsonStr = await _storage.read(key: AppConfig.keyWorkoutProfile);
+    if (jsonStr != null && jsonStr.isNotEmpty) {
+      try {
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   /// Obtiene el mapa del perfil de usuario almacenado localmente.
   Future<Map<String, dynamic>?> getUserData() async {
     const key = AppConfig.keyUserData;

@@ -99,6 +99,10 @@ async function generateRoutinePlan(req, res, next) {
       diasPorSemana = 4,
       nivel         = 'intermedio',
       lesiones      = 'ninguna',
+      pesoKg        = null,
+      estaturaCm    = null,
+      edad          = null,
+      actividad     = null,
     } = req.body;
 
     const checkLesiones = sanitizerService.sanitizeUserPrompt(lesiones);
@@ -111,16 +115,20 @@ async function generateRoutinePlan(req, res, next) {
     // Se sanean igual que `lesiones`.
     const checkObjetivo = sanitizerService.sanitizeUserPrompt(objetivo);
     const checkNivel    = sanitizerService.sanitizeUserPrompt(nivel);
-    if (!checkObjetivo.isValid || !checkNivel.isValid) {
+    const checkActividad = actividad != null
+      ? sanitizerService.sanitizeUserPrompt(String(actividad))
+      : { isValid: true, sanitized: '' };
+    if (!checkObjetivo.isValid || !checkNivel.isValid || !checkActividad.isValid) {
       return res.status(400).json({
         success: false, data: null,
-        error: (checkObjetivo.rejectionReason || checkNivel.rejectionReason),
+        error: (checkObjetivo.rejectionReason || checkNivel.rejectionReason || checkActividad.rejectionReason),
       });
     }
 
     // ── Caché: si el mismo perfil ya generó plan, responder al instante ───────
     const cacheKey = buildCacheKey('routine', usuarioId, {
       objetivo, diasPorSemana, nivel, lesiones: checkLesiones.sanitized,
+      pesoKg, estaturaCm, edad, actividad: checkActividad.sanitized,
     });
     const cached = await readCache(req.redisClient, cacheKey);
     if (cached) {
@@ -151,12 +159,23 @@ información para diseñar la rutina.`;
     // la delimitación + la cláusula de seguridad de arriba evitan que el
     // input redefina la tarea. Nota: el prompt de sistema NO contiene
     // secretos, así que "devuélveme el JWT_SECRET" no tiene qué exfiltrar.
+    // Datos físicos del socio (peso/estatura/edad/actividad). Si el cliente los
+    // envía, se anteponen a las mediciones del fitness-service para personalizar
+    // volumen e intensidad. Sólo se incluyen las líneas presentes.
+    const datosFisicos = [
+      pesoKg != null ? `peso_kg: ${Number(pesoKg)}` : null,
+      estaturaCm != null ? `estatura_cm: ${Number(estaturaCm)}` : null,
+      edad != null ? `edad: ${Number(edad)}` : null,
+      checkActividad.sanitized ? `actividad: ${checkActividad.sanitized}` : null,
+    ].filter(Boolean).join('\n');
+
     const userPrompt = `Genera el plan con estos parámetros del socio:
 <datos_socio>
 dias_por_semana: ${diasPorSemana}
 objetivo: ${checkObjetivo.sanitized}
 nivel: ${checkNivel.sanitized}
 lesiones_restricciones: ${checkLesiones.sanitized}
+${datosFisicos}
 mediciones_recientes: ${JSON.stringify(userContext.ultimas_mediciones || [])}
 </datos_socio>`;
 
