@@ -199,10 +199,13 @@ class _OtpBoxState extends State<_OtpBox> {
               focusNode: widget.focusNode,
               enabled: widget.enabled,
               textAlign: TextAlign.center,
-              // Centra el dígito VERTICALMENTE dentro del recuadro. Antes quedaba
-              // pegado arriba (textAlignVertical por defecto + line-height del
-              // displayMedium + contentPadding sin colapsar).
+              // Centrado vertical robusto: `expands` hace que el TextField llene
+              // el alto del recuadro (60px) y `textAlignVertical.center` centra el
+              // dígito. Antes quedaba pegado arriba.
               textAlignVertical: TextAlignVertical.center,
+              expands: true,
+              maxLines: null,
+              minLines: null,
               keyboardType: TextInputType.number,
               maxLength: 1,
               cursorColor: accent,
