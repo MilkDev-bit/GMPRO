@@ -69,8 +69,13 @@ class SubscriptionNotifier extends StateNotifier<AsyncValue<UserSubscription>> {
 
   /// Consulta el estatus de membresía contra el microservicio.
   Future<void> fetchSubscription() async {
+    if (!mounted) return;
     state = const AsyncValue.loading();
     final result = await _getSubscriptionStatus();
+    // El provider puede haberse dispuesto durante el await (un cambio de auth
+    // recrea el notifier, o un refresco encolado tras volver del pago). Sin este
+    // guard: "Bad state: Tried to use SubscriptionNotifier after dispose".
+    if (!mounted) return;
     result.fold(
       (failure) {
         // Si falló por 402 Payment Required u offline, asumimos estado past_due por seguridad

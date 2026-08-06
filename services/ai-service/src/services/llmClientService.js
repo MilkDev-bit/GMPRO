@@ -219,8 +219,8 @@ async function generateStructuredContent(systemPrompt, userPrompt, options = fal
 
   try {
     if (provider === 'gemini') {
-      const model = useProModel ? (env.GEMINI_MODEL_PRO || 'gemini-2.5-pro') : (env.GEMINI_MODEL || 'gemini-2.0-flash');
-      const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+      const primaryModel  = useProModel ? (env.GEMINI_MODEL_PRO || 'gemini-2.5-pro') : (env.GEMINI_MODEL || 'gemini-2.0-flash');
+      const fallbackModel = env.GEMINI_MODEL || 'gemini-2.0-flash';
 
       const generationConfig = {
         temperature:      env.AI_TEMPERATURE || 0.3,
@@ -230,23 +230,42 @@ async function generateStructuredContent(systemPrompt, userPrompt, options = fal
       // Salida estructurada nativa: el modelo no puede desviarse del esquema.
       if (responseSchema) generationConfig.responseSchema = responseSchema;
 
-      const response = await fetch(url, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-          generationConfig,
-        }),
-        signal: controller.signal,
-      });
+      const callGemini = async (model) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
+        const response = await fetch(url, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            generationConfig,
+          }),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          const e = new Error(`Gemini API Error (${response.status}): ${errText}`);
+          e.status = response.status;
+          throw e;
+        }
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      };
 
-      if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+      try {
+        return await callGemini(primaryModel);
+      } catch (err) {
+        // Si el modelo PRO no existe / no está disponible para esta API key (404),
+        // caemos al modelo base (flash) para no dejar la generación sin respuesta.
+        // Antes, un 404 del modelo pro tumbaba toda la rutina/dieta con HTTP 500.
+        if (err.status === 404 && primaryModel !== fallbackModel) {
+          logger.warn('Modelo Gemini pro no disponible (404); usando fallback', {
+            primaryModel, fallbackModel,
+          });
+          return await callGemini(fallbackModel);
+        }
+        throw err;
       }
-      const data = await response.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     } else {
       const model = useProModel ? (env.OPENAI_MODEL_PRO || 'gpt-4o') : (env.OPENAI_MODEL || 'gpt-4o-mini');
       const url   = 'https://api.openai.com/v1/chat/completions';

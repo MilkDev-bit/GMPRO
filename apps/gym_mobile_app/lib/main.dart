@@ -170,6 +170,54 @@ class _GymProAppState extends ConsumerState<GymProApp> {
               ? const AppShell(key: ValueKey('shell'))
               : const LoginScreen(key: ValueKey('login')),
         ),
+        // El deep link de retorno de Stripe (gympro://payment/success|cancel)
+        // reabre la app y Flutter lo entrega como ruta con nombre ("/success",
+        // "/cancel"). Sin manejarla, el Navigator lanzaba "Could not find a
+        // generator for route". Estas rutas solo consumen el enlace y vuelven al
+        // home reactivo (la activación de membresía la hace el refresco del shell).
+        onGenerateRoute: (settings) {
+          const paymentPaths = {'/success', '/cancel', '/payment/success', '/payment/cancel'};
+          if (paymentPaths.contains(settings.name)) {
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => const _PaymentReturnHandler(),
+            );
+          }
+          return null;
+        },
+        onUnknownRoute: (settings) => MaterialPageRoute(
+          builder: (_) => const _PaymentReturnHandler(),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pantalla efímera que consume el deep link de retorno de pago: vuelve al home
+/// reactivo (AppShell/LoginScreen) sin dejar rutas colgando encima.
+class _PaymentReturnHandler extends StatefulWidget {
+  const _PaymentReturnHandler();
+
+  @override
+  State<_PaymentReturnHandler> createState() => _PaymentReturnHandlerState();
+}
+
+class _PaymentReturnHandlerState extends State<_PaymentReturnHandler> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF0C0A18),
+      body: Center(
+        child: CircularProgressIndicator(color: Color(0xFF4FD6E0)),
       ),
     );
   }
