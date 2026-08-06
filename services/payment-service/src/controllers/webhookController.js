@@ -261,6 +261,45 @@ async function handleStripeWebhook(req, res) {
  * Idempotencia: este handler corre bajo el claim atómico del event_id, por lo que
  * cada checkout.session.completed se procesa una sola vez → un único incremento.
  */
+/** Normaliza un campo que puede venir como string (id) o como objeto expandido. */
+function idOf(v) {
+  return v && typeof v === 'object' ? v.id : (v || null);
+}
+
+/**
+ * Extrae el ID de suscripción de un invoice cubriendo las distintas ubicaciones
+ * según la versión de la API de Stripe. En 2024-11-20.acacia+ `invoice.subscription`
+ * puede venir null y el dato vive en `invoice.parent.subscription_details.subscription`
+ * o a nivel de línea. Antes, con invoice.subscription null, el pago se ignoraba
+ * como "pago único" y la membresía NUNCA se activaba.
+ */
+function resolveInvoiceSubscriptionId(invoice) {
+  return idOf(
+    invoice.subscription ||
+    invoice.parent?.subscription_details?.subscription ||
+    invoice.lines?.data?.find((l) => l.subscription)?.subscription ||
+    invoice.lines?.data?.[0]?.parent?.subscription_item_details?.subscription ||
+    null,
+  );
+}
+
+/**
+ * Resuelve el período de facturación. En la API nueva `current_period_start/end`
+ * se movieron del objeto suscripción al ITEM (`items.data[0]`). Antes leerlos del
+ * nivel raíz daba `undefined` → `new Date(undefined*1000)` → "Invalid time value".
+ */
+function resolveSubscriptionPeriod(subscription) {
+  const item = subscription.items?.data?.[0];
+  const startUnix = subscription.current_period_start ?? item?.current_period_start;
+  const endUnix   = subscription.current_period_end   ?? item?.current_period_end;
+  const periodStart = startUnix ? new Date(startUnix * 1000) : new Date();
+  const periodEnd   = endUnix   ? new Date(endUnix   * 1000) : null;
+  const duracionDias = periodEnd
+    ? Math.max(1, Math.round((periodEnd - periodStart) / (1000 * 60 * 60 * 24)))
+    : 30;
+  return { periodStart, periodEnd, duracionDias };
+}
+
 async function handleCheckoutCompleted(event) {
   const session   = event.data.object;
   const offerCode = session.metadata?.offer_code;
@@ -315,10 +354,8 @@ async function activateSubscriptionFromStripe(subscriptionId, opts = {}) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
   const usuarioId    = subscription.metadata?.gympro_user_id || fallbackUserId || null;
-  const periodStart  = new Date(subscription.current_period_start * 1000);
-  const periodEnd    = new Date(subscription.current_period_end   * 1000);
-  const duracionDias = Math.round((periodEnd - periodStart) / (1000 * 60 * 60 * 24));
-  const proximoPagoEn = periodEnd.toISOString();
+  const { periodStart, periodEnd, duracionDias } = resolveSubscriptionPeriod(subscription);
+  const proximoPagoEn = (periodEnd || periodStart).toISOString();
   const precio = amountTotal != null
     ? amountTotal
     : (subscription.items.data[0]?.price?.unit_amount ?? 0) / 100;
@@ -339,7 +376,7 @@ async function activateSubscriptionFromStripe(subscriptionId, opts = {}) {
       metodo_pago:            'stripe',
       estado:                 'active',
       valido_desde:           periodStart.toISOString(),
-      valido_hasta:           periodEnd.toISOString(),
+      valido_hasta:           (periodEnd || periodStart).toISOString(),
       ultimo_pago_en:         new Date().toISOString(),
       proximo_pago_en:        proximoPagoEn,
       stripe_event_id_ultimo: eventId,
@@ -368,7 +405,7 @@ async function activateSubscriptionFromStripe(subscriptionId, opts = {}) {
  */
 async function handleInvoicePaid(event) {
   const invoice        = event.data.object;
-  const subscriptionId = invoice.subscription;
+  const subscriptionId = resolveInvoiceSubscriptionId(invoice);
   const customerId     = invoice.customer;
 
   if (!subscriptionId) {
@@ -384,12 +421,9 @@ async function handleInvoicePaid(event) {
   const stripe       = getStripeClient();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-  // Calcular duración del plan en días (del período de Stripe)
-  const periodStart    = new Date(subscription.current_period_start * 1000);
-  const periodEnd      = new Date(subscription.current_period_end   * 1000);
-  const duracionDias   = Math.round((periodEnd - periodStart) / (1000 * 60 * 60 * 24));
-
-  const proximoPagoEn = periodEnd.toISOString();
+  // Período de facturación (robusto a la API nueva: los campos viven en el item).
+  const { periodStart, periodEnd, duracionDias } = resolveSubscriptionPeriod(subscription);
+  const proximoPagoEn = (periodEnd || periodStart).toISOString();
 
   // Buscar suscripción en nuestra DB
   const localSub = await subscriptionModel.findByStripeSubscriptionId(subscriptionId);
@@ -416,7 +450,7 @@ async function handleInvoicePaid(event) {
       metodo_pago:            'stripe',
       estado:                 'active',
       valido_desde:           periodStart.toISOString(),
-      valido_hasta:           periodEnd.toISOString(),
+      valido_hasta:           (periodEnd || periodStart).toISOString(),
       ultimo_pago_en:         new Date().toISOString(),
       proximo_pago_en:        proximoPagoEn,
       stripe_event_id_ultimo: event.id,
@@ -457,7 +491,7 @@ async function handleInvoicePaid(event) {
         planNombre:       subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
         planDuracionDias: duracionDias,
         periodoDesde:     periodStart.toISOString(),
-        periodoHasta:     periodEnd.toISOString(),
+        periodoHasta:     (periodEnd || periodStart).toISOString(),
         stripeEventId:    event.id,
         numeroRecibo:     invoice.number || invoice.id,
       });
@@ -616,14 +650,17 @@ async function handleSubscriptionUpdated(event) {
     return;
   }
 
-  // Sincronizar período actual
-  const periodEnd = new Date(subscription.current_period_end * 1000);
+  // Sincronizar período actual. En la API nueva current_period_* vive en el item,
+  // no en el nivel raíz → leerlo directo daba "Invalid time value" y tumbaba el
+  // handler (por eso subscription.updated devolvía 400 y no activaba).
+  const { periodEnd, duracionDias } = resolveSubscriptionPeriod(subscription);
+  const proximoPagoEn = (periodEnd || new Date()).toISOString();
   try {
     await subscriptionModel.activateAfterPayment({
       stripeSubscriptionId: subscriptionId,
       stripeEventId:        event.id,
-      proximoPagoEn:        periodEnd.toISOString(),
-      duracionDias:         30, // Mantener duración estándar
+      proximoPagoEn,
+      duracionDias:         duracionDias || 30,
       usuarioId:            subscription.metadata?.gympro_user_id || null,
     });
   } catch (err) {
