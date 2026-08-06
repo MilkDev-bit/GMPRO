@@ -244,12 +244,48 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     } on DioException catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.message ?? 'Error de conexión. Manteniendo plan de alto rendimiento actual.',
+        error: _friendlyDioError(e),
       );
     }
   }
 
-  /// Busca alimentos en catalogo_alimentos de Open Food Facts a través del fitness-service.
+  /// Convierte un DioException en un mensaje amigable para el usuario.
+  /// Intenta extraer el mensaje del body JSON del backend (que ya viene en español)
+  /// y, si no puede, devuelve un fallback claro según el status code.
+  static String _friendlyDioError(DioException e) {
+    // Intentar extraer el mensaje del body JSON del backend
+    final data = e.response?.data;
+    if (data is Map<String, dynamic> && data['error'] is String) {
+      return data['error'] as String;
+    }
+
+    // Fallbacks por código HTTP
+    switch (e.response?.statusCode) {
+      case 429:
+        return 'Has alcanzado el límite de generaciones por hoy. '
+               'Intenta de nuevo mañana.';
+      case 401:
+        return 'Tu sesión expiró. Cierra sesión y vuelve a iniciar.';
+      case 403:
+        return 'No tienes permiso para esta acción. Verifica tu membresía.';
+      case 502:
+        return 'El servicio de IA no está disponible temporalmente. '
+               'Intenta en unos minutos.';
+      case 503:
+        return 'El servidor está en mantenimiento. Intenta en unos minutos.';
+      default:
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.sendTimeout) {
+          return 'La generación tardó demasiado. Verifica tu conexión e intenta de nuevo.';
+        }
+        if (e.type == DioExceptionType.connectionError) {
+          return 'Sin conexión a internet. Verifica tu red e intenta de nuevo.';
+        }
+        return 'Error al conectar con el servidor. Intenta de nuevo.';
+    }
+  }
+
   Future<void> searchOpenFoodFacts(String query) async {
     if (query.trim().isEmpty) {
       state = state.copyWith(searchResults: _quickAddSuggestedFoods, isSearching: false);
