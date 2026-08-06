@@ -354,12 +354,14 @@ async function handleInvoicePaid(event) {
     return;
   }
 
-  // Actualizar suscripción existente
+  // Actualizar suscripción existente (y RELLENAR usuario_id si quedó huérfana en
+  // un pago anterior — así deja de aparecer "inactivo" en la app).
   await subscriptionModel.activateAfterPayment({
     stripeSubscriptionId: subscriptionId,
     stripeEventId:        event.id,
     proximoPagoEn,
     duracionDias,
+    usuarioId:            subscription.metadata?.gympro_user_id || null,
   });
 
   logger.info('invoice.paid procesado', {
@@ -552,6 +554,7 @@ async function handleSubscriptionUpdated(event) {
       stripeEventId:        event.id,
       proximoPagoEn:        periodEnd.toISOString(),
       duracionDias:         30, // Mantener duración estándar
+      usuarioId:            subscription.metadata?.gympro_user_id || null,
     });
   } catch (err) {
     // Stripe envía subscription.updated e invoice.paid casi simultáneos: si el

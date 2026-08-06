@@ -109,6 +109,7 @@ async function activateAfterPayment({
   stripeEventId,
   proximoPagoEn = null,
   duracionDias  = 30,
+  usuarioId     = null,   // para RELLENAR usuario_id si la fila quedó huérfana
 }) {
   const ahora = new Date();
   const validoHasta = new Date(ahora);
@@ -118,6 +119,7 @@ async function activateAfterPayment({
     const { rows } = await query(
       `UPDATE suscripciones SET
          estado = 'active',
+         usuario_id = COALESCE(usuario_id, $6),  -- backfill si la fila era huérfana (sin usuario)
          valido_desde = $2,
          valido_hasta = $3,
          ultimo_pago_en = $2,
@@ -128,7 +130,7 @@ async function activateAfterPayment({
          actualizado_en = $2
        WHERE stripe_subscription_id = $1
        RETURNING ${SAFE_COLUMNS}`,
-      [stripeSubscriptionId, ahora.toISOString(), validoHasta.toISOString(), proximoPagoEn, stripeEventId],
+      [stripeSubscriptionId, ahora.toISOString(), validoHasta.toISOString(), proximoPagoEn, stripeEventId, usuarioId],
     );
     if (!rows[0]) throw new Error(`Suscripción no encontrada para stripe_subscription_id=${stripeSubscriptionId}`);
     const data = rows[0];
