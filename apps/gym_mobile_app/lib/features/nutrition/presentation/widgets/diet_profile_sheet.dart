@@ -38,6 +38,8 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
   late final TextEditingController _edad;
   String _objetivo = 'hipertrofia';
   String _actividad = 'moderado';
+  bool _submitting = false;
+  String? _error;
 
   static const Map<String, String> _objetivos = {
     'hipertrofia': 'Ganar músculo (hipertrofia)',
@@ -71,17 +73,33 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    ref.read(nutritionProvider.notifier).generateDietPlan(
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    // Esperamos el resultado: sólo cerramos si la generación tuvo éxito. Si falla,
+    // el formulario se queda abierto mostrando el error (antes se cerraba y el
+    // dashboard volvía a "completa tu perfil", pareciendo un bucle).
+    await ref.read(nutritionProvider.notifier).generateDietPlan(
           objetivo: _objetivo,
           pesoKg: double.tryParse(_peso.text.trim()),
           estaturaCm: double.tryParse(_estatura.text.trim()),
           edad: int.tryParse(_edad.text.trim()),
           actividad: _actividad,
         );
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    final err = ref.read(nutritionProvider).error;
+    if (err == null) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _submitting = false;
+        _error = err;
+      });
+    }
   }
 
   @override
@@ -113,35 +131,72 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
                 textAlign: TextAlign.center,
                 style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 22),
-              _dropdown('Objetivo', _objetivo, _objetivos, (v) => setState(() => _objetivo = v ?? _objetivo)),
-              const SizedBox(height: 14),
+              const SizedBox(height: 24),
+              _label('Objetivo'),
+              const SizedBox(height: 8),
+              _dropdown(_objetivo, _objetivos, (v) => setState(() => _objetivo = v ?? _objetivo)),
+              const SizedBox(height: 18),
+              _label('Datos físicos'),
+              const SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _numField(_peso, 'Peso (kg)', 30, 300)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _numField(_estatura, 'Estatura (cm)', 100, 230)),
+                  Expanded(child: _numField(_peso, 'Peso', 'kg', 30, 300)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _numField(_estatura, 'Estatura', 'cm', 100, 230)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _numField(_edad, 'Edad', 'años', 12, 100)),
                 ],
               ),
-              const SizedBox(height: 14),
-              _numField(_edad, 'Edad', 12, 100),
-              const SizedBox(height: 14),
-              _dropdown('Nivel de actividad', _actividad, _actividades, (v) => setState(() => _actividad = v ?? _actividad)),
+              const SizedBox(height: 18),
+              _label('Nivel de actividad'),
+              const SizedBox(height: 8),
+              _dropdown(_actividad, _actividades, (v) => setState(() => _actividad = v ?? _actividad)),
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: AppTypography.bodyMedium.copyWith(color: Colors.redAccent, fontSize: 12.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 20),
-                  label: Text('Generar plan con IA',
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.black),
+                        )
+                      : const Icon(Icons.auto_awesome_rounded, size: 20),
+                  label: Text(_submitting ? 'Generando tu plan...' : 'Generar plan con IA',
                       style: AppTypography.buttonLabel.copyWith(color: Colors.black)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.neonCyan,
                     foregroundColor: Colors.black,
+                    disabledBackgroundColor: AppColors.neonCyan.withValues(alpha: 0.6),
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: _submit,
+                  onPressed: _submitting ? null : _submit,
                 ),
               ),
             ],
@@ -151,30 +206,48 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
     );
   }
 
-  Widget _numField(TextEditingController c, String label, int min, int max) {
+  Widget _label(String text) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text.toUpperCase(),
+        style: AppTypography.bodyMedium.copyWith(
+          color: AppColors.textMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
+  Widget _numField(TextEditingController c, String hint, String suffix, int min, int max) {
     return TextFormField(
       controller: c,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-      decoration: _decoration(label),
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+      decoration: _decoration(hint: hint, suffix: suffix),
       validator: (v) {
         final n = int.tryParse((v ?? '').trim());
-        if (n == null || n < min || n > max) return 'Entre $min y $max';
+        if (n == null || n < min || n > max) return '$min–$max';
         return null;
       },
     );
   }
 
-  Widget _dropdown(String label, String value, Map<String, String> options, ValueChanged<String?> onChanged) {
+  Widget _dropdown(String value, Map<String, String> options, ValueChanged<String?> onChanged) {
     return InputDecorator(
-      decoration: _decoration(label),
+      decoration: _decoration(),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
+          isDense: true,
           dropdownColor: AppColors.surfaceElevated,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          borderRadius: BorderRadius.circular(14),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textMuted),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
           items: options.entries
               .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
               .toList(),
@@ -184,11 +257,14 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
     );
   }
 
-  InputDecoration _decoration(String label) {
+  InputDecoration _decoration({String? hint, String? suffix}) {
     return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: AppColors.textMuted),
-      floatingLabelStyle: const TextStyle(color: AppColors.neonCyan),
+      isDense: true,
+      hintText: hint,
+      hintStyle: const TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w500, fontSize: 14),
+      suffixText: suffix,
+      suffixStyle: const TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w600, fontSize: 13),
+      errorStyle: const TextStyle(fontSize: 10.5, height: 0.9),
       filled: true,
       fillColor: AppColors.surfaceElevated,
       enabledBorder: OutlineInputBorder(
@@ -199,7 +275,15 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: AppColors.neonCyan, width: 1.4),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
     );
   }
 }

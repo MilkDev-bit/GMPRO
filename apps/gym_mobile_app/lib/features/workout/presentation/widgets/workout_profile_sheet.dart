@@ -37,6 +37,8 @@ class _WorkoutProfileSheetState extends ConsumerState<WorkoutProfileSheet> {
   String _objetivo = 'hipertrofia';
   String _nivel = 'intermedio';
   int _dias = 4;
+  bool _submitting = false;
+  String? _error;
 
   static const Map<String, String> _objetivos = {
     'hipertrofia': 'Ganar músculo (hipertrofia)',
@@ -68,17 +70,33 @@ class _WorkoutProfileSheetState extends ConsumerState<WorkoutProfileSheet> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
     final lesiones = _lesiones.text.trim();
-    ref.read(workoutProvider.notifier).generateRoutinePlan(
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    // Esperamos el resultado: sólo cerramos si la generación tuvo éxito. Si falla,
+    // el formulario se queda abierto mostrando el error (en vez de cerrarse y
+    // parecer un bucle).
+    await ref.read(workoutProvider.notifier).generateRoutinePlan(
           objetivo: _objetivo,
           nivel: _nivel,
           diasPorSemana: _dias,
           lesiones: lesiones.isEmpty ? 'ninguna' : lesiones,
         );
-    Navigator.of(context).pop();
+    if (!mounted) return;
+    final err = ref.read(workoutProvider).error;
+    if (err == null) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _submitting = false;
+        _error = err;
+      });
+    }
   }
 
   @override
@@ -123,21 +141,51 @@ class _WorkoutProfileSheetState extends ConsumerState<WorkoutProfileSheet> {
                 decoration: _decoration('Lesiones / limitaciones (opcional)'),
                 maxLines: 2,
               ),
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: AppTypography.bodyMedium.copyWith(color: Colors.redAccent, fontSize: 12.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.bolt_rounded, size: 20),
-                  label: Text('Generar rutina con IA',
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                        )
+                      : const Icon(Icons.bolt_rounded, size: 20),
+                  label: Text(_submitting ? 'Generando tu rutina...' : 'Generar rutina con IA',
                       style: AppTypography.buttonLabel.copyWith(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.neonPurple,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppColors.neonPurple.withValues(alpha: 0.6),
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: _submit,
+                  onPressed: _submitting ? null : _submit,
                 ),
               ),
             ],
