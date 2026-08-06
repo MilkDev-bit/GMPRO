@@ -54,10 +54,13 @@ class PaymentNotifier extends StateNotifier<PaymentCheckoutState> {
     if (state.status == PaymentCheckoutStatus.loading) return false;
     state = const PaymentCheckoutState(status: PaymentCheckoutStatus.loading);
 
+    // Stripe SOLO acepta http/https en success/cancel_url (el deep link
+    // gympro:// fallaba la validación → 422 "URL inválida"). Usamos el dominio
+    // propio gmpro.lat como URL de retorno https válida.
     final result = await _createCheckoutSession(
       priceId: priceId,
-      successUrl: 'gympro://payment/success',
-      cancelUrl: 'gympro://payment/cancel',
+      successUrl: 'https://gmpro.lat/payment/success',
+      cancelUrl: 'https://gmpro.lat/payment/cancel',
     );
 
     return await result.fold(
