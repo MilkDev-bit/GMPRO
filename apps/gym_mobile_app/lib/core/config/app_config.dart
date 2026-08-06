@@ -144,6 +144,10 @@ class AppConfig {
   /// Persistido para prellenar el formulario y editarlo desde Ajustes.
   static const String keyWorkoutProfile = 'gympro_workout_profile';
 
+  /// Ruta local de la foto de perfil elegida por el socio (en el directorio de
+  /// documentos de la app). null = usar el avatar con inicial por defecto.
+  static const String keyAvatarPath = 'gympro_avatar_path';
+
   /// Conjunto de HOSTS propios del backend (derivado de las base URLs).
   /// Úsalo para decidir a quién se le adjunta el Bearer token: NUNCA se debe
   /// enviar el JWT a un host que no esté aquí (evita token leakage a terceros

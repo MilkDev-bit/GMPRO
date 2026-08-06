@@ -199,15 +199,21 @@ class _OtpBoxState extends State<_OtpBox> {
               focusNode: widget.focusNode,
               enabled: widget.enabled,
               textAlign: TextAlign.center,
+              // Centra el dígito VERTICALMENTE dentro del recuadro. Antes quedaba
+              // pegado arriba (textAlignVertical por defecto + line-height del
+              // displayMedium + contentPadding sin colapsar).
+              textAlignVertical: TextAlignVertical.center,
               keyboardType: TextInputType.number,
               maxLength: 1,
               cursorColor: accent,
               style: AppTypography.displayMedium.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
+                height: 1.0,
               ),
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: const InputDecoration(
+                isCollapsed: true,
                 counterText: '',
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,

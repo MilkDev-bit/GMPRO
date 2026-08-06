@@ -98,6 +98,21 @@ class SecureStorageService {
     return null;
   }
 
+  /// Guarda (o borra, si es null) la ruta local de la foto de perfil.
+  Future<void> saveAvatarPath(String? path) async {
+    if (path == null || path.isEmpty) {
+      await _storage.delete(key: AppConfig.keyAvatarPath);
+    } else {
+      await _storage.write(key: AppConfig.keyAvatarPath, value: path);
+    }
+  }
+
+  /// Recupera la ruta local de la foto de perfil, o null si no se ha elegido.
+  Future<String?> getAvatarPath() async {
+    final p = await _storage.read(key: AppConfig.keyAvatarPath);
+    return (p != null && p.isNotEmpty) ? p : null;
+  }
+
   /// Obtiene el mapa del perfil de usuario almacenado localmente.
   Future<Map<String, dynamic>?> getUserData() async {
     const key = AppConfig.keyUserData;

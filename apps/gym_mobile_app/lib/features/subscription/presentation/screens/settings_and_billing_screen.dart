@@ -6,12 +6,12 @@
 ///   2. Menú de Configuración General (Modificar datos físicos, Notificaciones push y Passkeys biométricos).
 ///   3. Módulo de Soporte y Contacto (Cumplimiento App Store/Google Play via WhatsApp Business y Correo con ID).
 
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:toastification/toastification.dart';
 import 'package:dio/dio.dart';
 
@@ -21,7 +21,9 @@ import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/domain/entities/auth_user.dart';
 import '../providers/subscription_provider.dart';
+import '../providers/profile_avatar_provider.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
+import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
 import '../../domain/entities/user_subscription.dart';
 import '../../../nutrition/presentation/providers/nutrition_provider.dart';
 import '../../../nutrition/presentation/widgets/diet_profile_sheet.dart';
@@ -246,37 +248,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'SOPORTE Y ASISTENCIA (APP STORE COMPLIANT)',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _SettingsGlassContainer(
-                    children: [
-                      _SettingsItem(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        iconColor: const Color(0xFF25D366), // Verde WhatsApp
-                        title: 'Chat Automatizado WhatsApp',
-                        subtitle: 'Asistencia inmediata 24/7 para accesos y cobros',
-                        onTap: () => _openWhatsAppSupport(user?.id ?? 'INVITADO'),
-                      ),
-                      Divider(color: AppColors.glassBorderOf(context), height: 1),
-                      _SettingsItem(
-                        icon: Icons.email_outlined,
-                        iconColor: const Color(0xFFFF9500),
-                        title: 'Correo Corporativo pre-llenado',
-                        subtitle: 'Adjunta automáticamente tu ID de socio al asunto',
-                        onTap: () => _openEmailSupport(user?.id ?? 'INVITADO', user?.email ?? ''),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
                   // Botón Cerrar Sesión
                   GestureDetector(
                     onTap: () => ref.read(authProvider.notifier).logout(),
@@ -314,26 +285,13 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
     );
   }
 
-  // ── INVOCACIÓN A PAYMENT SHEET / STRIPE ────────────────────────────────────
-  void _handleRetryPayment() async {
+  // ── INVOCACIÓN AL SELECTOR DE PLANES / STRIPE ──────────────────────────────
+  // Abre el mismo selector de planes real (mensual/trimestral/anual) que el resto
+  // de la app, en vez de un priceId inventado. El backend resuelve el Stripe Price
+  // ID por plan desde sus variables de entorno.
+  void _handleRetryPayment() {
     HapticFeedback.heavyImpact();
-    final success = await ref.read(paymentProvider.notifier).launchStripeCheckout(
-      priceId: 'price_retry_membership_vip',
-    );
-
-    if (!success && mounted) {
-      final state = ref.read(paymentProvider);
-      if (state.errorMessage != null) {
-        toastification.show(
-          context: context,
-          type: ToastificationType.error,
-          style: ToastificationStyle.minimal,
-          title: const Text('Error al abrir pasarela'),
-          description: Text(state.errorMessage!),
-          autoCloseDuration: const Duration(seconds: 4),
-        );
-      }
-    }
+    PlanSelectorSheet.show(context, ref);
   }
 
   // ── MODAL DRAGGABLESCROLLABLESHEET DE HISTORIAL DE FACTURAS ────────────────
@@ -346,90 +304,82 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
     );
   }
 
-  // ── APERTURA DE WHATSAPP BUSINESS Y CORREO NATIVO ──────────────────────────
-  void _openWhatsAppSupport(String userId) async {
-    final text = Uri.encodeComponent(
-        "Hola Soporte GymPro AI, solicito asistencia con mi cuenta. Mi ID de Socio es: [$userId]");
-    final uri = Uri.parse("https://wa.me/5215512345678?text=$text");
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        toastification.show(
-          context: context,
-          type: ToastificationType.error,
-          style: ToastificationStyle.minimal,
-          title: const Text('WhatsApp no disponible'),
-          description: const Text('No pudimos abrir la aplicación de WhatsApp Business en este dispositivo.'),
-          autoCloseDuration: const Duration(seconds: 3),
-        );
-      }
-    }
-  }
-
-  void _openEmailSupport(String userId, String userEmail) async {
-    final subject = Uri.encodeComponent("Soporte y Asistencia - ID de Socio: $userId");
-    final body = Uri.encodeComponent(
-        "Hola Equipo de Soporte GymPro,\n\nSolicito apoyo con respecto a mi membresía/acceso.\n\nDatos del Socio:\n- ID: $userId\n- Correo: $userEmail\n\nDetalle de la consulta:\n");
-    final uri = Uri.parse("mailto:soporte@gympro-ai.com?subject=$subject&body=$body");
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        toastification.show(
-          context: context,
-          type: ToastificationType.error,
-          style: ToastificationStyle.minimal,
-          title: const Text('App de Correo no disponible'),
-          description: const Text('No se encontró una aplicación de correo configurada.'),
-          autoCloseDuration: const Duration(seconds: 3),
-        );
-      }
-    }
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTES DE INTERFAZ (WIDGETS PRIVADOS MODULARIZADOS)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _UserProfileHeader extends StatelessWidget {
+class _UserProfileHeader extends ConsumerWidget {
   const _UserProfileHeader({required this.user});
   final AuthUser? user;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final avatarPath = ref.watch(profileAvatarProvider);
+    final isActive = ref.watch(subscriptionProvider).maybeWhen(
+          data: (s) => s.isAccessValid,
+          orElse: () => false,
+        );
+    final nombre = (user?.nombre ?? '').trim();
+    final inicial = nombre.isEmpty ? 'S' : nombre.substring(0, 1).toUpperCase();
+
     return Row(
       children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [AppColors.neonPurple, AppColors.neonPink],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.neonPink.withValues(alpha: 0.35),
-                blurRadius: 18,
-                spreadRadius: 1,
+        GestureDetector(
+          onTap: () => _showAvatarOptions(context, ref, hasPhoto: avatarPath != null),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: avatarPath == null
+                      ? const LinearGradient(
+                          colors: [AppColors.neonPurple, AppColors.neonPink],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.neonPurple.withValues(alpha: 0.30),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: avatarPath != null
+                      ? Image.file(
+                          File(avatarPath),
+                          key: ValueKey(avatarPath),
+                          width: 76,
+                          height: 76,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _initialAvatar(inicial),
+                        )
+                      : _initialAvatar(inicial),
+                ),
+              ),
+              // Botón de edición (cámara) sobre la esquina inferior derecha.
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.neonCyan,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.backgroundOf(context), width: 2),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.black),
+                ),
               ),
             ],
-          ),
-          child: Center(
-            child: Text(
-              (user?.nombre ?? 'S').substring(0, 1).toUpperCase(),
-              style: GoogleFonts.outfit(
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
-            ),
           ),
         ),
         const SizedBox(width: 16),
@@ -437,42 +387,116 @@ class _UserProfileHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      user?.nombre ?? 'Socio GymPro',
-                      style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.neonCyan.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.neonCyan.withValues(alpha: 0.5), width: 1),
-                    ),
-                    child: Text(
-                      'VIP AI',
-                      style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.neonCyan),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
               Text(
-                user?.email ?? 'socio@gympro.com',
-                style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                nombre.isEmpty ? 'Socio GymPro' : nombre,
+                style: GoogleFonts.outfit(
+                    fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textPrimaryOf(context)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 3),
+              Text(
+                user?.email ?? '',
+                style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondaryOf(context)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+              _MembershipPill(isActive: isActive),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _initialAvatar(String inicial) {
+    return Center(
+      child: Text(
+        inicial,
+        style: GoogleFonts.outfit(fontSize: 30, fontWeight: FontWeight.w800, color: Colors.white),
+      ),
+    );
+  }
+
+  void _showAvatarOptions(BuildContext context, WidgetRef ref, {required bool hasPhoto}) {
+    HapticFeedback.selectionClick();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceElevatedOf(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 44, height: 5,
+              decoration: BoxDecoration(
+                color: AppColors.glassBorderOf(ctx),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.neonCyan),
+              title: Text('Elegir de la galería',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: AppColors.textPrimaryOf(ctx))),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await ref.read(profileAvatarProvider.notifier).pickFromGallery();
+              },
+            ),
+            if (hasPhoto)
+              ListTile(
+                leading: Icon(Icons.delete_outline_rounded, color: AppColors.error.withValues(alpha: 0.9)),
+                title: Text('Quitar foto actual',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: AppColors.error.withValues(alpha: 0.9))),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await ref.read(profileAvatarProvider.notifier).removeAvatar();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Píldora que refleja el estado REAL de la membresía (activa/inactiva).
+class _MembershipPill extends StatelessWidget {
+  const _MembershipPill({required this.isActive});
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? AppColors.success : AppColors.textMutedOf(context);
+    final label = isActive ? 'Membresía activa' : 'Sin membresía activa';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.45), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7, height: 7,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -713,7 +737,7 @@ class _ActivePaymentCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Acceso total a torniquete por biometría/QR y Rutinas IA Fitia ilimitadas. Válido hasta el ${_formatDate(subscription.validoHasta)}.',
+                'Acceso total al torniquete por biometría/QR y a las Rutinas y Dieta con IA ilimitadas. Válido hasta el ${_formatDate(subscription.validoHasta)}.',
                 style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 20),

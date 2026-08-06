@@ -145,7 +145,11 @@ class _GymProAppState extends ConsumerState<GymProApp> {
         navigatorKey: ToastService.navigatorKey,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system, // ➔ Detecta y cambia en tiempo real según el OS
+        // La app está diseñada SOLO en oscuro (todas las superficies usan tokens
+        // dark). Con ThemeMode.system, en un teléfono en modo claro la pantalla de
+        // Cuenta y otros widgets adaptativos se pintaban claros → inconsistencia
+        // (tarjetas blancas sobre app oscura). Forzamos oscuro para uniformidad.
+        themeMode: ThemeMode.dark,
         // AuthRouter: Si autenticado → AppShell con navegación premium de cristal;
         // Si anónimo → LoginScreen con animación de entrada
         home: AnimatedSwitcher(

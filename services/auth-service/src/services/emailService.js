@@ -172,7 +172,7 @@ async function sendVerificationEmail({
       accent,
       bodyHtml: `
         <p style="margin:0 0 6px 0;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:2px;color:${accent};">BIENVENIDA</p>
-        <h1 style="margin:0 0 16px 0;font-family:${FONT};font-size:26px;line-height:32px;font-weight:800;color:${BRAND.textHi};">¡Hola, ${escapeHtml(nombre)}! 💪</h1>
+        <h1 style="margin:0 0 16px 0;font-family:${FONT};font-size:26px;line-height:32px;font-weight:800;color:${BRAND.textHi};">¡Hola, ${escapeHtml(nombre)}!</h1>
         <p style="margin:0 0 8px 0;font-family:${FONT};font-size:15px;line-height:24px;color:${BRAND.textMid};">
           Gracias por registrarte en <strong style="color:${BRAND.textHi};">GymPro</strong>. Para activar tu cuenta, confirma tu correo:
         </p>
@@ -211,7 +211,7 @@ async function sendVerificationCodeEmail({
       accent,
       bodyHtml: `
         <p style="margin:0 0 6px 0;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:2px;color:${accent};">TU CÓDIGO DE ACCESO</p>
-        <h1 style="margin:0 0 16px 0;font-family:${FONT};font-size:26px;line-height:32px;font-weight:800;color:${BRAND.textHi};">¡Hola, ${escapeHtml(nombre)}! 💪</h1>
+        <h1 style="margin:0 0 16px 0;font-family:${FONT};font-size:26px;line-height:32px;font-weight:800;color:${BRAND.textHi};">¡Hola, ${escapeHtml(nombre)}!</h1>
         <p style="margin:0 0 8px 0;font-family:${FONT};font-size:15px;line-height:24px;color:${BRAND.textMid};">
           Usa este código para verificar tu cuenta en <strong style="color:${BRAND.textHi};">GymPro</strong>:
         </p>
@@ -263,7 +263,7 @@ async function sendPasswordResetEmail({ email, nombre, resetToken }) {
           <a href="${escapeHtml(webFallback)}" style="color:${accent};word-break:break-all;">${escapeHtml(webFallback)}</a>
         </p>
         <p style="margin:16px 0 0 0;font-family:${FONT};font-size:13px;line-height:20px;color:#FF6B6B;">
-          ⚠️ Este enlace expira en <strong>1 hora</strong>.
+          Este enlace expira en <strong>1 hora</strong>.
           Si no solicitaste este cambio, ignora este email — tu contraseña no cambiará.
         </p>
       `,

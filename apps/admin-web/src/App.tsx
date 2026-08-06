@@ -3,6 +3,7 @@ import { useAuth } from './auth/AuthContext';
 import { isAdmin } from './lib/roles';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
+import { PaymentReturnPage } from './pages/PaymentReturnPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MembersPage } from './pages/MembersPage';
 import { FinancePage } from './pages/FinancePage';
@@ -26,6 +27,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+      {/* Retorno público de Stripe Checkout (rebota a la app móvil vía deep link).
+          Deben ir ANTES del catch-all y NO requieren sesión de staff. */}
+      <Route path="/payment/success" element={<PaymentReturnPage kind="success" />} />
+      <Route path="/payment/cancel" element={<PaymentReturnPage kind="cancel" />} />
       <Route path="/" element={<Protected adminOnly><DashboardPage /></Protected>} />
       <Route path="/members" element={<Protected><MembersPage /></Protected>} />
       <Route path="/finance" element={<Protected adminOnly><FinancePage /></Protected>} />
