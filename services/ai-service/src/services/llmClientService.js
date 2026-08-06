@@ -224,8 +224,14 @@ async function generateStructuredContent(systemPrompt, userPrompt, options = fal
 
       const generationConfig = {
         temperature:      env.AI_TEMPERATURE || 0.3,
-        maxOutputTokens:  (env.AI_MAX_OUTPUT_TOKENS || 2048) * 2,
+        // Planes de rutina/dieta son JSON grandes; damos margen amplio.
+        maxOutputTokens:  parseInt(process.env.AI_STRUCTURED_MAX_TOKENS || '8192', 10),
         responseMimeType: 'application/json',
+        // Gemini 2.5/3.x "piensan" y ese razonamiento CONSUME tokens de salida. Con
+        // el presupuesto pequeño, el JSON del plan salía truncado o vacío → el
+        // controlador lo veía "no parseable como JSON". thinkingBudget:0 desactiva
+        // el pensamiento para que TODO el presupuesto de tokens vaya al JSON final.
+        thinkingConfig: { thinkingBudget: 0 },
       };
       // Salida estructurada nativa: el modelo no puede desviarse del esquema.
       if (responseSchema) generationConfig.responseSchema = responseSchema;

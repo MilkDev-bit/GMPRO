@@ -187,7 +187,11 @@ mediciones_recientes: ${JSON.stringify(userContext.ultimas_mediciones || [])}
 
     const parsed = parseLlmJson(rawJsonString);
     if (!parsed) {
-      logger.error('Respuesta de rutina no parseable como JSON', { usuarioId });
+      logger.error('Respuesta de rutina no parseable como JSON', {
+        usuarioId,
+        rawLen: rawJsonString ? rawJsonString.length : 0,
+        rawSnippet: (rawJsonString || '').slice(0, 400),
+      });
       return res.status(502).json({
         success: false, data: null,
         error: 'La IA devolvió una respuesta no válida. Intenta de nuevo.',
@@ -279,7 +283,11 @@ restricciones_alimentarias: ${checkRestricciones.sanitized}
 
     const parsed = parseLlmJson(rawJsonString);
     if (!parsed) {
-      logger.error('Respuesta de dieta no parseable como JSON', { usuarioId });
+      logger.error('Respuesta de dieta no parseable como JSON', {
+        usuarioId,
+        rawLen: rawJsonString ? rawJsonString.length : 0,
+        rawSnippet: (rawJsonString || '').slice(0, 400),
+      });
       return res.status(502).json({
         success: false, data: null,
         error: 'La IA devolvió una respuesta no válida. Intenta de nuevo.',
