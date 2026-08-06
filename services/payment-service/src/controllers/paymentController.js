@@ -268,7 +268,7 @@ async function createCheckoutSession(req, res, next) {
     logger.info('createCheckoutSession: 1) REQUEST RECIBIDO (pasó jwtVerify + sanitizer)', {
       userId: req.user?.id, plan: req.body?.plan,
     });
-    const { plan, successUrl, cancelUrl, offerCode } = req.body;
+    const { plan, offerCode } = req.body;
     const userId    = req.user.id;
     const userEmail = req.user.email;
 
@@ -333,8 +333,11 @@ async function createCheckoutSession(req, res, next) {
       payment_method_types: ['card'],
       mode:         'subscription',
       line_items:   [{ price: priceId, quantity: 1 }],
-      success_url:  successUrl || 'https://app.gympro.com/payment/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url:   cancelUrl  || 'https://app.gympro.com/payment/cancel',
+      // URLs de retorno FIJAS en el servidor: el cliente NO las dicta (seguridad)
+      // y además el saneador de entrada escapaba las del body ('/' → '&#x2F;') →
+      // isURL fallaba con "URL inválida". Se usa el dominio propio gmpro.lat.
+      success_url:  'https://gmpro.lat/payment/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url:   'https://gmpro.lat/payment/cancel',
       subscription_data: {
         metadata: { gympro_user_id: userId },
       },

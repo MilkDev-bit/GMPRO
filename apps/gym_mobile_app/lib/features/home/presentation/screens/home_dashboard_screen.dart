@@ -70,6 +70,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                 user: user?.nombre ?? 'Socio GymPro',
                 subAsync: subAsync,
                 onLogout: () => ref.read(authProvider.notifier).logout(),
+                topPadding: MediaQuery.of(context).padding.top,
               ),
             ),
 
@@ -155,16 +156,20 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
     required this.user,
     required this.subAsync,
     required this.onLogout,
+    required this.topPadding,
   });
 
   final String user;
   final AsyncValue subAsync;
   final VoidCallback onLogout;
+  final double topPadding; // inset de la barra de estado (safe area superior)
 
+  // El header DEBE incluir el inset superior en su altura; si no, el contenido
+  // (logo + estado) se salía por abajo (~6px overflow en pantallas con notch).
   @override
-  double get minExtent => kToolbarHeight + 16;
+  double get minExtent => kToolbarHeight + topPadding + 8;
   @override
-  double get maxExtent => kToolbarHeight + 24;
+  double get maxExtent => kToolbarHeight + topPadding + 16;
 
   @override
   Widget build(
@@ -180,7 +185,7 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
       specularOpacity: 0.12,
       tint: AppColors.background.withValues(alpha: 0.85 + 0.15 * opacity),
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top,
+        top: topPadding,
         left: 20,
         right: 12,
       ),
@@ -256,5 +261,7 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_GlassAppBarDelegate oldDelegate) =>
-      oldDelegate.user != user || oldDelegate.subAsync != subAsync;
+      oldDelegate.user != user ||
+      oldDelegate.subAsync != subAsync ||
+      oldDelegate.topPadding != topPadding;
 }
