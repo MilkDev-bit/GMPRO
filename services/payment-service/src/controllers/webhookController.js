@@ -363,32 +363,45 @@ async function activateSubscriptionFromStripe(subscriptionId, opts = {}) {
 
   const localSub = await subscriptionModel.findByStripeSubscriptionId(subscriptionId);
 
-  if (!localSub) {
-    await subscriptionModel.create({
-      usuario_id:             usuarioId,
-      stripe_customer_id:     customerId || subscription.customer,
-      stripe_subscription_id: subscriptionId,
-      plan_nombre:            subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
-      plan_precio:            precio,
-      plan_duracion_dias:     duracionDias,
-      monto:                  precio,
-      moneda,
-      metodo_pago:            'stripe',
-      estado:                 'active',
-      valido_desde:           periodStart.toISOString(),
-      valido_hasta:           (periodEnd || periodStart).toISOString(),
-      ultimo_pago_en:         new Date().toISOString(),
-      proximo_pago_en:        proximoPagoEn,
-      stripe_event_id_ultimo: eventId,
-    });
+  const doActivate = () => subscriptionModel.activateAfterPayment({
+    stripeSubscriptionId: subscriptionId,
+    stripeEventId:        eventId,
+    proximoPagoEn,
+    duracionDias,
+    usuarioId,
+  });
+
+  if (localSub) {
+    await doActivate();
   } else {
-    await subscriptionModel.activateAfterPayment({
-      stripeSubscriptionId: subscriptionId,
-      stripeEventId:        eventId,
-      proximoPagoEn,
-      duracionDias,
-      usuarioId,
-    });
+    try {
+      await subscriptionModel.create({
+        usuario_id:             usuarioId,
+        stripe_customer_id:     customerId || subscription.customer,
+        stripe_subscription_id: subscriptionId,
+        plan_nombre:            subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
+        plan_precio:            precio,
+        plan_duracion_dias:     duracionDias,
+        monto:                  precio,
+        moneda,
+        metodo_pago:            'stripe',
+        estado:                 'active',
+        valido_desde:           periodStart.toISOString(),
+        valido_hasta:           (periodEnd || periodStart).toISOString(),
+        ultimo_pago_en:         new Date().toISOString(),
+        proximo_pago_en:        proximoPagoEn,
+        stripe_event_id_ultimo: eventId,
+      });
+    } catch (err) {
+      // Carrera: invoice.paid y checkout.session.completed llegan casi juntos y
+      // ambos ven "no existe" → ambos INSERTan → violación de unicidad (23505).
+      // El que pierde cae a ACTUALIZAR en vez de tumbar el webhook.
+      if (err && err.code === '23505') {
+        await doActivate();
+      } else {
+        throw err;
+      }
+    }
   }
   return usuarioId;
 }
@@ -435,27 +448,34 @@ async function handleInvoicePaid(event) {
     logger.warn('Suscripción de Stripe no encontrada localmente, creando', {
       subscriptionId, customerId,
     });
-    await subscriptionModel.create({
-      // ENLACE CON EL USUARIO: sin esto, findActiveByUserId no la encuentra y la
-      // app sigue "inactiva". El id viene del metadata que fijamos al crear la
-      // sesión (subscription_data.metadata.gympro_user_id).
-      usuario_id:             subscription.metadata?.gympro_user_id || null,
-      stripe_customer_id:     customerId,
-      stripe_subscription_id: subscriptionId,
-      plan_nombre:            subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
-      plan_precio:            invoice.amount_paid / 100, // columna NOT NULL (precio del plan)
-      plan_duracion_dias:     duracionDias,
-      monto:                  invoice.amount_paid / 100, // Stripe maneja centavos
-      moneda:                 invoice.currency.toUpperCase(),
-      metodo_pago:            'stripe',
-      estado:                 'active',
-      valido_desde:           periodStart.toISOString(),
-      valido_hasta:           (periodEnd || periodStart).toISOString(),
-      ultimo_pago_en:         new Date().toISOString(),
-      proximo_pago_en:        proximoPagoEn,
-      stripe_event_id_ultimo: event.id,
-    });
-    return;
+    try {
+      await subscriptionModel.create({
+        // ENLACE CON EL USUARIO: sin esto, findActiveByUserId no la encuentra y la
+        // app sigue "inactiva". El id viene del metadata que fijamos al crear la
+        // sesión (subscription_data.metadata.gympro_user_id).
+        usuario_id:             subscription.metadata?.gympro_user_id || null,
+        stripe_customer_id:     customerId,
+        stripe_subscription_id: subscriptionId,
+        plan_nombre:            subscription.items.data[0]?.price?.nickname || 'Plan Stripe',
+        plan_precio:            invoice.amount_paid / 100, // columna NOT NULL (precio del plan)
+        plan_duracion_dias:     duracionDias,
+        monto:                  invoice.amount_paid / 100, // Stripe maneja centavos
+        moneda:                 invoice.currency.toUpperCase(),
+        metodo_pago:            'stripe',
+        estado:                 'active',
+        valido_desde:           periodStart.toISOString(),
+        valido_hasta:           (periodEnd || periodStart).toISOString(),
+        ultimo_pago_en:         new Date().toISOString(),
+        proximo_pago_en:        proximoPagoEn,
+        stripe_event_id_ultimo: event.id,
+      });
+      return;
+    } catch (err) {
+      // Carrera con checkout.session.completed (ambos crean) → violación de
+      // unicidad. Caemos a ACTUALIZAR en lugar de tumbar el webhook.
+      if (!(err && err.code === '23505')) throw err;
+      logger.info('invoice.paid: fila ya creada por otro evento; se actualiza', { subscriptionId });
+    }
   }
 
   // Actualizar suscripción existente (y RELLENAR usuario_id si quedó huérfana en
