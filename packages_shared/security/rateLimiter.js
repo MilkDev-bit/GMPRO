@@ -199,14 +199,20 @@ function createAuthRateLimiter({ redisClient, max = 5, windowMs = 15 * 60_000, p
 
 /**
  * Limitador por USUARIO AUTENTICADO (JWT user ID). OWASP A04.
+ *
+ * @param {boolean} [skipFailedRequests=false] - Si es true, las respuestas con
+ *   status >= 400 (o que lanzan) NO cuentan contra la cuota; solo las exitosas
+ *   (2xx) descuentan. Útil para IA: un 404/500/timeout del LLM no debe quemar la
+ *   cuota diaria del socio (el store Redis decrementa el contador tras la falla).
  */
-function createUserRateLimiter({ redisClient, max = 200, windowMs = 60_000, prefix = 'rl:user:' } = {}) {
+function createUserRateLimiter({ redisClient, max = 200, windowMs = 60_000, prefix = 'rl:user:', skipFailedRequests = false } = {}) {
   return makeLimiter({
     windowMs,
     max,
     keyGenerator: getUserIdentifier,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
+    skipFailedRequests,
     handler: rateLimitHandler,
     skip: (req) => req.path === '/health',
   }, redisClient, prefix);

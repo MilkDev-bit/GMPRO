@@ -126,12 +126,17 @@ async function bootstrap() {
     prefix:   'rl:ai:chat:day:',
   });
 
-  // Rate limiter para recomendaciones (menos frecuentes que el chat)
+  // Rate limiter para recomendaciones (menos frecuentes que el chat).
+  // Configurable por env (antes estaba HARDCODEADO en 5/día). En pruebas puedes
+  // subir AI_RECOMMENDATIONS_PER_USER_PER_DAY; en prod deja un valor bajo por costos.
+  // skipFailedRequests: SOLO las generaciones EXITOSAS (2xx) descuentan cuota. Un
+  // 404/500/timeout del LLM ya NO bloquea al socio 24h sin haber generado nada.
   const recommendationRateLimiter = createUserRateLimiter({
     redisClient,
-    max:      5,                 // 5 planes de entrenamiento al día por usuario
+    max:      parseInt(process.env.AI_RECOMMENDATIONS_PER_USER_PER_DAY || '5', 10),
     windowMs: 24 * 60 * 60_000,
     prefix:   'rl:ai:recommend:day:',
+    skipFailedRequests: true,
   });
 
   const jwtVerify = createJwtVerifyMiddleware({ redisClient });
