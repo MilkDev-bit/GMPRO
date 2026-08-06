@@ -16,6 +16,7 @@ import '../../features/home/presentation/screens/home_dashboard_screen.dart';
 import '../../features/nutrition/presentation/screens/nutrition_main_screen.dart';
 import '../../features/qr_access/presentation/screens/qr_access_screen.dart';
 import '../../features/subscription/presentation/screens/settings_and_billing_screen.dart';
+import '../../features/subscription/presentation/providers/subscription_provider.dart';
 import '../../features/workout/presentation/screens/workout_main_screen.dart';
 import 'nav_destination.dart';
 import 'shell_nav_provider.dart';
@@ -31,7 +32,7 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _barEntryController;
   late final Animation<Offset> _barSlide;
   late final Animation<double> _barFade;
@@ -48,6 +49,11 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
+    // El pago con Stripe se hace en el navegador externo (success_url apunta a
+    // gmpro.lat, no regresa por deep link), así que la app no se entera del pago
+    // por sí sola. Al volver a primer plano refrescamos la suscripción para que
+    // la membresía recién pagada se refleje sin recargar la app.
+    WidgetsBinding.instance.addObserver(this);
     _barEntryController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -71,8 +77,22 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _barEntryController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresco inmediato + un reintento tras unos segundos para dar tiempo a
+      // que el webhook de Stripe procese el pago y active la suscripción.
+      final notifier = ref.read(subscriptionProvider.notifier);
+      notifier.fetchSubscription();
+      Future.delayed(const Duration(seconds: 4), () {
+        if (mounted) notifier.fetchSubscription();
+      });
+    }
   }
 
   @override

@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../features/home/presentation/screens/home_dashboard_screen.dart';
 import '../providers/registration_provider.dart';
 import '../widgets/auth_error_snackbar.dart';
 import '../widgets/neon_glow_background.dart';
@@ -380,10 +379,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             _PrimaryButton(
               label: 'Entrar a GymPro',
               isLoading: false,
-              onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
-                (route) => false,
-              ),
+              // El usuario ya quedó autenticado (checkInitialStatus en el provider),
+              // así que main.dart ya muestra el AppShell reactivo debajo. Solo
+              // descartamos el flujo de registro volviendo a la raíz — nada de
+              // empujar una HomeDashboardScreen "suelta" que luego tapa el login.
+              onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
             ),
           ],
         ),

@@ -17,7 +17,6 @@ import '../widgets/social_login_button.dart';
 import 'registration_screen.dart';
 import 'login_code_screen.dart';
 import 'login_password_screen.dart';
-import '../../../../features/home/presentation/screens/home_dashboard_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -92,13 +91,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Solo mostramos errores aquí. La navegación a la app (AppShell) la gobierna
+    // main.dart de forma REACTIVA según authState.isAuthenticated — no hacemos
+    // push manual: hacerlo dejaba una HomeDashboardScreen "suelta" encima del
+    // shell, y al cerrar sesión esa ruta seguía tapando el LoginScreen (la sesión
+    // "no se cerraba") y los módulos no reaccionaban sin recargar.
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.error && next.errorMessage != null) {
         AuthErrorSnackbar.show(context, next.errorMessage!);
-      } else if (next.status == AuthStatus.authenticated && next.user != null) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeDashboardScreen()),
-        );
       }
     });
 

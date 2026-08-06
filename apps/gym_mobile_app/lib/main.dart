@@ -122,6 +122,19 @@ class _GymProAppState extends ConsumerState<GymProApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Al cambiar el estado de sesión (login ↔ logout), descartamos cualquier ruta
+    // pusheada para que el `home:` reactivo (AppShell si autenticado, LoginScreen
+    // si no) sea SIEMPRE lo que se ve. Antes cada pantalla hacía su propio push a
+    // una HomeDashboardScreen suelta: al cerrar sesión esa ruta seguía tapando el
+    // login (la sesión "no se cerraba") y al entrar por código/contraseña la
+    // sub-pantalla tapaba el shell (había que recargar para ver los módulos).
+    ref.listen<AuthState>(authProvider, (prev, next) {
+      final wasAuth = prev?.isAuthenticated ?? false;
+      if (wasAuth != next.isAuthenticated) {
+        ToastService.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+      }
+    });
+
     // Escuchar cambio de estado de auth para redirigir sin page push
     final authState = ref.watch(authProvider);
 
