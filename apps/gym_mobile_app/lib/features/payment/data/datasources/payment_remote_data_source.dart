@@ -56,10 +56,12 @@ class PaymentRemoteDataSourceImpl implements PaymentRemoteDataSource {
           ? (e.response!.data['error'] as String?)
           : null;
       final msg = switch (sc) {
-        401 || 403 => 'El servicio de pagos no está disponible en este momento. Inténtalo más tarde.',
+        401 => 'Tu sesión ha expirado. Cierra sesión y vuelve a iniciar.',
+        403 => 'No tienes permisos para esta operación.',
         404 => 'No encontramos el plan de pago. Contacta a soporte.',
         422 => serverMsg ?? 'Datos de pago inválidos. Inténtalo de nuevo.',
         >= 500 => 'El servidor de pagos tuvo un problema. Inténtalo en unos minutos.',
+        _ => 'No pudimos iniciar el pago. Revisa tu conexión e inténtalo de nuevo.',
         _ => 'No pudimos iniciar el pago. Revisa tu conexión e inténtalo de nuevo.',
       };
       throw ServerException(msg);
