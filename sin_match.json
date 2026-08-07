@@ -1,0 +1,2246 @@
+[
+  {
+    "id_wger": 9,
+    "nombre": "2 Handed Kettlebell Swing",
+    "bestScore": 0.33,
+    "bestGuess": "Kettlebell Thruster"
+  },
+  {
+    "id_wger": 31,
+    "nombre": "Axe Hold",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 56,
+    "nombre": "Abdominal Stabilization",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 57,
+    "nombre": "Bear Walk 2",
+    "bestScore": 0.4,
+    "bestGuess": "Monster Walk"
+  },
+  {
+    "id_wger": 75,
+    "nombre": "Benchpress Dumbbells",
+    "bestScore": 0.4,
+    "bestGuess": "Split Squat with Dumbbells"
+  },
+  {
+    "id_wger": 79,
+    "nombre": "Bent High Pulls",
+    "bestScore": 0.4,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 94,
+    "nombre": "Biceps Curls With SZ-bar",
+    "bestScore": 0.44,
+    "bestGuess": "EZ-Bar Curl"
+  },
+  {
+    "id_wger": 112,
+    "nombre": "Body-Ups",
+    "bestScore": 0.5,
+    "bestGuess": "Body-Up"
+  },
+  {
+    "id_wger": 124,
+    "nombre": "Braced Squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 132,
+    "nombre": "Burpees",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 137,
+    "nombre": "Butterfly Narrow Grip",
+    "bestScore": 0.5,
+    "bestGuess": "Butterfly"
+  },
+  {
+    "id_wger": 145,
+    "nombre": "Cable Woodchoppers",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Crossover"
+  },
+  {
+    "id_wger": 174,
+    "nombre": "Crunches With Legs Up",
+    "bestScore": 0.5,
+    "bestGuess": "Crunches"
+  },
+  {
+    "id_wger": 177,
+    "nombre": "Cycling",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 178,
+    "nombre": "Deadbug",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 182,
+    "nombre": "Deadhang",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 197,
+    "nombre": "Dips Between Two Benches",
+    "bestScore": 0.33,
+    "bestGuess": "Bench Dips"
+  },
+  {
+    "id_wger": 208,
+    "nombre": "Dumbbells on Scott Machine",
+    "bestScore": 0.4,
+    "bestGuess": "Dip Machine"
+  },
+  {
+    "id_wger": 222,
+    "nombre": "Facepull",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 238,
+    "nombre": "Fly With Dumbbells",
+    "bestScore": 0.4,
+    "bestGuess": "Split Squat with Dumbbells"
+  },
+  {
+    "id_wger": 239,
+    "nombre": "Fly With Dumbbells, Decline Bench",
+    "bestScore": 0.5,
+    "bestGuess": "Decline Barbell Bench Press"
+  },
+  {
+    "id_wger": 245,
+    "nombre": "Skullcrusher Dumbbells",
+    "bestScore": 0.4,
+    "bestGuess": "EZ-Bar Skullcrusher"
+  },
+  {
+    "id_wger": 258,
+    "nombre": "Front pull wide",
+    "bestScore": 0.5,
+    "bestGuess": "Wide-Grip Rear Pull-Up"
+  },
+  {
+    "id_wger": 259,
+    "nombre": "Front Pull narrow",
+    "bestScore": 0.4,
+    "bestGuess": "Clean Pull"
+  },
+  {
+    "id_wger": 260,
+    "nombre": "Full Sit Outs",
+    "bestScore": 0.4,
+    "bestGuess": "Sit Squats"
+  },
+  {
+    "id_wger": 275,
+    "nombre": "Hammercurls on Cable",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Crossover"
+  },
+  {
+    "id_wger": 279,
+    "nombre": "Hand Grip",
+    "bestScore": 0.4,
+    "bestGuess": "Mixed Grip Chin"
+  },
+  {
+    "id_wger": 282,
+    "nombre": "Handstand Pushup",
+    "bestScore": 0.4,
+    "bestGuess": "Handstand Push-Ups"
+  },
+  {
+    "id_wger": 284,
+    "nombre": "Hercules Pillars",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 285,
+    "nombre": "High Knee Jumps",
+    "bestScore": 0.4,
+    "bestGuess": "Ankle On The Knee"
+  },
+  {
+    "id_wger": 291,
+    "nombre": "Hindu Squats",
+    "bestScore": 0.5,
+    "bestGuess": "Jefferson Squats"
+  },
+  {
+    "id_wger": 297,
+    "nombre": "Hollow Hold",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 301,
+    "nombre": "Hyperextensions",
+    "bestScore": 0.5,
+    "bestGuess": "Hyperextensions (Back Extensions)"
+  },
+  {
+    "id_wger": 312,
+    "nombre": "Incline Plank With Alternate Floor Touch",
+    "bestScore": 0.44,
+    "bestGuess": "Alternate Incline Dumbbell Curl"
+  },
+  {
+    "id_wger": 320,
+    "nombre": "Jumping Jacks",
+    "bestScore": 0.5,
+    "bestGuess": "Rope Jumping"
+  },
+  {
+    "id_wger": 341,
+    "nombre": "Squats on Multipress",
+    "bestScore": 0.5,
+    "bestGuess": "Jefferson Squats"
+  },
+  {
+    "id_wger": 346,
+    "nombre": "Landmine press",
+    "bestScore": 0.5,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 348,
+    "nombre": "Lateral Raises",
+    "bestScore": 0.5,
+    "bestGuess": "Lateral Bound"
+  },
+  {
+    "id_wger": 349,
+    "nombre": "Lateral Rows on Cable, One Armed",
+    "bestScore": 0.55,
+    "bestGuess": "Seated One-arm Cable Pulley Rows"
+  },
+  {
+    "id_wger": 354,
+    "nombre": "Lat Pull Down (Leaning Back)",
+    "bestScore": 0.29,
+    "bestGuess": "Clean Pull"
+  },
+  {
+    "id_wger": 355,
+    "nombre": "Lat Pull Down (Straight Back)",
+    "bestScore": 0.29,
+    "bestGuess": "Clean Pull"
+  },
+  {
+    "id_wger": 374,
+    "nombre": "Leg Presses (wide)",
+    "bestScore": 0.4,
+    "bestGuess": "Leg Extensions"
+  },
+  {
+    "id_wger": 382,
+    "nombre": "L Hold",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 395,
+    "nombre": "Long-Pulley, Narrow",
+    "bestScore": 0.33,
+    "bestGuess": "Narrow Stance Squats"
+  },
+  {
+    "id_wger": 406,
+    "nombre": "Lying Rotator Cuff Exercise",
+    "bestScore": 0.33,
+    "bestGuess": "Lying Crossover"
+  },
+  {
+    "id_wger": 418,
+    "nombre": "Military Press mit SZ-Bar",
+    "bestScore": 0.5,
+    "bestGuess": "Standing Military Press"
+  },
+  {
+    "id_wger": 445,
+    "nombre": "Pause Bench",
+    "bestScore": 0.5,
+    "bestGuess": "Bench Dips"
+  },
+  {
+    "id_wger": 448,
+    "nombre": "Pendelay Rows",
+    "bestScore": 0.4,
+    "bestGuess": "Elevated Cable Rows"
+  },
+  {
+    "id_wger": 468,
+    "nombre": "Prone Scapular Retraction - Arms at Side",
+    "bestScore": 0.25,
+    "bestGuess": "Side Bridge"
+  },
+  {
+    "id_wger": 484,
+    "nombre": "Rack Deadlift",
+    "bestScore": 0.5,
+    "bestGuess": "Axle Deadlift"
+  },
+  {
+    "id_wger": 505,
+    "nombre": "Roman Chair Crunch",
+    "bestScore": 0.4,
+    "bestGuess": "Cable Crunch"
+  },
+  {
+    "id_wger": 510,
+    "nombre": "Rowing, Lying on Bench",
+    "bestScore": 0.5,
+    "bestGuess": "Flat Bench Lying Leg Raise"
+  },
+  {
+    "id_wger": 512,
+    "nombre": "Rowing seated, narrow grip",
+    "bestScore": 0.4,
+    "bestGuess": "Seated Close-Grip Concentration Barbell Curl"
+  },
+  {
+    "id_wger": 527,
+    "nombre": "Run",
+    "bestScore": 0.4,
+    "bestGuess": "Chest Push with Run Release"
+  },
+  {
+    "id_wger": 529,
+    "nombre": "Run - Interval Training",
+    "bestScore": 0.29,
+    "bestGuess": "Chest Push with Run Release"
+  },
+  {
+    "id_wger": 530,
+    "nombre": "Run - Treadmill",
+    "bestScore": 0.5,
+    "bestGuess": "Jogging, Treadmill"
+  },
+  {
+    "id_wger": 556,
+    "nombre": "Side Bends on Machine",
+    "bestScore": 0.44,
+    "bestGuess": "Bosu Ball Cable Crunch With Side Bends"
+  },
+  {
+    "id_wger": 571,
+    "nombre": "Shrugs, Barbells",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Shrugs"
+  },
+  {
+    "id_wger": 572,
+    "nombre": "Shrugs, Dumbbells",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Shrugs"
+  },
+  {
+    "id_wger": 575,
+    "nombre": "Shrugs on Multipress",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Shrugs"
+  },
+  {
+    "id_wger": 576,
+    "nombre": "Side Crunch",
+    "bestScore": 0.5,
+    "bestGuess": "Bosu Ball Cable Crunch With Side Bends"
+  },
+  {
+    "id_wger": 595,
+    "nombre": "Skipping - Standard",
+    "bestScore": 0.5,
+    "bestGuess": "Fast Skipping"
+  },
+  {
+    "id_wger": 604,
+    "nombre": "Speed Deadlift",
+    "bestScore": 0.5,
+    "bestGuess": "Axle Deadlift"
+  },
+  {
+    "id_wger": 614,
+    "nombre": "Squat Jumps",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 616,
+    "nombre": "Squat Thrust",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 624,
+    "nombre": "Stationary Bike",
+    "bestScore": 0.5,
+    "bestGuess": "Air Bike"
+  },
+  {
+    "id_wger": 628,
+    "nombre": "Straight-arm Pull Down (bar Attachment)",
+    "bestScore": 0.44,
+    "bestGuess": "Straight-Arm Pulldown"
+  },
+  {
+    "id_wger": 632,
+    "nombre": "Sumo Squats",
+    "bestScore": 0.5,
+    "bestGuess": "Jefferson Squats"
+  },
+  {
+    "id_wger": 660,
+    "nombre": "Triceps Extensions on Cable With Bar",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Incline Triceps Extension"
+  },
+  {
+    "id_wger": 674,
+    "nombre": "Rowing with TRX band",
+    "bestScore": 0.4,
+    "bestGuess": "Rowing, Stationary"
+  },
+  {
+    "id_wger": 684,
+    "nombre": "Underhand Lat Pull Down",
+    "bestScore": 0.33,
+    "bestGuess": "Clean Pull"
+  },
+  {
+    "id_wger": 688,
+    "nombre": "Upper External Oblique",
+    "bestScore": 0.4,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 711,
+    "nombre": "Wall Handstand",
+    "bestScore": 0.4,
+    "bestGuess": "Handstand Push-Ups"
+  },
+  {
+    "id_wger": 713,
+    "nombre": "Wall Pushup",
+    "bestScore": 0.33,
+    "bestGuess": "Linear Acceleration Wall Drill"
+  },
+  {
+    "id_wger": 716,
+    "nombre": "Wall Slides",
+    "bestScore": 0.4,
+    "bestGuess": "Platform Hamstring Slides"
+  },
+  {
+    "id_wger": 718,
+    "nombre": "Wall Squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 804,
+    "nombre": "Sloper hanging",
+    "bestScore": 0.5,
+    "bestGuess": "Hanging Pike"
+  },
+  {
+    "id_wger": 820,
+    "nombre": "Fingerboard 20 mm edge",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 821,
+    "nombre": "Pullup on fingerboard",
+    "bestScore": 0.4,
+    "bestGuess": "V-Bar Pullup"
+  },
+  {
+    "id_wger": 908,
+    "nombre": "Zone 2 Running",
+    "bestScore": 0.4,
+    "bestGuess": "Running, Treadmill"
+  },
+  {
+    "id_wger": 910,
+    "nombre": "Nordic Curl",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Curl"
+  },
+  {
+    "id_wger": 911,
+    "nombre": "Incline Skull Crush",
+    "bestScore": 0.33,
+    "bestGuess": "Band Skull Crusher"
+  },
+  {
+    "id_wger": 914,
+    "nombre": "Reverse EZ Bar Cable Curls",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Reverse Crunch"
+  },
+  {
+    "id_wger": 915,
+    "nombre": "Bus Drivers",
+    "bestScore": 0.5,
+    "bestGuess": "Car Drivers"
+  },
+  {
+    "id_wger": 922,
+    "nombre": "Seated Cable Mid Trap Shrug",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Seated Crunch"
+  },
+  {
+    "id_wger": 923,
+    "nombre": "Lying Dumbbell Row SS Seated Shrug",
+    "bestScore": 0.5,
+    "bestGuess": "Dumbbell Shrug"
+  },
+  {
+    "id_wger": 926,
+    "nombre": "Machine chest fly",
+    "bestScore": 0.4,
+    "bestGuess": "Dip Machine"
+  },
+  {
+    "id_wger": 927,
+    "nombre": "Suspended crossess",
+    "bestScore": 0.5,
+    "bestGuess": "Suspended Fallout"
+  },
+  {
+    "id_wger": 958,
+    "nombre": "Biceps with TRX",
+    "bestScore": 0.5,
+    "bestGuess": "Seated Biceps"
+  },
+  {
+    "id_wger": 959,
+    "nombre": "TRX Rows",
+    "bestScore": 0.4,
+    "bestGuess": "Elevated Cable Rows"
+  },
+  {
+    "id_wger": 960,
+    "nombre": "Kettlebell Swing",
+    "bestScore": 0.5,
+    "bestGuess": "Kettlebell Thruster"
+  },
+  {
+    "id_wger": 961,
+    "nombre": "Swimming 50m sprints",
+    "bestScore": 0.4,
+    "bestGuess": "Wind Sprints"
+  },
+  {
+    "id_wger": 974,
+    "nombre": "Curl with kettlebell two hands",
+    "bestScore": 0.5,
+    "bestGuess": "Two-Arm Kettlebell Clean"
+  },
+  {
+    "id_wger": 978,
+    "nombre": "Knee Raises",
+    "bestScore": 0.5,
+    "bestGuess": "Ankle On The Knee"
+  },
+  {
+    "id_wger": 979,
+    "nombre": "Leg raises pull up bar",
+    "bestScore": 0.5,
+    "bestGuess": "Front Leg Raises"
+  },
+  {
+    "id_wger": 983,
+    "nombre": "High knees",
+    "bestScore": 0.4,
+    "bestGuess": "High Cable Curls"
+  },
+  {
+    "id_wger": 990,
+    "nombre": "Kneeling kickbacks",
+    "bestScore": 0.5,
+    "bestGuess": "Kneeling Squat"
+  },
+  {
+    "id_wger": 993,
+    "nombre": "Jump rope: basic jumps",
+    "bestScore": 0.33,
+    "bestGuess": "Bench Jump"
+  },
+  {
+    "id_wger": 997,
+    "nombre": "4-count burpees",
+    "bestScore": 0.29,
+    "bestGuess": "3/4 Sit-Up"
+  },
+  {
+    "id_wger": 999,
+    "nombre": "Reverse lunges",
+    "bestScore": 0.5,
+    "bestGuess": "Dumbbell Lunges"
+  },
+  {
+    "id_wger": 1000,
+    "nombre": "Floor dips",
+    "bestScore": 0.5,
+    "bestGuess": "Bench Dips"
+  },
+  {
+    "id_wger": 1003,
+    "nombre": "Kettlebell deadlifts",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Deadlifts"
+  },
+  {
+    "id_wger": 1004,
+    "nombre": "Forward shoulder rotation",
+    "bestScore": 0.4,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 1005,
+    "nombre": "Backward shoulder rotation",
+    "bestScore": 0.4,
+    "bestGuess": "Backward Drag"
+  },
+  {
+    "id_wger": 1006,
+    "nombre": "Chin tuck",
+    "bestScore": 0.5,
+    "bestGuess": "Chin-Up"
+  },
+  {
+    "id_wger": 1007,
+    "nombre": "Head turns",
+    "bestScore": 0.33,
+    "bestGuess": "Behind Head Chest Stretch"
+  },
+  {
+    "id_wger": 1012,
+    "nombre": "Alternating bicep curls",
+    "bestScore": 0.5,
+    "bestGuess": "Incline Inner Biceps Curl"
+  },
+  {
+    "id_wger": 1013,
+    "nombre": "Left levator scapulae stretch",
+    "bestScore": 0.33,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1014,
+    "nombre": "Right levator scapulae stretch",
+    "bestScore": 0.33,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1015,
+    "nombre": "Clockwise neck circles",
+    "bestScore": 0.4,
+    "bestGuess": "Ankle Circles"
+  },
+  {
+    "id_wger": 1016,
+    "nombre": "Counterclockwise neck circles",
+    "bestScore": 0.4,
+    "bestGuess": "Ankle Circles"
+  },
+  {
+    "id_wger": 1017,
+    "nombre": "Neck half circles",
+    "bestScore": 0.4,
+    "bestGuess": "Ankle Circles"
+  },
+  {
+    "id_wger": 1018,
+    "nombre": "Head tilts",
+    "bestScore": 0.33,
+    "bestGuess": "Behind Head Chest Stretch"
+  },
+  {
+    "id_wger": 1020,
+    "nombre": "Pistol squats right",
+    "bestScore": 0.4,
+    "bestGuess": "Jefferson Squats"
+  },
+  {
+    "id_wger": 1028,
+    "nombre": "Quadruped thoracic rotation left",
+    "bestScore": 0.33,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 1029,
+    "nombre": "Quadruped thoracic rotation right",
+    "bestScore": 0.33,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 1081,
+    "nombre": "Shoulder dislocates",
+    "bestScore": 0.5,
+    "bestGuess": "Shoulder Circles"
+  },
+  {
+    "id_wger": 1083,
+    "nombre": "YWTs",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1087,
+    "nombre": "Dumbbell Hang Power Cleans",
+    "bestScore": 0.44,
+    "bestGuess": "Smith Machine Hang Power Clean"
+  },
+  {
+    "id_wger": 1090,
+    "nombre": "Vpushup",
+    "bestScore": 0.33,
+    "bestGuess": "Hip Flexion with Band"
+  },
+  {
+    "id_wger": 1091,
+    "nombre": "Plank Shoulder Taps",
+    "bestScore": 0.5,
+    "bestGuess": "Plank"
+  },
+  {
+    "id_wger": 1092,
+    "nombre": "Bag training",
+    "bestScore": 0.4,
+    "bestGuess": "Heavy Bag Thrust"
+  },
+  {
+    "id_wger": 1093,
+    "nombre": "Rowing Machine",
+    "bestScore": 0.5,
+    "bestGuess": "Dip Machine"
+  },
+  {
+    "id_wger": 1096,
+    "nombre": "Abduction while standing",
+    "bestScore": 0.33,
+    "bestGuess": "Standing Biceps Stretch"
+  },
+  {
+    "id_wger": 1099,
+    "nombre": "Dynamic side hold",
+    "bestScore": 0.4,
+    "bestGuess": "Side Bridge"
+  },
+  {
+    "id_wger": 1100,
+    "nombre": "Wall balls",
+    "bestScore": 0.33,
+    "bestGuess": "Linear Acceleration Wall Drill"
+  },
+  {
+    "id_wger": 1101,
+    "nombre": "Horizontal traction isometry",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1102,
+    "nombre": "Alternate back lunges",
+    "bestScore": 0.4,
+    "bestGuess": "Dumbbell Lunges"
+  },
+  {
+    "id_wger": 1103,
+    "nombre": "walking bridge",
+    "bestScore": 0.5,
+    "bestGuess": "Side Bridge"
+  },
+  {
+    "id_wger": 1114,
+    "nombre": "Rest (for timed workouts)",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1115,
+    "nombre": "3D lunge warmup",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Lunge"
+  },
+  {
+    "id_wger": 1119,
+    "nombre": "Remo maquina agarre estrecho",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1120,
+    "nombre": "Remo maquina agarre estrecho supino",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1136,
+    "nombre": "Neutral-grip chest pulldown",
+    "bestScore": 0.5,
+    "bestGuess": "Wide-Grip Lat Pulldown"
+  },
+  {
+    "id_wger": 1141,
+    "nombre": "Arabesque",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1143,
+    "nombre": "Back extensión",
+    "bestScore": 0.5,
+    "bestGuess": "Elbows Back"
+  },
+  {
+    "id_wger": 1192,
+    "nombre": "Alternating Biceps Curls With Dumbbell",
+    "bestScore": 0.5,
+    "bestGuess": "Flexor Incline Dumbbell Curls"
+  },
+  {
+    "id_wger": 1195,
+    "nombre": "Side Slides + Squats",
+    "bestScore": 0.4,
+    "bestGuess": "Jefferson Squats"
+  },
+  {
+    "id_wger": 1196,
+    "nombre": "Wall Drills",
+    "bestScore": 0.33,
+    "bestGuess": "Linear Acceleration Wall Drill"
+  },
+  {
+    "id_wger": 1198,
+    "nombre": "Inverted Rows",
+    "bestScore": 0.5,
+    "bestGuess": "Inverted Row"
+  },
+  {
+    "id_wger": 1200,
+    "nombre": "Tibialis raises",
+    "bestScore": 0.4,
+    "bestGuess": "Anterior Tibialis-SMR"
+  },
+  {
+    "id_wger": 1201,
+    "nombre": "Dragon squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1202,
+    "nombre": "Side Lying Hip Abduction",
+    "bestScore": 0.5,
+    "bestGuess": "Side-Lying Floor Stretch"
+  },
+  {
+    "id_wger": 1204,
+    "nombre": "Cycling cardio session",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1207,
+    "nombre": "Scorpion Kick",
+    "bestScore": 0.5,
+    "bestGuess": "Scissor Kick"
+  },
+  {
+    "id_wger": 1208,
+    "nombre": "Prisoner Squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1209,
+    "nombre": "Shoulder width three-point push-up",
+    "bestScore": 0.44,
+    "bestGuess": "Clock Push-Up"
+  },
+  {
+    "id_wger": 1210,
+    "nombre": "Skydiver with arms in T-position",
+    "bestScore": 0.25,
+    "bestGuess": "Leg Pull-In"
+  },
+  {
+    "id_wger": 1214,
+    "nombre": "Front lever tuck",
+    "bestScore": 0.4,
+    "bestGuess": "Tuck Crunch"
+  },
+  {
+    "id_wger": 1215,
+    "nombre": "Reverse Snow Angel",
+    "bestScore": 0.4,
+    "bestGuess": "Reverse Crunch"
+  },
+  {
+    "id_wger": 1216,
+    "nombre": "Recruitment Pulls",
+    "bestScore": 0.5,
+    "bestGuess": "Rack Pulls"
+  },
+  {
+    "id_wger": 1217,
+    "nombre": "Finger Pushup",
+    "bestScore": 0.5,
+    "bestGuess": "Finger Curls"
+  },
+  {
+    "id_wger": 1223,
+    "nombre": "Claps over the head",
+    "bestScore": 0.44,
+    "bestGuess": "Standing Front Barbell Raise Over Head"
+  },
+  {
+    "id_wger": 1234,
+    "nombre": "Dumbbell Single-leg Hip Thrust",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Hip Thrust"
+  },
+  {
+    "id_wger": 1238,
+    "nombre": "Frog stand",
+    "bestScore": 0.5,
+    "bestGuess": "Frog Hops"
+  },
+  {
+    "id_wger": 1241,
+    "nombre": "Exercise Band Dorsiflexion",
+    "bestScore": 0.33,
+    "bestGuess": "Band Good Morning"
+  },
+  {
+    "id_wger": 1242,
+    "nombre": "Exercise Band Plantarflexion",
+    "bestScore": 0.33,
+    "bestGuess": "Band Good Morning"
+  },
+  {
+    "id_wger": 1244,
+    "nombre": "Yoga exercise: Cow-cat",
+    "bestScore": 0.33,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1245,
+    "nombre": "Front Lever",
+    "bestScore": 0.4,
+    "bestGuess": "Front Barbell Squat"
+  },
+  {
+    "id_wger": 1246,
+    "nombre": "TRX roll out",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1248,
+    "nombre": "Ice cream maker",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1259,
+    "nombre": "TRX Obliques",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1261,
+    "nombre": "TRX gorilla biceps curl",
+    "bestScore": 0.5,
+    "bestGuess": "Incline Inner Biceps Curl"
+  },
+  {
+    "id_wger": 1262,
+    "nombre": "Trx Single Arm Bicep Curl",
+    "bestScore": 0.5,
+    "bestGuess": "Dumbbell Bicep Curl"
+  },
+  {
+    "id_wger": 1263,
+    "nombre": "Back bridge",
+    "bestScore": 0.5,
+    "bestGuess": "Elbows Back"
+  },
+  {
+    "id_wger": 1269,
+    "nombre": "TRX dips",
+    "bestScore": 0.5,
+    "bestGuess": "Bench Dips"
+  },
+  {
+    "id_wger": 1273,
+    "nombre": "Pullover",
+    "bestScore": 0.5,
+    "bestGuess": "Front Raise And Pullover"
+  },
+  {
+    "id_wger": 1280,
+    "nombre": "Biceps Close Grip Pull Down",
+    "bestScore": 0.44,
+    "bestGuess": "Close-Grip Dumbbell Press"
+  },
+  {
+    "id_wger": 1282,
+    "nombre": "Isometria trazioni impugnatura inversa",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1285,
+    "nombre": "Talons fesses",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1286,
+    "nombre": "Dynamic Planche",
+    "bestScore": 0.4,
+    "bestGuess": "Dynamic Back Stretch"
+  },
+  {
+    "id_wger": 1287,
+    "nombre": "Reach ups",
+    "bestScore": 0.5,
+    "bestGuess": "Butt-Ups"
+  },
+  {
+    "id_wger": 1296,
+    "nombre": "Low-Cable Cross-Over - NB",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Iron Cross"
+  },
+  {
+    "id_wger": 1298,
+    "nombre": "High-Cable Cross Tricep Extention - NB",
+    "bestScore": 0.44,
+    "bestGuess": "Cable Iron Cross"
+  },
+  {
+    "id_wger": 1303,
+    "nombre": "Helms Row",
+    "bestScore": 0.5,
+    "bestGuess": "Inverted Row"
+  },
+  {
+    "id_wger": 1304,
+    "nombre": "Meadows Row",
+    "bestScore": 0.5,
+    "bestGuess": "Inverted Row"
+  },
+  {
+    "id_wger": 1314,
+    "nombre": "Jumping Jack HD",
+    "bestScore": 0.5,
+    "bestGuess": "Rope Jumping"
+  },
+  {
+    "id_wger": 1318,
+    "nombre": "High Knee Skips HD",
+    "bestScore": 0.33,
+    "bestGuess": "Ankle On The Knee"
+  },
+  {
+    "id_wger": 1333,
+    "nombre": "Forearm Curls (underhand grip)",
+    "bestScore": 0.33,
+    "bestGuess": "Concentration Curls"
+  },
+  {
+    "id_wger": 1363,
+    "nombre": "Blackroll",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1373,
+    "nombre": "box jumps",
+    "bestScore": 0.5,
+    "bestGuess": "Box Squat"
+  },
+  {
+    "id_wger": 1374,
+    "nombre": "Rotary Torso Machine",
+    "bestScore": 0.4,
+    "bestGuess": "Dip Machine"
+  },
+  {
+    "id_wger": 1377,
+    "nombre": "Torso Twist",
+    "bestScore": 0.5,
+    "bestGuess": "Plate Twist"
+  },
+  {
+    "id_wger": 1384,
+    "nombre": "Pullover Machine",
+    "bestScore": 0.5,
+    "bestGuess": "Dip Machine"
+  },
+  {
+    "id_wger": 1387,
+    "nombre": "Hamstring Kicks",
+    "bestScore": 0.5,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1390,
+    "nombre": "Toe Touch",
+    "bestScore": 0.5,
+    "bestGuess": "Toe Touchers"
+  },
+  {
+    "id_wger": 1391,
+    "nombre": "Elephant Walks",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1394,
+    "nombre": "Sit & Reach",
+    "bestScore": 0.5,
+    "bestGuess": "Sit Squats"
+  },
+  {
+    "id_wger": 1395,
+    "nombre": "Crossbody Leg Swings",
+    "bestScore": 0.4,
+    "bestGuess": "Leg Extensions"
+  },
+  {
+    "id_wger": 1396,
+    "nombre": "Standing Pancake",
+    "bestScore": 0.4,
+    "bestGuess": "Standing Biceps Stretch"
+  },
+  {
+    "id_wger": 1398,
+    "nombre": "Hamstring Chokes",
+    "bestScore": 0.5,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1399,
+    "nombre": "Roll Down",
+    "bestScore": 0.25,
+    "bestGuess": "Lying Face Down Plate Neck Resistance"
+  },
+  {
+    "id_wger": 1406,
+    "nombre": "Plank-to-Elbow Extension",
+    "bestScore": 0.5,
+    "bestGuess": "Plank"
+  },
+  {
+    "id_wger": 1407,
+    "nombre": "Cossack squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1408,
+    "nombre": "Wall-sit",
+    "bestScore": 0.5,
+    "bestGuess": "Sit Squats"
+  },
+  {
+    "id_wger": 1409,
+    "nombre": "Dragon-flag",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1411,
+    "nombre": "Heel Touches",
+    "bestScore": 0.4,
+    "bestGuess": "Alternate Heel Touchers"
+  },
+  {
+    "id_wger": 1425,
+    "nombre": "Toe Taps",
+    "bestScore": 0.5,
+    "bestGuess": "Toe Touchers"
+  },
+  {
+    "id_wger": 1433,
+    "nombre": "Reverse Wood Chops",
+    "bestScore": 0.4,
+    "bestGuess": "Reverse Crunch"
+  },
+  {
+    "id_wger": 1434,
+    "nombre": "Lat Pull DB",
+    "bestScore": 0.4,
+    "bestGuess": "Clean Pull"
+  },
+  {
+    "id_wger": 1435,
+    "nombre": "Scapula Pulls",
+    "bestScore": 0.5,
+    "bestGuess": "Rack Pulls"
+  },
+  {
+    "id_wger": 1437,
+    "nombre": "Pin Squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1439,
+    "nombre": "Pin OHP",
+    "bestScore": 0.5,
+    "bestGuess": "Pin Presses"
+  },
+  {
+    "id_wger": 1440,
+    "nombre": "Push OHP",
+    "bestScore": 0.5,
+    "bestGuess": "Drop Push"
+  },
+  {
+    "id_wger": 1441,
+    "nombre": "Incline OHP DB",
+    "bestScore": 0.44,
+    "bestGuess": "Hammer Grip Incline DB Bench Press"
+  },
+  {
+    "id_wger": 1442,
+    "nombre": "Kreis Press DB",
+    "bestScore": 0.44,
+    "bestGuess": "Hammer Grip Incline DB Bench Press"
+  },
+  {
+    "id_wger": 1445,
+    "nombre": "Jerk OL",
+    "bestScore": 0.5,
+    "bestGuess": "Clean and Jerk"
+  },
+  {
+    "id_wger": 1449,
+    "nombre": "ClimbMill",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1450,
+    "nombre": "Cobra Stretch",
+    "bestScore": 0.5,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1458,
+    "nombre": "Cross-Body Cable Y-Raise",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Iron Cross"
+  },
+  {
+    "id_wger": 1461,
+    "nombre": "No Leg Drive Dumbbell Chest Press",
+    "bestScore": 0.5,
+    "bestGuess": "Leg Press"
+  },
+  {
+    "id_wger": 1462,
+    "nombre": "punches",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1471,
+    "nombre": "Kroc Row",
+    "bestScore": 0.5,
+    "bestGuess": "Inverted Row"
+  },
+  {
+    "id_wger": 1472,
+    "nombre": "Cable Shrug-In",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Shrug"
+  },
+  {
+    "id_wger": 1474,
+    "nombre": "W-Raise",
+    "bestScore": 0.5,
+    "bestGuess": "Dumbbell Raise"
+  },
+  {
+    "id_wger": 1475,
+    "nombre": "Black Widow Knee Slides",
+    "bestScore": 0.33,
+    "bestGuess": "Ankle On The Knee"
+  },
+  {
+    "id_wger": 1477,
+    "nombre": "Seated Corkscrew",
+    "bestScore": 0.5,
+    "bestGuess": "Seated Biceps"
+  },
+  {
+    "id_wger": 1478,
+    "nombre": "Levitation Crunch",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Crunch"
+  },
+  {
+    "id_wger": 1481,
+    "nombre": "Drag Pushdown",
+    "bestScore": 0.5,
+    "bestGuess": "Backward Drag"
+  },
+  {
+    "id_wger": 1483,
+    "nombre": "Bizeps Curls Trifecta",
+    "bestScore": 0.44,
+    "bestGuess": "Incline Inner Biceps Curl"
+  },
+  {
+    "id_wger": 1487,
+    "nombre": "Hyper Y W Combo",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1493,
+    "nombre": "Bayesian Curl",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Curl"
+  },
+  {
+    "id_wger": 1496,
+    "nombre": "DB Upper Chest Variation",
+    "bestScore": 0.29,
+    "bestGuess": "Cable Chest Press"
+  },
+  {
+    "id_wger": 1498,
+    "nombre": "Elbows Tucked DB Bench Press",
+    "bestScore": 0.55,
+    "bestGuess": "Hammer Grip Incline DB Bench Press"
+  },
+  {
+    "id_wger": 1501,
+    "nombre": "Alternative DB Gorilla rows",
+    "bestScore": 0.29,
+    "bestGuess": "Elevated Cable Rows"
+  },
+  {
+    "id_wger": 1511,
+    "nombre": "Kong Curl",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Curl"
+  },
+  {
+    "id_wger": 1512,
+    "nombre": "Drop Curl",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Curl"
+  },
+  {
+    "id_wger": 1514,
+    "nombre": "Lateral Walk",
+    "bestScore": 0.5,
+    "bestGuess": "Lateral Bound"
+  },
+  {
+    "id_wger": 1516,
+    "nombre": "Handstand",
+    "bestScore": 0.5,
+    "bestGuess": "Handstand Push-Ups"
+  },
+  {
+    "id_wger": 1521,
+    "nombre": "Pendular hack",
+    "bestScore": 0.5,
+    "bestGuess": "Hack Squat"
+  },
+  {
+    "id_wger": 1524,
+    "nombre": "Battle Ropes",
+    "bestScore": 0.5,
+    "bestGuess": "Battling Ropes"
+  },
+  {
+    "id_wger": 1525,
+    "nombre": "Ball Slams",
+    "bestScore": 0.5,
+    "bestGuess": "Hug A Ball"
+  },
+  {
+    "id_wger": 1526,
+    "nombre": "Ski Machine",
+    "bestScore": 0.5,
+    "bestGuess": "Dip Machine"
+  },
+  {
+    "id_wger": 1527,
+    "nombre": "Pendulum Squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1528,
+    "nombre": "Glute Drive",
+    "bestScore": 0.5,
+    "bestGuess": "Glute Kickback"
+  },
+  {
+    "id_wger": 1529,
+    "nombre": "Toes to bar",
+    "bestScore": 0.4,
+    "bestGuess": "EZ-Bar Skullcrusher"
+  },
+  {
+    "id_wger": 1536,
+    "nombre": "Delt Stretch",
+    "bestScore": 0.5,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1546,
+    "nombre": "Larsen Press",
+    "bestScore": 0.5,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 1548,
+    "nombre": "Stair Master",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1556,
+    "nombre": "Devil’s Press",
+    "bestScore": 0.4,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 1572,
+    "nombre": "Bird Dog",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1573,
+    "nombre": "Ab wheel",
+    "bestScore": 0.5,
+    "bestGuess": "Ab Roller"
+  },
+  {
+    "id_wger": 1574,
+    "nombre": "Schwimmen",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1576,
+    "nombre": "Snap Down",
+    "bestScore": 0.25,
+    "bestGuess": "Lying Face Down Plate Neck Resistance"
+  },
+  {
+    "id_wger": 1577,
+    "nombre": "Bretzel stretch",
+    "bestScore": 0.5,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1578,
+    "nombre": "Hip hinge",
+    "bestScore": 0.4,
+    "bestGuess": "Band Hip Adductions"
+  },
+  {
+    "id_wger": 1579,
+    "nombre": "Bronco",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1580,
+    "nombre": "Perpendicular Unilateral Landmine Row",
+    "bestScore": 0.33,
+    "bestGuess": "Inverted Row"
+  },
+  {
+    "id_wger": 1581,
+    "nombre": "Trap press",
+    "bestScore": 0.5,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 1582,
+    "nombre": "Side-laying interior rotation",
+    "bestScore": 0.33,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 1583,
+    "nombre": "Supine press",
+    "bestScore": 0.5,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 1584,
+    "nombre": "March or jog in place",
+    "bestScore": 0.25,
+    "bestGuess": "Leg Pull-In"
+  },
+  {
+    "id_wger": 1591,
+    "nombre": "Deep breathing (standing or seated)",
+    "bestScore": 0.29,
+    "bestGuess": "Seated Biceps"
+  },
+  {
+    "id_wger": 1592,
+    "nombre": "Guided or free meditation",
+    "bestScore": 0.22,
+    "bestGuess": "Front Cone Hops (or hurdle hops)"
+  },
+  {
+    "id_wger": 1604,
+    "nombre": "Sliding Lateral Lunge",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Lunge"
+  },
+  {
+    "id_wger": 1605,
+    "nombre": "Copenhagen Adduction Exercise",
+    "bestScore": 0.33,
+    "bestGuess": "Cable Hip Adduction"
+  },
+  {
+    "id_wger": 1606,
+    "nombre": "Arm Raises (T/Y/I)",
+    "bestScore": 0.29,
+    "bestGuess": "Arm Circles"
+  },
+  {
+    "id_wger": 1615,
+    "nombre": "Treadmill Cardio",
+    "bestScore": 0.5,
+    "bestGuess": "Jogging, Treadmill"
+  },
+  {
+    "id_wger": 1616,
+    "nombre": "Dumbbell donkey kick",
+    "bestScore": 0.4,
+    "bestGuess": "Dumbbell Clean"
+  },
+  {
+    "id_wger": 1618,
+    "nombre": "Stationary bike cardio",
+    "bestScore": 0.4,
+    "bestGuess": "Air Bike"
+  },
+  {
+    "id_wger": 1630,
+    "nombre": "Blaze",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1634,
+    "nombre": "Rope Pullover/row",
+    "bestScore": 0.4,
+    "bestGuess": "Inverted Row"
+  },
+  {
+    "id_wger": 1635,
+    "nombre": "Modified pulldown",
+    "bestScore": 0.4,
+    "bestGuess": "Straight-Arm Pulldown"
+  },
+  {
+    "id_wger": 1648,
+    "nombre": "Weighted Crunch",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Crunch"
+  },
+  {
+    "id_wger": 1666,
+    "nombre": "Curl - With Shoulder Elevated",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Curl"
+  },
+  {
+    "id_wger": 1672,
+    "nombre": "Seated Hip Abduction",
+    "bestScore": 0.4,
+    "bestGuess": "Seated Biceps"
+  },
+  {
+    "id_wger": 1679,
+    "nombre": "Wall Angels",
+    "bestScore": 0.33,
+    "bestGuess": "Linear Acceleration Wall Drill"
+  },
+  {
+    "id_wger": 1680,
+    "nombre": "seated figure four",
+    "bestScore": 0.4,
+    "bestGuess": "Seated Biceps"
+  },
+  {
+    "id_wger": 1684,
+    "nombre": "Dumbbell Thruster",
+    "bestScore": 0.5,
+    "bestGuess": "Dumbbell Clean"
+  },
+  {
+    "id_wger": 1688,
+    "nombre": "Kickstand RDL",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1693,
+    "nombre": "Incline Static Hold",
+    "bestScore": 0.33,
+    "bestGuess": "Cable Incline Pushdown"
+  },
+  {
+    "id_wger": 1702,
+    "nombre": "Jalón al pecho con agarre ancho",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1703,
+    "nombre": "Patadas traseras",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1704,
+    "nombre": "Tuck L-sit",
+    "bestScore": 0.4,
+    "bestGuess": "Sit Squats"
+  },
+  {
+    "id_wger": 1707,
+    "nombre": "Elevación lateral polea",
+    "bestScore": 0.4,
+    "bestGuess": "Lateral Bound"
+  },
+  {
+    "id_wger": 1710,
+    "nombre": "Butchers Block Stretch",
+    "bestScore": 0.4,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1711,
+    "nombre": "Sleeper Stretch",
+    "bestScore": 0.5,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1713,
+    "nombre": "Doorway Pectoral Stretch",
+    "bestScore": 0.4,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1717,
+    "nombre": "Neck extension",
+    "bestScore": 0.5,
+    "bestGuess": "Neck-SMR"
+  },
+  {
+    "id_wger": 1718,
+    "nombre": "Remo alto polea alta",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1719,
+    "nombre": "Jalon caballero unialteral",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1733,
+    "nombre": "Isometric Squat to Failure",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1737,
+    "nombre": "Assisted chin-ups",
+    "bestScore": 0.4,
+    "bestGuess": "Butt-Ups"
+  },
+  {
+    "id_wger": 1738,
+    "nombre": "Neutral-grip pull-ups or TRX rows",
+    "bestScore": 0.4,
+    "bestGuess": "Weighted Pull Ups"
+  },
+  {
+    "id_wger": 1739,
+    "nombre": "Shrimp Squad",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1742,
+    "nombre": "Back Lever",
+    "bestScore": 0.5,
+    "bestGuess": "Elbows Back"
+  },
+  {
+    "id_wger": 1743,
+    "nombre": "Windshield Wipers",
+    "bestScore": 0.5,
+    "bestGuess": "Isometric Wipers"
+  },
+  {
+    "id_wger": 1754,
+    "nombre": "45° lateral raises",
+    "bestScore": 0.4,
+    "bestGuess": "Lateral Bound"
+  },
+  {
+    "id_wger": 1774,
+    "nombre": "Chair dips",
+    "bestScore": 0.5,
+    "bestGuess": "Bench Dips"
+  },
+  {
+    "id_wger": 1776,
+    "nombre": "Suitcase Carry",
+    "bestScore": 0.5,
+    "bestGuess": "Rickshaw Carry"
+  },
+  {
+    "id_wger": 1778,
+    "nombre": "Supino inclinado",
+    "bestScore": 0.33,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 1779,
+    "nombre": "Landmine Rotation",
+    "bestScore": 0.5,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 1795,
+    "nombre": "unilateral cross body cable pull down",
+    "bestScore": 0.44,
+    "bestGuess": "Cable Iron Cross"
+  },
+  {
+    "id_wger": 1804,
+    "nombre": "ankle dorsiflexion rocks",
+    "bestScore": 0.4,
+    "bestGuess": "Ankle Circles"
+  },
+  {
+    "id_wger": 1810,
+    "nombre": "Sphinx",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1822,
+    "nombre": "Open Book",
+    "bestScore": 0.33,
+    "bestGuess": "Open Palm Kettlebell Clean"
+  },
+  {
+    "id_wger": 1823,
+    "nombre": "Clamshell",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1828,
+    "nombre": "Abdominal Draw-In",
+    "bestScore": 0.33,
+    "bestGuess": "Leg Pull-In"
+  },
+  {
+    "id_wger": 1829,
+    "nombre": "Landmine Squat to Press",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1832,
+    "nombre": "Ring Support Hold",
+    "bestScore": 0.4,
+    "bestGuess": "Ring Dips"
+  },
+  {
+    "id_wger": 1833,
+    "nombre": "Floor Glider Hamstring Curls",
+    "bestScore": 0.5,
+    "bestGuess": "Seated Floor Hamstring Stretch"
+  },
+  {
+    "id_wger": 1834,
+    "nombre": "Trap-3 Raise",
+    "bestScore": 0.4,
+    "bestGuess": "Dumbbell Raise"
+  },
+  {
+    "id_wger": 1838,
+    "nombre": "Banded Shoulder Drills",
+    "bestScore": 0.4,
+    "bestGuess": "Shoulder Circles"
+  },
+  {
+    "id_wger": 1842,
+    "nombre": "Banded Clamshell",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1844,
+    "nombre": "Frog Stretch",
+    "bestScore": 0.5,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1846,
+    "nombre": "Horse Stance (Side Splits)",
+    "bestScore": 0.33,
+    "bestGuess": "Side Bridge"
+  },
+  {
+    "id_wger": 1847,
+    "nombre": "Straddle L-Sit",
+    "bestScore": 0.5,
+    "bestGuess": "The Straddle"
+  },
+  {
+    "id_wger": 1852,
+    "nombre": "L-sit",
+    "bestScore": 0.5,
+    "bestGuess": "Sit Squats"
+  },
+  {
+    "id_wger": 1853,
+    "nombre": "L-Sit (Foot Supported)",
+    "bestScore": 0.33,
+    "bestGuess": "Foot-SMR"
+  },
+  {
+    "id_wger": 1854,
+    "nombre": "Calves foam roller",
+    "bestScore": 0.4,
+    "bestGuess": "Ab Roller"
+  },
+  {
+    "id_wger": 1855,
+    "nombre": "Hamstring Foam roller",
+    "bestScore": 0.4,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1857,
+    "nombre": "Foam Roller Iliotibial band",
+    "bestScore": 0.33,
+    "bestGuess": "Ab Roller"
+  },
+  {
+    "id_wger": 1858,
+    "nombre": "Foam Roller quadriceps",
+    "bestScore": 0.4,
+    "bestGuess": "Ab Roller"
+  },
+  {
+    "id_wger": 1859,
+    "nombre": "Foam Roller Gluteus",
+    "bestScore": 0.4,
+    "bestGuess": "Ab Roller"
+  },
+  {
+    "id_wger": 1860,
+    "nombre": "Foam Roller Adductors",
+    "bestScore": 0.4,
+    "bestGuess": "Ab Roller"
+  },
+  {
+    "id_wger": 1863,
+    "nombre": "Hip Crossover",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Crossover"
+  },
+  {
+    "id_wger": 1864,
+    "nombre": "Ankle Roll",
+    "bestScore": 0.5,
+    "bestGuess": "Ankle Circles"
+  },
+  {
+    "id_wger": 1865,
+    "nombre": "Banded Ankle Mobility",
+    "bestScore": 0.4,
+    "bestGuess": "Ankle Circles"
+  },
+  {
+    "id_wger": 1868,
+    "nombre": "Lunge with Twist Stretch",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Lunge"
+  },
+  {
+    "id_wger": 1869,
+    "nombre": "Lying Figure Four Stretch",
+    "bestScore": 0.5,
+    "bestGuess": "Side-Lying Floor Stretch"
+  },
+  {
+    "id_wger": 1872,
+    "nombre": "Pigeon Stretch",
+    "bestScore": 0.5,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1874,
+    "nombre": "Runners Lunge Stretch",
+    "bestScore": 0.4,
+    "bestGuess": "Barbell Lunge"
+  },
+  {
+    "id_wger": 1877,
+    "nombre": "Banded Scapular Retraction",
+    "bestScore": 0.33,
+    "bestGuess": "Scapular Pull-Up"
+  },
+  {
+    "id_wger": 1879,
+    "nombre": "Incline DB Y-Raise",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Incline Shoulder Raise"
+  },
+  {
+    "id_wger": 1881,
+    "nombre": "DB Wrist Extension",
+    "bestScore": 0.4,
+    "bestGuess": "Wrist Circles"
+  },
+  {
+    "id_wger": 1884,
+    "nombre": "Shinbox IR Stretch",
+    "bestScore": 0.4,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1885,
+    "nombre": "YTWL Exercise",
+    "bestScore": 0.4,
+    "bestGuess": "Exercise Ball Crunch"
+  },
+  {
+    "id_wger": 1886,
+    "nombre": "Supine Hip Abduction",
+    "bestScore": 0.33,
+    "bestGuess": "Band Hip Adductions"
+  },
+  {
+    "id_wger": 1900,
+    "nombre": "Tricep Rope Pushdowns",
+    "bestScore": 0.5,
+    "bestGuess": "Machine Triceps Extension"
+  },
+  {
+    "id_wger": 1904,
+    "nombre": "Pec Deck",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1905,
+    "nombre": "Pullback",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1907,
+    "nombre": "Unilateral Lunges",
+    "bestScore": 0.5,
+    "bestGuess": "Dumbbell Lunges"
+  },
+  {
+    "id_wger": 1909,
+    "nombre": "Leg Wheel",
+    "bestScore": 0.5,
+    "bestGuess": "Leg Extensions"
+  },
+  {
+    "id_wger": 1912,
+    "nombre": "Core Rotation",
+    "bestScore": 0.5,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 1914,
+    "nombre": "Isometria alle parallele",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1915,
+    "nombre": "Quadruped Hip Abduction",
+    "bestScore": 0.33,
+    "bestGuess": "Band Hip Adductions"
+  },
+  {
+    "id_wger": 1916,
+    "nombre": "Tuck planche",
+    "bestScore": 0.5,
+    "bestGuess": "Tuck Crunch"
+  },
+  {
+    "id_wger": 1919,
+    "nombre": "Extreme Pec Stretch",
+    "bestScore": 0.4,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1921,
+    "nombre": "Extreme Lat Stretch",
+    "bestScore": 0.4,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1924,
+    "nombre": "3008 Abdominal Crunch",
+    "bestScore": 0.4,
+    "bestGuess": "Cable Crunch"
+  },
+  {
+    "id_wger": 1927,
+    "nombre": "Inverted Lat Pull Down",
+    "bestScore": 0.33,
+    "bestGuess": "Clean Pull"
+  },
+  {
+    "id_wger": 1928,
+    "nombre": "Seated V-Grip Row",
+    "bestScore": 0.4,
+    "bestGuess": "Seated Close-Grip Concentration Barbell Curl"
+  },
+  {
+    "id_wger": 1933,
+    "nombre": "Abdominal Crunch",
+    "bestScore": 0.5,
+    "bestGuess": "Cable Crunch"
+  },
+  {
+    "id_wger": 1935,
+    "nombre": "Belt Squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1938,
+    "nombre": "Cat-Cow",
+    "bestScore": 0.5,
+    "bestGuess": "Cat Stretch"
+  },
+  {
+    "id_wger": 1939,
+    "nombre": "Neck CARs",
+    "bestScore": 0.5,
+    "bestGuess": "Neck-SMR"
+  },
+  {
+    "id_wger": 1940,
+    "nombre": "Diaphragmatic Breathing",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1949,
+    "nombre": "Limber 11",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 1950,
+    "nombre": "Foam Roll IT Band",
+    "bestScore": 0.5,
+    "bestGuess": "IT Band and Glute Stretch"
+  },
+  {
+    "id_wger": 1952,
+    "nombre": "SMR Glutes (lax ball)",
+    "bestScore": 0.33,
+    "bestGuess": "Brachialis-SMR"
+  },
+  {
+    "id_wger": 1954,
+    "nombre": "Roll-overs into V-sits",
+    "bestScore": 0.29,
+    "bestGuess": "V-Bar Pulldown"
+  },
+  {
+    "id_wger": 1956,
+    "nombre": "Fire Hydrant Circles",
+    "bestScore": 0.4,
+    "bestGuess": "Ankle Circles"
+  },
+  {
+    "id_wger": 1960,
+    "nombre": "Rear-foot-elevated Hip Flexor Stretch",
+    "bestScore": 0.55,
+    "bestGuess": "Intermediate Hip Flexor and Quad Stretch"
+  },
+  {
+    "id_wger": 1962,
+    "nombre": "Step Jack",
+    "bestScore": 0.5,
+    "bestGuess": "Step Mill"
+  },
+  {
+    "id_wger": 1963,
+    "nombre": "Slow Squat",
+    "bestScore": 0.5,
+    "bestGuess": "Barbell Squat"
+  },
+  {
+    "id_wger": 1965,
+    "nombre": "Marching High Knees",
+    "bestScore": 0.33,
+    "bestGuess": "High Cable Curls"
+  },
+  {
+    "id_wger": 1966,
+    "nombre": "1/2 Kneeling Thoracic Rotation",
+    "bestScore": 0.29,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 1967,
+    "nombre": "lento avanti seduto",
+    "bestScore": 0.33,
+    "bestGuess": "Bent Press"
+  },
+  {
+    "id_wger": 1971,
+    "nombre": "Mentzer Pulldown",
+    "bestScore": 0.4,
+    "bestGuess": "Straight-Arm Pulldown"
+  },
+  {
+    "id_wger": 2447,
+    "nombre": "Hip Airplane",
+    "bestScore": 0.4,
+    "bestGuess": "Band Hip Adductions"
+  },
+  {
+    "id_wger": 2448,
+    "nombre": "Reverse Clamshell",
+    "bestScore": 0.5,
+    "bestGuess": "Reverse Crunch"
+  },
+  {
+    "id_wger": 2449,
+    "nombre": "Clamshell to Reverse Clamshell",
+    "bestScore": 0.4,
+    "bestGuess": "Reverse Crunch"
+  },
+  {
+    "id_wger": 2452,
+    "nombre": "Curl De Muñeca Con Barra",
+    "bestScore": 0.29,
+    "bestGuess": "Barbell Curl"
+  },
+  {
+    "id_wger": 2454,
+    "nombre": "YTW Raises",
+    "bestScore": 0.4,
+    "bestGuess": "Calf Raises - With Bands"
+  },
+  {
+    "id_wger": 2480,
+    "nombre": "Easy Continuous Swim (Freestyle)",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 2481,
+    "nombre": "Kick with Board",
+    "bestScore": 0.5,
+    "bestGuess": "Balance Board"
+  },
+  {
+    "id_wger": 2482,
+    "nombre": "Bobbing Exhale Drill",
+    "bestScore": 0.33,
+    "bestGuess": "Kneeling Arm Drill"
+  },
+  {
+    "id_wger": 2483,
+    "nombre": "Wall-Hold Rotation",
+    "bestScore": 0.4,
+    "bestGuess": "External Rotation"
+  },
+  {
+    "id_wger": 2484,
+    "nombre": "Side-Kick Breathing (Kickboard)",
+    "bestScore": 0.33,
+    "bestGuess": "Scissor Kick"
+  },
+  {
+    "id_wger": 2485,
+    "nombre": "Stroke-and-Roll Drill",
+    "bestScore": 0.33,
+    "bestGuess": "Kneeling Arm Drill"
+  },
+  {
+    "id_wger": 2486,
+    "nombre": "Recovery Bobbing",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 2487,
+    "nombre": "Cool-Down Swim",
+    "bestScore": 0.22,
+    "bestGuess": "Lying Face Down Plate Neck Resistance"
+  },
+  {
+    "id_wger": 2491,
+    "nombre": "Abductors",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  },
+  {
+    "id_wger": 2492,
+    "nombre": "Adductors",
+    "bestScore": 0,
+    "bestGuess": "90/90 Hamstring"
+  }
+]

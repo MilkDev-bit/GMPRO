@@ -284,6 +284,7 @@ mediciones_recientes: ${JSON.stringify(userContext.ultimas_mediciones || [])}
             if (hit) {
               ej.image_url = hit.imagen_url || hit.thumbnail_url || null;
               ej.video_url = hit.video_url || null;
+              ej.gif_url   = hit.gif_url || null; // animación de la ejecución correcta
               if (hit.id_wger != null) ej.ejercicio_id = `wger-${hit.id_wger}`;
               enriquecidos++;
             }

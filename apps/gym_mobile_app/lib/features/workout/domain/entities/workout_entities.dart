@@ -25,6 +25,7 @@ class WorkoutExercise {
     this.notas,
     this.videoUrl,
     this.imageUrl,
+    this.gifUrl,
   });
 
   final String ejercicioId;
@@ -40,6 +41,13 @@ class WorkoutExercise {
   /// Imagen del ejercicio (de wger, si el backend la resuelve). La UI la usa como
   /// portada con fallback a videoUrl y luego a un placeholder.
   final String? imageUrl;
+
+  /// GIF animado de la ejecución correcta (dataset externo, resuelto por el
+  /// backend). La UI lo prefiere como portada animada cuando existe.
+  final String? gifUrl;
+
+  /// Portada animada si hay GIF; si no, la imagen estática.
+  String? get coverUrl => (gifUrl != null && gifUrl!.isNotEmpty) ? gifUrl : imageUrl;
 
   /// Número de wger extraído de ejercicioId "wger-<n>" (si es numérico).
   String? get wgerId {
@@ -62,6 +70,7 @@ class WorkoutExercise {
       notas:                json['notas'] as String?,
       videoUrl:             json['video_url'] as String?,
       imageUrl:             (json['image_url'] ?? json['imagen_url']) as String?,
+      gifUrl:               (json['gif_url'] ?? json['gifUrl']) as String?,
     );
   }
 

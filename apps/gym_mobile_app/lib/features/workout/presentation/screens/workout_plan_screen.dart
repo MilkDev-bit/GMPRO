@@ -378,6 +378,9 @@ class _ExerciseCard extends StatelessWidget {
 /// Portada del ejercicio: imagen real (wger) → video → placeholder.
 /// URL de imagen REAL del ejercicio (wger). null si no hay → se usa el fallback.
 String? _exerciseImageUrl(WorkoutExercise ex) {
+  // Prioridad: GIF animado de la ejecución → imagen estática de wger → video.
+  // CachedNetworkImage reproduce GIFs animados directamente como portada.
+  if (ex.gifUrl?.isNotEmpty == true) return ex.gifUrl;
   if (ex.imageUrl?.isNotEmpty == true) return ex.imageUrl;
   if (ex.videoUrl?.isNotEmpty == true) return ex.videoUrl;
   return null;

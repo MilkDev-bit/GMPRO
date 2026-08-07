@@ -119,9 +119,9 @@ async function _loadCatalog() {
   const now = Date.now();
   if (_catalogCache && now - _catalogCacheAt < CATALOG_TTL_MS) return _catalogCache;
   const r = await query(
-    `SELECT id_wger, nombre, nombre_en, imagen_url, video_url, thumbnail_url
+    `SELECT id_wger, nombre, nombre_en, imagen_url, video_url, gif_url, thumbnail_url
        FROM catalogo_ejercicios
-      WHERE COALESCE(imagen_url, thumbnail_url, video_url) IS NOT NULL`,
+      WHERE COALESCE(imagen_url, thumbnail_url, video_url, gif_url) IS NOT NULL`,
     [],
   );
   _catalogCache = r.rows.map((row) => ({
@@ -176,6 +176,7 @@ async function resolveExerciseImages(req, res, next) {
           nombre: best.nombre,
           imagen_url: best.imagen_url,
           video_url: best.video_url,
+          gif_url: best.gif_url,
           thumbnail_url: best.thumbnail_url,
         };
       }
