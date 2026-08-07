@@ -1,19 +1,15 @@
 -- =============================================================================
--- Migración 012 — Crea las tablas que faltaban en fitness_service_db
+-- Migración 012 — Crea las tablas que faltaban en fitness_service_db (RESILIENTE)
 -- =============================================================================
--- El esquema 02_fitness_service_db.sql no se había aplicado a la BD viva, por eso
--- catalogo_ejercicios / registros_nutricion no existían (y 011 fallaba).
--- Esta migración crea, de forma IDEMPOTENTE:
---   • catalogo_ejercicios   (imágenes wger para rutinas)
---   • registros_nutricion   (consumo diario)
---   • registros_hidratacion (agua diaria)
--- + índices, RLS y GRANTs para svc_fitness. Usa gen_random_uuid() (nativo).
--- Correr en el SQL Editor de Supabase. Reemplaza a 011 (la incluye).
+-- El esquema 02_fitness_service_db.sql no se aplicó a la BD viva → catalogo_
+-- ejercicios / registros_nutricion no existían. Esta versión crea PRIMERO las
+-- tablas (sin referencias a roles, así nada aborta la creación) y luego, en un
+-- bloque GUARDADO, aplica GRANT/policies de svc_fitness SOLO si el rol existe.
+-- Idempotente. Correr TODO el archivo en el SQL Editor de Supabase.
 -- =============================================================================
 
 CREATE SCHEMA IF NOT EXISTS fitness_service_db;
 
--- ── Enums ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN
   CREATE TYPE fitness_service_db.region_corporal_enum AS ENUM ('anterior','posterior');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -53,12 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_ejercicios_musculo_principal_gin
 CREATE INDEX IF NOT EXISTS idx_ejercicios_musculo_secundario_gin
   ON fitness_service_db.catalogo_ejercicios USING GIN (musculo_secundario);
 
-ALTER TABLE fitness_service_db.catalogo_ejercicios ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS read_catalogo_ejercicios ON fitness_service_db.catalogo_ejercicios;
-CREATE POLICY read_catalogo_ejercicios ON fitness_service_db.catalogo_ejercicios
-  FOR SELECT TO public USING (activo = TRUE);
-GRANT SELECT ON fitness_service_db.catalogo_ejercicios TO svc_fitness;
-
 -- ── registros_nutricion (consumo diario) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS fitness_service_db.registros_nutricion (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,16 +69,7 @@ CREATE TABLE IF NOT EXISTS fitness_service_db.registros_nutricion (
 CREATE INDEX IF NOT EXISTS idx_registros_nutricion_usuario_fecha
   ON fitness_service_db.registros_nutricion (usuario_id, fecha DESC);
 
-ALTER TABLE fitness_service_db.registros_nutricion ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS deny_nutricion ON fitness_service_db.registros_nutricion;
-CREATE POLICY deny_nutricion ON fitness_service_db.registros_nutricion
-  FOR ALL TO public USING (false);
-DROP POLICY IF EXISTS svc_fitness_rw_n ON fitness_service_db.registros_nutricion;
-CREATE POLICY svc_fitness_rw_n ON fitness_service_db.registros_nutricion
-  FOR ALL TO svc_fitness USING (true) WITH CHECK (true);
-GRANT SELECT, INSERT, UPDATE, DELETE ON fitness_service_db.registros_nutricion TO svc_fitness;
-
--- ── registros_hidratacion (agua diaria, upsert usuario+fecha) ─────────────────
+-- ── registros_hidratacion (agua diaria) ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS fitness_service_db.registros_hidratacion (
   usuario_id     UUID NOT NULL,
   fecha          DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -96,11 +77,39 @@ CREATE TABLE IF NOT EXISTS fitness_service_db.registros_hidratacion (
   actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (usuario_id, fecha)
 );
-ALTER TABLE fitness_service_db.registros_hidratacion ENABLE ROW LEVEL SECURITY;
+
+-- ── RLS (no dependen de roles: seguras) ───────────────────────────────────────
+ALTER TABLE fitness_service_db.catalogo_ejercicios    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fitness_service_db.registros_nutricion    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fitness_service_db.registros_hidratacion  ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS read_catalogo_ejercicios ON fitness_service_db.catalogo_ejercicios;
+CREATE POLICY read_catalogo_ejercicios ON fitness_service_db.catalogo_ejercicios
+  FOR SELECT TO public USING (activo = TRUE);
+
+DROP POLICY IF EXISTS deny_nutricion ON fitness_service_db.registros_nutricion;
+CREATE POLICY deny_nutricion ON fitness_service_db.registros_nutricion
+  FOR ALL TO public USING (false);
+
 DROP POLICY IF EXISTS deny_hidratacion ON fitness_service_db.registros_hidratacion;
 CREATE POLICY deny_hidratacion ON fitness_service_db.registros_hidratacion
   FOR ALL TO public USING (false);
-DROP POLICY IF EXISTS svc_fitness_rw_h ON fitness_service_db.registros_hidratacion;
-CREATE POLICY svc_fitness_rw_h ON fitness_service_db.registros_hidratacion
-  FOR ALL TO svc_fitness USING (true) WITH CHECK (true);
-GRANT SELECT, INSERT, UPDATE, DELETE ON fitness_service_db.registros_hidratacion TO svc_fitness;
+
+-- ── GRANTs + policies de svc_fitness: SOLO si el rol existe (no aborta nada) ──
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'svc_fitness') THEN
+    GRANT USAGE ON SCHEMA fitness_service_db TO svc_fitness;
+    GRANT SELECT ON fitness_service_db.catalogo_ejercicios TO svc_fitness;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON fitness_service_db.registros_nutricion   TO svc_fitness;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON fitness_service_db.registros_hidratacion TO svc_fitness;
+
+    EXECUTE 'DROP POLICY IF EXISTS svc_fitness_rw_n ON fitness_service_db.registros_nutricion';
+    EXECUTE 'CREATE POLICY svc_fitness_rw_n ON fitness_service_db.registros_nutricion FOR ALL TO svc_fitness USING (true) WITH CHECK (true)';
+
+    EXECUTE 'DROP POLICY IF EXISTS svc_fitness_rw_h ON fitness_service_db.registros_hidratacion';
+    EXECUTE 'CREATE POLICY svc_fitness_rw_h ON fitness_service_db.registros_hidratacion FOR ALL TO svc_fitness USING (true) WITH CHECK (true)';
+  ELSE
+    RAISE NOTICE 'Rol svc_fitness no existe: se omiten GRANTs/policies (corre la migración 009 para crearlo).';
+  END IF;
+END $$;

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/presentation/widgets/premium_loading_overlay.dart';
 import '../providers/nutrition_provider.dart';
 
 class DietProfileSheet extends ConsumerStatefulWidget {
@@ -80,6 +81,10 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
       _submitting = true;
       _error = null;
     });
+    // Pantalla de carga premium de IA mientras el modelo calcula (capturamos el
+    // notifier ANTES del await: sigue vivo aunque el sheet se cierre).
+    final overlay = ref.read(loadingOverlayProvider.notifier);
+    overlay.showAiOverlay();
     // Esperamos el resultado: sólo cerramos si la generación tuvo éxito. Si falla,
     // el formulario se queda abierto mostrando el error (antes se cerraba y el
     // dashboard volvía a "completa tu perfil", pareciendo un bucle).
@@ -90,6 +95,7 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
           edad: int.tryParse(_edad.text.trim()),
           actividad: _actividad,
         );
+    overlay.hide();
     if (!mounted) return;
     final err = ref.read(nutritionProvider).error;
     if (err == null) {

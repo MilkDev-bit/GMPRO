@@ -250,7 +250,7 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                 children: [
                   // Botón Cerrar Sesión
                   GestureDetector(
-                    onTap: () => ref.read(authProvider.notifier).logout(),
+                    onTap: _confirmLogout,
                     child: Container(
                       height: 56,
                       decoration: BoxDecoration(
@@ -292,6 +292,93 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
   void _handleRetryPayment() {
     HapticFeedback.heavyImpact();
     PlanSelectorSheet.show(context, ref);
+  }
+
+  // ── CONFIRMACIÓN ANTES DE CERRAR SESIÓN ───────────────────────────────────
+  // Cerrar sesión borra el token del hardware seguro y saca al socio al login;
+  // pedimos confirmación para que no ocurra por un toque accidental.
+  Future<void> _confirmLogout() async {
+    HapticFeedback.mediumImpact();
+    final confirmar = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: AppColors.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 26, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.error.withValues(alpha: 0.14),
+                ),
+                child: Icon(Icons.logout_rounded, color: AppColors.error, size: 26),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '¿Cerrar sesión?',
+                style: AppTypography.titleLarge.copyWith(fontSize: 20),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tendrás que volver a iniciar sesión con tu correo y contraseña para acceder a tu cuenta.',
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 13.5,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(false),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        'Cancelar',
+                        style: AppTypography.buttonLabel.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.error,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Text(
+                        'Cerrar sesión',
+                        style: AppTypography.buttonLabel.copyWith(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirmar == true) {
+      HapticFeedback.heavyImpact();
+      await ref.read(authProvider.notifier).logout();
+    }
   }
 
   // ── MODAL DRAGGABLESCROLLABLESHEET DE HISTORIAL DE FACTURAS ────────────────

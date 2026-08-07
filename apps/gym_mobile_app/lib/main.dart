@@ -22,9 +22,11 @@ import 'core/services/toast_service.dart';
 import 'core/services/notification_router.dart';
 import 'core/security/security_guard.dart';
 import 'core/navigation/app_shell.dart';
+import 'core/presentation/widgets/premium_loading_overlay.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/subscription/presentation/providers/subscription_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -132,6 +134,21 @@ class _GymProAppState extends ConsumerState<GymProApp> {
       final wasAuth = prev?.isAuthenticated ?? false;
       if (wasAuth != next.isAuthenticated) {
         ToastService.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        // Al ENTRAR: pantalla de bienvenida premium (1.8s, se oculta sola).
+        if (next.isAuthenticated) {
+          final overlay = ref.read(loadingOverlayProvider.notifier);
+          overlay.showLoginSplash(
+            userName: (next.user?.nombre.trim().isNotEmpty ?? false) ? next.user!.nombre : 'Atleta',
+            onFinish: overlay.hide,
+          );
+          // Refrescar la membresía en el acto. El provider de suscripción pudo
+          // haberse creado ANTES del login (sin token) y quedar cacheado como
+          // past_due/"inactiva"; sin invalidarlo, la app mostraba la membresía
+          // inactiva hasta recargar. Al invalidarlo, un notifier nuevo consulta
+          // con la sesión ya persistida (y re-suscribe Realtime con el usuarioId
+          // correcto), así la membresía aparece activa sin recargar.
+          ref.invalidate(subscriptionProvider);
+        }
       }
     });
 
@@ -143,6 +160,10 @@ class _GymProAppState extends ConsumerState<GymProApp> {
         title: 'GymPro Mobile',
         debugShowCheckedModeBanner: false,
         navigatorKey: ToastService.navigatorKey,
+        // Overlay GLOBAL de carga (splash de login, animación de IA, spinner):
+        // envuelve toda la navegación para que las pantallas de carga se muestren
+        // por encima de cualquier ruta. Se controla vía loadingOverlayProvider.
+        builder: (context, child) => PremiumLoadingOverlay(child: child ?? const SizedBox.shrink()),
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         // La app está diseñada SOLO en oscuro (todas las superficies usan tokens

@@ -186,12 +186,17 @@ function compactForGemini(ex) {
 
 /** Datos que NO pasan por el modelo: se toman tal cual de wger. */
 function factsFromWger(ex) {
-  const img = (ex.images || []).find((i) => i.is_main) || (ex.images || [])[0];
+  const imgs = ex.images || [];
+  const main = imgs.find((i) => i.is_main) || imgs[0];
+  // thumbnail: una imagen distinta a la principal si existe (algunos ejercicios
+  // traen varias vistas); si no, la misma, para no dejar el campo vacío.
+  const alt = imgs.find((i) => i !== main) || main;
   return {
     id_wger: ex.id,
     uuid_wger: ex.uuid || null,
     nombre_en: ((ex.translations || []).find((t) => t.language === 2)?.name || ex.name || '').slice(0, 200),
-    imagen_url: img?.image || null,
+    imagen_url: main?.image || null,
+    thumbnail_url: alt?.image || main?.image || null,
     video_url: (ex.videos || [])[0]?.video || null,
     equipamiento_raw: (ex.equipment || []).map((e) => e.name),
   };
@@ -374,6 +379,7 @@ function mergeRows(batch, enriched) {
       // Derivada de la categoría de wger (enum: solo anterior|posterior).
       region_corporal: regionFromCategory(ex.category?.name),
       imagen_url: facts.imagen_url,
+      thumbnail_url: facts.thumbnail_url,
       video_url: facts.video_url,
       fuente: 'wger+gemini',
       idioma_original: 'es',
@@ -391,7 +397,7 @@ function mergeRows(batch, enriched) {
 const UPSERT_COLS = [
   'id_wger', 'uuid_wger', 'nombre', 'nombre_en', 'descripcion', 'categoria', 'nivel',
   'equipamiento', 'musculo_principal', 'musculo_secundario', 'region_corporal',
-  'imagen_url', 'video_url', 'fuente', 'idioma_original', 'activo',
+  'imagen_url', 'thumbnail_url', 'video_url', 'fuente', 'idioma_original', 'activo',
 ];
 
 async function upsertRows(rows) {

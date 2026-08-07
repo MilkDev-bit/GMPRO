@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/presentation/widgets/premium_loading_overlay.dart';
 import '../providers/workout_provider.dart';
 
 class WorkoutProfileSheet extends ConsumerStatefulWidget {
@@ -78,6 +79,15 @@ class _WorkoutProfileSheetState extends ConsumerState<WorkoutProfileSheet> {
       _submitting = true;
       _error = null;
     });
+    // Pantalla de carga premium de IA mientras el modelo arma la rutina.
+    final overlay = ref.read(loadingOverlayProvider.notifier);
+    overlay.showAiOverlay(texts: const [
+      'Analizando tu objetivo y nivel...',
+      'Seleccionando ejercicios del catálogo wger...',
+      'Balanceando volumen por grupo muscular...',
+      'Ordenando de compuestos a aislados...',
+      'Ajustando series, repes y descansos...',
+    ]);
     // Esperamos el resultado: sólo cerramos si la generación tuvo éxito. Si falla,
     // el formulario se queda abierto mostrando el error (en vez de cerrarse y
     // parecer un bucle).
@@ -87,6 +97,7 @@ class _WorkoutProfileSheetState extends ConsumerState<WorkoutProfileSheet> {
           diasPorSemana: _dias,
           lesiones: lesiones.isEmpty ? 'ninguna' : lesiones,
         );
+    overlay.hide();
     if (!mounted) return;
     final err = ref.read(workoutProvider).error;
     if (err == null) {

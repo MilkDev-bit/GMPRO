@@ -109,11 +109,14 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
+                  Expanded(
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'CALORÍAS DIARIAS (OPEN FOOD FACTS)',
+                        'CALORÍAS DE HOY',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -162,7 +165,9 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                         ],
                       ),
                     ],
+                    ),
                   ),
+                  const SizedBox(width: 12),
                   TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0.0, end: calPercent.toDouble()),
                     duration: const Duration(milliseconds: 1000),
@@ -282,15 +287,17 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
               const SizedBox(height: 18),
 
               // ── SECCIÓN HIDRATACIÓN CON ROLLING COUNTER & PULSE ────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Row(
-                      children: [
+                  Row(
+                    children: [
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.elasticOut,
+                        // easeOut (sin overshoot). elasticOut "rebota" fuera de
+                        // [0,1] e interpolaba blurRadius/spreadRadius a NEGATIVO al
+                        // pasar de la sombra a [] → crash "dart:ui painting.dart".
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOut,
                         padding: EdgeInsets.all(_waterWaveAnimation ? 14 : 10),
                         decoration: BoxDecoration(
                           color: AppColors.info.withValues(alpha: _waterWaveAnimation ? 0.35 : 0.15),
@@ -299,75 +306,85 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                             color: AppColors.info.withValues(alpha: _waterWaveAnimation ? 0.9 : 0.4),
                             width: _waterWaveAnimation ? 2.5 : 1.0,
                           ),
-                          boxShadow: _waterWaveAnimation
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.info.withValues(alpha: 0.6),
-                                    blurRadius: 20,
-                                    spreadRadius: 4,
-                                  ),
-                                ]
-                              : [],
+                          // Sombra SIEMPRE presente (variando alpha/blur) para no
+                          // interpolar hacia una lista vacía (evita blur negativo).
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.info.withValues(alpha: _waterWaveAnimation ? 0.6 : 0.0),
+                              blurRadius: _waterWaveAnimation ? 20 : 0.01,
+                              spreadRadius: _waterWaveAnimation ? 4 : 0,
+                            ),
+                          ],
                         ),
                         child: Icon(Icons.water_drop_rounded, color: AppColors.infoOf(context), size: 22),
                       ),
                       const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'HIDRATACIÓN DIARIA',
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textMutedOf(context),
-                              letterSpacing: 1.6,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'HIDRATACIÓN DIARIA',
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textMutedOf(context),
+                                letterSpacing: 1.6,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              TweenAnimationBuilder<int>(
-                                tween: IntTween(begin: 0, end: widget.waterConsumedMl),
-                                duration: const Duration(milliseconds: 800),
-                                curve: Curves.elasticOut,
-                                builder: (context, value, child) {
-                                  return Text(
-                                    '$value',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                      color: AppColors.infoOf(context),
-                                      fontFeatures: AppTypography.tabularFigures,
-                                    ),
-                                  );
-                                },
-                              ),
-                              Text(
-                                ' / ${plan.aguaMetaMl} ml',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimaryOf(context),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                TweenAnimationBuilder<int>(
+                                  tween: IntTween(begin: 0, end: widget.waterConsumedMl),
+                                  duration: const Duration(milliseconds: 800),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, value, child) {
+                                    return Text(
+                                      '$value',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.infoOf(context),
+                                        fontFeatures: AppTypography.tabularFigures,
+                                      ),
+                                    );
+                                  },
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                                Flexible(
+                                  child: Text(
+                                    ' / ${plan.aguaMetaMl} ml',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimaryOf(context),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                    ),
                   ),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
-                      _WaterQuickButtonElastic(
-                        label: '+250ml',
-                        onTap: () => _triggerPulse(250),
+                      Expanded(
+                        child: _WaterQuickButtonElastic(
+                          label: '+250 ml',
+                          onTap: () => _triggerPulse(250),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      _WaterQuickButtonElastic(
-                        label: '+500ml',
-                        onTap: () => _triggerPulse(500),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _WaterQuickButtonElastic(
+                          label: '+500 ml',
+                          onTap: () => _triggerPulse(500),
+                        ),
                       ),
                     ],
                   ),

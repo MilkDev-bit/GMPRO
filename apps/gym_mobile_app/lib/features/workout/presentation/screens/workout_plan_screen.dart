@@ -78,20 +78,24 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
   }
 
   Future<void> _updateHeaderColor(WorkoutExercise exercise) async {
-    final coverUrl = exercise.videoUrl?.isNotEmpty == true
-        ? exercise.videoUrl!
-        : 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+    // Sin foto real → usamos el color del músculo (sin llamada de red).
+    final url = _exerciseImageUrl(exercise);
+    if (url == null) {
+      if (mounted) setState(() => _headerColor = _muscleAccent(exercise));
+      return;
+    }
     try {
       final palette = await PaletteGenerator.fromImageProvider(
-        CachedNetworkImageProvider(coverUrl),
+        CachedNetworkImageProvider(url),
       );
       if (mounted) {
         setState(() {
-          _headerColor = palette.dominantColor?.color ?? AppColors.neonPink;
+          _headerColor = palette.dominantColor?.color ?? _muscleAccent(exercise);
         });
       }
     } catch (e) {
       debugPrint('Error generating palette: $e');
+      if (mounted) setState(() => _headerColor = _muscleAccent(exercise));
     }
   }
 
@@ -308,8 +312,6 @@ class _ExerciseCard extends StatelessWidget {
       if (m != null) accentColor = m.color;
     }
 
-    final coverUrl = _exerciseCoverUrl(exercise);
-
     return GestureDetector(
       onTap: () => showExerciseDetailSheet(context, exercise),
       child: ClipRRect(
@@ -329,23 +331,8 @@ class _ExerciseCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            // Cover Image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                width: 64,
-                height: 64,
-                child: CachedNetworkImage(
-                  imageUrl: coverUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(color: Colors.grey.withValues(alpha: 0.2)),
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.grey.withValues(alpha: 0.2),
-                    child: const Icon(Icons.fitness_center, color: Colors.grey),
-                  ),
-                ),
-              ),
-            ),
+            // Cover: foto real de wger o fallback por grupo muscular.
+            _exerciseCover(exercise, size: 64, radius: 14),
             const SizedBox(width: 16),
             // Details
             Expanded(
@@ -389,10 +376,96 @@ class _ExerciseCard extends StatelessWidget {
 }
 
 /// Portada del ejercicio: imagen real (wger) → video → placeholder.
-String _exerciseCoverUrl(WorkoutExercise ex) {
-  if (ex.imageUrl?.isNotEmpty == true) return ex.imageUrl!;
-  if (ex.videoUrl?.isNotEmpty == true) return ex.videoUrl!;
-  return 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+/// URL de imagen REAL del ejercicio (wger). null si no hay → se usa el fallback.
+String? _exerciseImageUrl(WorkoutExercise ex) {
+  if (ex.imageUrl?.isNotEmpty == true) return ex.imageUrl;
+  if (ex.videoUrl?.isNotEmpty == true) return ex.videoUrl;
+  return null;
+}
+
+// ── Fallback por grupo muscular (cuando wger no tiene foto del ejercicio) ──────
+String _muscleGroupKey(WorkoutExercise ex) {
+  final k = ex.musculos_primarios.isNotEmpty ? ex.musculos_primarios.first : '';
+  if (k.contains('pectoral')) return 'chest';
+  if (k.contains('dorsal') || k.contains('trapecio') || k.contains('romboide') ||
+      k.contains('redondo') || k.contains('erector')) return 'back';
+  if (k.contains('deltoides')) return 'shoulders';
+  if (k.contains('biceps_braq') || k.contains('triceps') || k.contains('braqui')) return 'arms';
+  if (k.contains('abdominal') || k.contains('oblicuo') || k.contains('transverso')) return 'core';
+  if (k.contains('cuadriceps') || k.contains('femoral') || k.contains('isquio') ||
+      k.contains('gluteo') || k.contains('gemelo') || k.contains('soleo') ||
+      k.contains('tibial')) return 'legs';
+  return 'default';
+}
+
+const Map<String, IconData> _kGroupIcons = {
+  'chest': Icons.fitness_center_rounded,
+  'back': Icons.rowing_rounded,
+  'shoulders': Icons.sports_gymnastics_rounded,
+  'arms': Icons.sports_mma_rounded,
+  'core': Icons.self_improvement_rounded,
+  'legs': Icons.directions_run_rounded,
+  'default': Icons.fitness_center_rounded,
+};
+const Map<String, String> _kGroupLabels = {
+  'chest': 'Pecho', 'back': 'Espalda', 'shoulders': 'Hombro',
+  'arms': 'Brazo', 'core': 'Core', 'legs': 'Pierna', 'default': 'Ejercicio',
+};
+
+Color _muscleAccent(WorkoutExercise ex) {
+  if (ex.musculos_primarios.isNotEmpty) {
+    final m = MuscleCatalog.byKey(ex.musculos_primarios.first);
+    if (m != null) return m.color;
+  }
+  return AppColors.neonPurple;
+}
+
+/// Portada del ejercicio: imagen real (wger) o, si no hay, un fondo con degradado
+/// del color del músculo + ícono del grupo, para que NINGÚN ejercicio se vea vacío.
+Widget _exerciseCover(WorkoutExercise ex, {required double size, double radius = 14, bool showLabel = false}) {
+  final url = _exerciseImageUrl(ex);
+  final accent = _muscleAccent(ex);
+  final group = _muscleGroupKey(ex);
+  final icon = _kGroupIcons[group] ?? Icons.fitness_center_rounded;
+  final label = _kGroupLabels[group] ?? 'Ejercicio';
+
+  Widget fallback() => Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [accent.withValues(alpha: 0.55), accent.withValues(alpha: 0.14)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white.withValues(alpha: 0.92), size: size * 0.34),
+            if (showLabel) ...[
+              const SizedBox(height: 8),
+              Text(label,
+                  style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+            ],
+          ],
+        ),
+      );
+
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(radius),
+    child: SizedBox(
+      width: showLabel ? double.infinity : size,
+      height: size,
+      child: url == null
+          ? fallback()
+          : CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => fallback(),
+              errorWidget: (_, __, ___) => fallback(),
+            ),
+    ),
+  );
 }
 
 /// Hoja de detalle del ejercicio: nombre, músculos, series/reps/descanso, notas,
@@ -430,21 +503,7 @@ Future<void> showExerciseDetailSheet(BuildContext context, WorkoutExercise ex) {
               ),
             ),
             const SizedBox(height: 18),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: CachedNetworkImage(
-                imageUrl: _exerciseCoverUrl(ex),
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(height: 180, color: Colors.white.withValues(alpha: 0.05)),
-                errorWidget: (_, __, ___) => Container(
-                  height: 180,
-                  color: Colors.white.withValues(alpha: 0.05),
-                  child: const Icon(Icons.fitness_center, color: Colors.white38, size: 48),
-                ),
-              ),
-            ),
+            _exerciseCover(ex, size: 180, radius: 18, showLabel: true),
             const SizedBox(height: 16),
             Text(ex.nombre,
                 style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
@@ -538,7 +597,6 @@ class _MiniPlayerState extends State<_MiniPlayer> {
     if (widget.exercise == null) return const SizedBox.shrink();
 
     final ex = widget.exercise!;
-    final coverUrl = _exerciseCoverUrl(ex);
 
     return SafeArea(
       child: Container(
@@ -558,23 +616,8 @@ class _MiniPlayerState extends State<_MiniPlayer> {
         ),
         child: Row(
           children: [
-            // Cover
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: CachedNetworkImage(
-                  imageUrl: coverUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(color: Colors.grey.withValues(alpha: 0.2)),
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.grey.withValues(alpha: 0.2),
-                    child: const Icon(Icons.fitness_center, size: 20, color: Colors.grey),
-                  ),
-                ),
-              ),
-            ),
+            // Cover: foto real de wger o fallback por grupo muscular.
+            _exerciseCover(ex, size: 40, radius: 12),
             const SizedBox(width: 12),
             // Text
             Expanded(
