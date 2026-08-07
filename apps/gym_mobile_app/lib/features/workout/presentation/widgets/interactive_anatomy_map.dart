@@ -153,7 +153,7 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
             // chips de músculos (abajo) para que NO tapen la figura. El cuerpo se
             // dibuja más pequeño conservando la proporción 1:2 (ancho:alto).
             Padding(
-              padding: const EdgeInsets.only(top: 52, bottom: 64),
+              padding: const EdgeInsets.only(top: 54, bottom: 60),
               child: Center(
                 child: AnimatedBuilder(
                   animation: Listenable.merge([_highlightAnim, _viewFlipAnim]),
@@ -165,7 +165,7 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
                         ..rotateY(math.pi * _viewFlipAnim.value),
                       child: RepaintBoundary(
                         child: CustomPaint(
-                          size: const Size(122, 244),
+                          size: const Size(158, 316),
                           painter: AnatomyBodyPainter(
                           region: _activeView,
                           primaryMuscles: primaryKeys,
@@ -359,10 +359,13 @@ class AnatomyBodyPainter extends CustomPainter {
   void _drawBodySilhouette(Canvas canvas, Size size, double sx, double sy) {
     final path = _silhouetteCache[region] ??= _computeSilhouettePath(sx, sy);
     // Degradado de volumen (claro arriba → oscuro abajo) para un look muscular 3D.
+    // Relleno SEMISÓLIDO con degradado + un realce lateral: da masa y volumen
+    // (antes era casi transparente y parecía un contorno/fantasma).
     _silhouetteFill.shader = _bodyFillShader ??= const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0x552F2B4E), Color(0x2E15122A)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xE63A3560), Color(0xD9211C3D), Color(0xE6100D22)],
+      stops: [0.0, 0.5, 1.0],
     ).createShader(Offset.zero & size);
     canvas.drawPath(path, _silhouetteGlow); // halo exterior (visibilidad)
     canvas.drawPath(path, _silhouetteFill);
@@ -419,18 +422,23 @@ class AnatomyBodyPainter extends CustomPainter {
       52, 106, 48, 82, 50, 56,
     ]);
 
-    // Brazo IZQUIERDO (bíceps + antebrazo + mano)
-    capsule(40, 60, 16, 52, 8);
-    oval(48, 82, 20, 40);
-    capsule(37, 110, 15, 62, 7);
-    oval(45, 130, 16, 32);
-    oval(44, 176, 16, 18);
-    // Brazo DERECHO (espejo)
-    capsule(104, 60, 16, 52, 8);
-    oval(112, 82, 20, 40);
-    capsule(108, 110, 15, 62, 7);
-    oval(115, 130, 16, 32);
-    oval(116, 176, 16, 18);
+    // Brazos: contorno ÚNICO y suave (bíceps → antebrazo → mano), no bloques.
+    curve([
+      54, 60, 44, 60, 36, 72, 36, 92,
+      36, 118, 38, 140, 40, 166,
+      41, 176, 46, 182, 48, 182,
+      52, 182, 54, 174, 54, 166,
+      53, 140, 52, 110, 54, 88,
+      55, 74, 55, 66, 54, 60,
+    ]);
+    curve([
+      106, 60, 116, 60, 124, 72, 124, 92,
+      124, 118, 122, 140, 120, 166,
+      119, 176, 114, 182, 112, 182,
+      108, 182, 106, 174, 106, 166,
+      107, 140, 108, 110, 106, 88,
+      105, 74, 105, 66, 106, 60,
+    ]);
 
     // Pelvis / cadera
     curve([
@@ -440,41 +448,28 @@ class AnatomyBodyPainter extends CustomPainter {
       51, 153, 49, 140, 56, 128,
     ]);
 
-    // Muslos con bulto exterior (cuádriceps/vasto lateral)
+    // Piernas: contorno ÚNICO y suave (muslo → rodilla → gemelo → pie), con
+    // bultos de cuádriceps y gemelo, sin costuras (nada de óvalos sueltos).
     curve([
-      52, 154, 49, 182, 51, 212, 58, 238,
-      64, 242, 75, 242, 79, 237,
-      80, 206, 80, 180, 79, 156,
-      70, 152, 60, 152, 52, 154,
+      80, 152, 81, 190, 80, 220, 78, 240,
+      78, 262, 79, 286, 76, 306,
+      76, 312, 74, 316, 72, 316,
+      64, 320, 58, 318, 58, 314,
+      56, 300, 54, 284, 55, 264,
+      53, 250, 56, 244, 58, 240,
+      50, 212, 49, 182, 52, 156,
+      60, 150, 72, 150, 80, 152,
     ]);
     curve([
-      108, 154, 111, 182, 109, 212, 102, 238,
-      96, 242, 85, 242, 81, 237,
-      80, 206, 80, 180, 81, 156,
-      90, 152, 100, 152, 108, 154,
+      80, 152, 79, 190, 80, 220, 82, 240,
+      82, 262, 81, 286, 84, 306,
+      84, 312, 86, 316, 88, 316,
+      96, 320, 102, 318, 102, 314,
+      104, 300, 106, 284, 105, 264,
+      107, 250, 104, 244, 102, 240,
+      110, 212, 111, 182, 108, 156,
+      100, 150, 88, 150, 80, 152,
     ]);
-
-    // Rodillas
-    oval(66, 240, 22, 18);
-    oval(94, 240, 22, 18);
-
-    // Pantorrillas con vientre (gastrocnemio)
-    curve([
-      58, 248, 53, 264, 54, 288, 62, 306,
-      66, 310, 72, 310, 75, 306,
-      78, 286, 77, 264, 74, 248,
-      68, 244, 62, 244, 58, 248,
-    ]);
-    curve([
-      102, 248, 107, 264, 106, 288, 98, 306,
-      94, 310, 88, 310, 85, 306,
-      82, 286, 83, 264, 86, 248,
-      92, 244, 98, 244, 102, 248,
-    ]);
-
-    // Pies
-    oval(65, 314, 22, 12);
-    oval(95, 314, 22, 12);
 
     return path;
   }

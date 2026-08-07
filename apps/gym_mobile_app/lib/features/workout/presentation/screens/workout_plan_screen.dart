@@ -190,7 +190,7 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
                       ? InteractiveAnatomyMap(
                           exercises: _currentExercises,
                           initialIndex: _currentExerciseIndex,
-                          height: 340,
+                          height: 430,
                           onExerciseChanged: (index) {
                             setState(() => _currentExerciseIndex = index);
                             _exercisePageController.animateToPage(
