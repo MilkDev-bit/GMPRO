@@ -341,9 +341,9 @@ class AnatomyBodyPainter extends CustomPainter {
   static final Paint _silhouetteFill = Paint()..style = PaintingStyle.fill;
   static Shader? _bodyFillShader;
   static final Paint _silhouetteStroke = Paint()
-    ..color = const Color(0x40FFFFFF) // blanco ~25% (contorno más visible)
+    ..color = const Color(0x24FFFFFF) // contorno tenue (el relieve lo da el rim light)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.4;
+    ..strokeWidth = 1.2;
   // Halo exterior tenue: hace que la silueta destaque sobre el fondo oscuro.
   static final Paint _silhouetteGlow = Paint()
     ..color = const Color(0x334FD6E0) // cian tenue
@@ -364,12 +364,22 @@ class AnatomyBodyPainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.5;
   static final Paint _labelBg = Paint()..style = PaintingStyle.fill;
-  // Trazo fino para las líneas de definición (surcos musculares) del cuerpo.
+  // Trazo fino (con leve desenfoque) para los surcos musculares → parecen
+  // pliegues de sombra, no líneas de lápiz.
   static final Paint _detailLine = Paint()
-    ..color = const Color(0x2EFFFFFF) // blanco ~18%
+    ..color = const Color(0x1FFFFFFF)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.1
-    ..strokeCap = StrokeCap.round;
+    ..strokeWidth = 1.0
+    ..strokeCap = StrokeCap.round
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6);
+  // Sombreado de forma: luces en vientres musculares, sombras en surcos. Dan
+  // volumen "esculpido"/renderizado en vez de aspecto de boceto plano.
+  static final Paint _formShadow = Paint()
+    ..color = const Color(0x4D000000)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+  static final Paint _formHighlight = Paint()
+    ..color = const Color(0x3DFFFFFF)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -384,6 +394,9 @@ class AnatomyBodyPainter extends CustomPainter {
 
     // 1. Silueta base del cuerpo
     _drawBodySilhouette(canvas, size, sx, sy);
+
+    // 1a. Sombreado de forma (luces + sombras recortadas al cuerpo) → volumen.
+    _drawFormShading(canvas, sx, sy);
 
     // 1b. Líneas de definición (surcos musculares) — DISTINTAS en frontal vs
     // posterior, para que se note claramente qué cara se está viendo.
@@ -433,6 +446,52 @@ class AnatomyBodyPainter extends CustomPainter {
       stops: [0.0, 0.45],
     ).createShader(Offset.zero & size);
     canvas.drawPath(path, _rimLight);
+  }
+
+  /// Sombreado de forma: manchas suaves de luz sobre los vientres musculares y
+  /// de sombra en los surcos, RECORTADAS a la silueta para que no se desborden.
+  /// Es lo que convierte la figura de "boceto plano" a algo con volumen.
+  void _drawFormShading(Canvas canvas, double sx, double sy) {
+    final body = _silhouetteCache[region];
+    canvas.save();
+    if (body != null) canvas.clipPath(body);
+    void blob(Paint p, double cx, double cy, double w, double h) => canvas.drawOval(
+        Rect.fromCenter(center: Offset(cx * sx, cy * sy), width: w * sx, height: h * sy), p);
+
+    if (region == BodyRegion.anterior) {
+      // Sombras en surcos
+      blob(_formShadow, 80, 92, 10, 42);   // línea media / esternón
+      blob(_formShadow, 56, 112, 12, 40);  // costado izq (oblicuo)
+      blob(_formShadow, 104, 112, 12, 40); // costado der
+      blob(_formShadow, 80, 200, 8, 72);   // entre cuádriceps
+      // Luces en vientres
+      blob(_formHighlight, 68, 74, 16, 18);   // pectoral izq
+      blob(_formHighlight, 92, 74, 16, 18);   // pectoral der
+      blob(_formHighlight, 46, 56, 15, 16);   // deltoide izq
+      blob(_formHighlight, 114, 56, 15, 16);  // deltoide der
+      blob(_formHighlight, 44, 84, 12, 26);   // bíceps izq
+      blob(_formHighlight, 116, 84, 12, 26);  // bíceps der
+      blob(_formHighlight, 66, 192, 14, 62);  // cuádriceps izq
+      blob(_formHighlight, 94, 192, 14, 62);  // cuádriceps der
+      blob(_formHighlight, 64, 274, 12, 34);  // pierna izq
+      blob(_formHighlight, 96, 274, 12, 34);  // pierna der
+    } else {
+      // Sombras en surcos
+      blob(_formShadow, 80, 100, 10, 82);  // columna
+      blob(_formShadow, 80, 150, 8, 26);   // entre glúteos
+      blob(_formShadow, 80, 200, 8, 72);   // entre femorales
+      // Luces en vientres
+      blob(_formHighlight, 80, 60, 30, 14);   // trapecio
+      blob(_formHighlight, 66, 90, 16, 42);   // dorsal izq
+      blob(_formHighlight, 94, 90, 16, 42);   // dorsal der
+      blob(_formHighlight, 64, 148, 18, 18);  // glúteo izq
+      blob(_formHighlight, 96, 148, 18, 18);  // glúteo der
+      blob(_formHighlight, 66, 192, 16, 62);  // femoral izq
+      blob(_formHighlight, 94, 192, 16, 62);  // femoral der
+      blob(_formHighlight, 64, 274, 14, 40);  // gemelo izq
+      blob(_formHighlight, 96, 274, 14, 40);  // gemelo der
+    }
+    canvas.restore();
   }
 
   /// Dibuja las líneas de definición muscular. El trazado cambia según la vista
