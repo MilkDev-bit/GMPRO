@@ -99,4 +99,91 @@ async function verifyFoods(req, res, next) {
   }
 }
 
-module.exports = { getUserContext, verifyFoods };
+// ── Resolución de imágenes de ejercicios (wger) por nombre ────────────────────
+// Cache en memoria del catálogo (pequeño). Se recarga cada hora.
+let _catalogCache = null;
+let _catalogCacheAt = 0;
+const CATALOG_TTL_MS = 60 * 60 * 1000;
+
+const _STOP = new Set(['de', 'con', 'en', 'la', 'el', 'los', 'las', 'y', 'del', 'para', 'al', 'un', 'una', 'sobre']);
+
+function _normTokens(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
+    .toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !_STOP.has(w));
+}
+
+async function _loadCatalog() {
+  const now = Date.now();
+  if (_catalogCache && now - _catalogCacheAt < CATALOG_TTL_MS) return _catalogCache;
+  const r = await query(
+    `SELECT id_wger, nombre, nombre_en, imagen_url, video_url, thumbnail_url
+       FROM catalogo_ejercicios
+      WHERE COALESCE(imagen_url, thumbnail_url, video_url) IS NOT NULL`,
+    [],
+  );
+  _catalogCache = r.rows.map((row) => ({
+    ...row,
+    _tok: new Set([..._normTokens(row.nombre), ..._normTokens(row.nombre_en)]),
+  }));
+  _catalogCacheAt = now;
+  return _catalogCache;
+}
+
+/**
+ * POST /api/v1/internal/exercises/images
+ * Body: { names: string[] }
+ * Resuelve la imagen/video real de wger para cada nombre de ejercicio (match por
+ * solapamiento de tokens contra catalogo_ejercicios). Consumido por ai-service
+ * para enriquecer la rutina generada. Best-effort: nombres sin match se omiten.
+ * Respuesta: { <name>: { id_wger, nombre, imagen_url, video_url, thumbnail_url } }
+ */
+async function resolveExerciseImages(req, res, next) {
+  try {
+    const names = Array.isArray(req.body?.names) ? req.body.names.slice(0, 80) : [];
+    const out = {};
+    if (names.length === 0) return res.status(200).json({ success: true, data: out, error: null });
+
+    let catalog = [];
+    try {
+      catalog = await _loadCatalog();
+    } catch (e) {
+      logger.warn('resolveExerciseImages: no se pudo cargar catalogo_ejercicios', { error: e.message });
+      return res.status(200).json({ success: true, data: out, error: null });
+    }
+    if (catalog.length === 0) {
+      logger.warn('resolveExerciseImages: catalogo_ejercicios vacío o sin imágenes (¿falta correr el seed?)');
+      return res.status(200).json({ success: true, data: out, error: null });
+    }
+
+    for (const name of names) {
+      const qtok = _normTokens(name);
+      if (!qtok.length) continue;
+      let best = null;
+      let bestScore = 0;
+      for (const row of catalog) {
+        let shared = 0;
+        for (const t of qtok) if (row._tok.has(t)) shared++;
+        if (shared === 0) continue;
+        const score = shared / Math.max(qtok.length, row._tok.size || 1);
+        if (score > bestScore) { bestScore = score; best = row; }
+      }
+      if (best && bestScore >= 0.34) {
+        out[name] = {
+          id_wger: best.id_wger,
+          nombre: best.nombre,
+          imagen_url: best.imagen_url,
+          video_url: best.video_url,
+          thumbnail_url: best.thumbnail_url,
+        };
+      }
+    }
+    return res.status(200).json({ success: true, data: out, error: null });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getUserContext, verifyFoods, resolveExerciseImages };

@@ -308,11 +308,11 @@ class _ExerciseCard extends StatelessWidget {
       if (m != null) accentColor = m.color;
     }
 
-    final coverUrl = exercise.videoUrl?.isNotEmpty == true
-        ? exercise.videoUrl!
-        : 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+    final coverUrl = _exerciseCoverUrl(exercise);
 
-    return ClipRRect(
+    return GestureDetector(
+      onTap: () => showExerciseDetailSheet(context, exercise),
+      child: ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
@@ -383,8 +383,141 @@ class _ExerciseCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
+}
+
+/// Portada del ejercicio: imagen real (wger) → video → placeholder.
+String _exerciseCoverUrl(WorkoutExercise ex) {
+  if (ex.imageUrl?.isNotEmpty == true) return ex.imageUrl!;
+  if (ex.videoUrl?.isNotEmpty == true) return ex.videoUrl!;
+  return 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+}
+
+/// Hoja de detalle del ejercicio: nombre, músculos, series/reps/descanso, notas,
+/// y un botón para ver la demostración en wger. Se abre al tocar la tarjeta o el
+/// control del mini-player (antes esos toques no hacían nada).
+Future<void> showExerciseDetailSheet(BuildContext context, WorkoutExercise ex) {
+  Color accent = AppColors.neonPink;
+  if (ex.musculos_primarios.isNotEmpty) {
+    final m = MuscleCatalog.byKey(ex.musculos_primarios.first);
+    if (m != null) accent = m.color;
+  }
+
+  return showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.surfaceElevatedOf(context),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (ctx) => SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44, height: 5,
+                decoration: BoxDecoration(
+                  color: AppColors.glassBorderOf(ctx),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: CachedNetworkImage(
+                imageUrl: _exerciseCoverUrl(ex),
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(height: 180, color: Colors.white.withValues(alpha: 0.05)),
+                errorWidget: (_, __, ___) => Container(
+                  height: 180,
+                  color: Colors.white.withValues(alpha: 0.05),
+                  child: const Icon(Icons.fitness_center, color: Colors.white38, size: 48),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(ex.nombre,
+                style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 16, runSpacing: 8,
+              children: [
+                _detailChip(Icons.repeat_rounded, '${ex.series} series'),
+                _detailChip(Icons.fitness_center_rounded, '${ex.repeticiones} reps'),
+                _detailChip(Icons.timer_outlined, '${ex.descansoSeg}s descanso'),
+              ],
+            ),
+            if (ex.musculos_primarios.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Text('MÚSCULOS TRABAJADOS',
+                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textMuted)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                children: ex.allMuscles.map((k) {
+                  final m = MuscleCatalog.byKey(k);
+                  final label = m?.label ?? k.replaceAll('_', ' ');
+                  final c = m?.color ?? accent;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: c.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: c.withValues(alpha: 0.4)),
+                    ),
+                    child: Text(label, style: GoogleFonts.inter(fontSize: 12, color: c, fontWeight: FontWeight.w600)),
+                  );
+                }).toList(),
+              ),
+            ],
+            if (ex.notas?.isNotEmpty == true) ...[
+              const SizedBox(height: 18),
+              Text('TÉCNICA',
+                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: AppColors.textMuted)),
+              const SizedBox(height: 6),
+              Text(ex.notas!, style: GoogleFonts.inter(fontSize: 13.5, height: 1.5, color: Colors.white70)),
+            ],
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text('Entendido', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _detailChip(IconData icon, String text) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 15, color: AppColors.textMuted),
+      const SizedBox(width: 5),
+      Text(text, style: GoogleFonts.inter(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w600)),
+    ],
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -400,16 +533,12 @@ class _MiniPlayer extends StatefulWidget {
 }
 
 class _MiniPlayerState extends State<_MiniPlayer> {
-  bool _isPlaying = true;
-
   @override
   Widget build(BuildContext context) {
     if (widget.exercise == null) return const SizedBox.shrink();
 
     final ex = widget.exercise!;
-    final coverUrl = ex.videoUrl?.isNotEmpty == true
-        ? ex.videoUrl!
-        : 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&q=80&w=200';
+    final coverUrl = _exerciseCoverUrl(ex);
 
     return SafeArea(
       child: Container(
@@ -472,17 +601,15 @@ class _MiniPlayerState extends State<_MiniPlayer> {
                 ],
               ),
             ),
-            // Controls
+            // Controls: ver detalle del ejercicio + siguiente
             IconButton(
-              icon: Icon(
-                _isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_filled_rounded,
-                color: Colors.white,
-                size: 32,
-              ),
-              onPressed: () => setState(() => _isPlaying = !_isPlaying),
+              icon: const Icon(Icons.info_outline_rounded, color: Colors.white, size: 26),
+              tooltip: 'Ver ejercicio',
+              onPressed: () => showExerciseDetailSheet(context, ex),
             ),
             IconButton(
               icon: const Icon(Icons.skip_next_rounded, color: Colors.white),
+              tooltip: 'Siguiente',
               onPressed: widget.onNext,
             ),
           ],

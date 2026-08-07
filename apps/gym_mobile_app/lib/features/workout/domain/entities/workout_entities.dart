@@ -24,6 +24,7 @@ class WorkoutExercise {
     this.descansoSeg = 90,
     this.notas,
     this.videoUrl,
+    this.imageUrl,
   });
 
   final String ejercicioId;
@@ -35,6 +36,16 @@ class WorkoutExercise {
   final int descansoSeg;
   final String? notas;
   final String? videoUrl;
+
+  /// Imagen del ejercicio (de wger, si el backend la resuelve). La UI la usa como
+  /// portada con fallback a videoUrl y luego a un placeholder.
+  final String? imageUrl;
+
+  /// Número de wger extraído de ejercicioId "wger-<n>" (si es numérico).
+  String? get wgerId {
+    final m = RegExp(r'(\d+)').firstMatch(ejercicioId);
+    return m?.group(1);
+  }
 
   /// Todos los músculos implicados (primarios + secundarios)
   List<String> get allMuscles => [...musculos_primarios, ...musculos_secundarios];
@@ -50,6 +61,7 @@ class WorkoutExercise {
       descansoSeg:          json['descanso_seg'] as int? ?? 90,
       notas:                json['notas'] as String?,
       videoUrl:             json['video_url'] as String?,
+      imageUrl:             (json['image_url'] ?? json['imagen_url']) as String?,
     );
   }
 

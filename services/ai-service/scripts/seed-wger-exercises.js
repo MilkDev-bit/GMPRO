@@ -56,7 +56,7 @@ const CONFIG = {
   geminiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: flag('pro')
     ? (process.env.GEMINI_MODEL_PRO || 'gemini-2.5-pro')
-    : (process.env.GEMINI_MODEL || 'gemini-2.0-flash'),
+    : (process.env.GEMINI_MODEL || 'gemini-3.5-flash'),
 
   table: 'catalogo_ejercicios',
   wgerUrl: 'https://wger.de/api/v2/exerciseinfo/?limit=20&language=2',
@@ -305,6 +305,8 @@ async function enrichWithGemini(batch) {
   try {
     parsed = JSON.parse(text);
   } catch {
+    log.err(`Gemini raw text (primeros 500 chars): ${text.slice(0, 500)}`);
+    log.err(`Gemini response structure: ${JSON.stringify(Object.keys(data))} candidates: ${data.candidates?.length} finishReason: ${data.candidates?.[0]?.finishReason}`);
     throw new Error('Gemini devolvió JSON no parseable');
   }
   return parsed.ejercicios || [];

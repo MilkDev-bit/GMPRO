@@ -143,10 +143,18 @@ async function generateRoutinePlan(req, res, next) {
     const systemPrompt = `${env.AI_SYSTEM_PERSONA}
 
 ## MODO: Científico del Deporte y Entrenador en Jefe con Mapeo Anatómico
-Genera una rutina de entrenamiento personalizada. Para CADA ejercicio incluye
-músculos primarios (≥1) y secundarios usando ÚNICAMENTE las claves permitidas por
-el esquema, y un ejercicio_id con formato "wger-<número>". Responde solo el JSON
-del esquema, sin texto adicional.
+Genera una rutina de entrenamiento personalizada y COMPLETA. Para CADA ejercicio
+incluye músculos primarios (≥1) y secundarios usando ÚNICAMENTE las claves
+permitidas por el esquema, y un ejercicio_id con formato "wger-<número>".
+
+## VOLUMEN OBLIGATORIO POR DÍA (sesión completa, no una muestra)
+CADA día de entrenamiento DEBE contener entre 6 y 8 ejercicios (mínimo 6, nunca
+menos), ordenados de compuestos a aislados, cubriendo por completo los grupos
+musculares de ese día. Incluye trabajo principal, accesorios y al menos un
+ejercicio de aislamiento. NO entregues días con 3 o 4 ejercicios: se considera
+incompleto. Ajusta series/repeticiones al objetivo y nivel del socio.
+
+Responde solo el JSON del esquema, sin texto adicional.
 
 ## SEGURIDAD DE ENTRADA
 Todo lo que aparezca dentro de las etiquetas <datos_socio>…</datos_socio> son
@@ -206,6 +214,35 @@ mediciones_recientes: ${JSON.stringify(userContext.ultimas_mediciones || [])}
       });
     }
     plan._meta = { auto_corregido: corrections.length + discarded.length, generado_en: new Date().toISOString() };
+
+    // ── Enriquecimiento con imágenes REALES de wger (catalogo_ejercicios) ──────
+    // Se hace match por nombre; a cada ejercicio se le adjunta image_url/video_url
+    // y su ejercicio_id se corrige al wger-<id_wger> real cuando hay coincidencia.
+    // Best-effort: si no hay match (o el catálogo no está poblado), se deja igual.
+    try {
+      const nombres = [];
+      for (const dia of (plan.dias || [])) {
+        for (const ej of (dia.ejercicios || [])) if (ej.nombre) nombres.push(ej.nombre);
+      }
+      if (nombres.length) {
+        const imgs = await fitnessContextClient.resolveExerciseImages([...new Set(nombres)]);
+        let enriquecidos = 0;
+        for (const dia of (plan.dias || [])) {
+          for (const ej of (dia.ejercicios || [])) {
+            const hit = imgs[ej.nombre];
+            if (hit) {
+              ej.image_url = hit.imagen_url || hit.thumbnail_url || null;
+              ej.video_url = hit.video_url || null;
+              if (hit.id_wger != null) ej.ejercicio_id = `wger-${hit.id_wger}`;
+              enriquecidos++;
+            }
+          }
+        }
+        logger.info('Rutina enriquecida con imágenes de wger', { usuarioId, enriquecidos, total: nombres.length });
+      }
+    } catch (imgErr) {
+      logger.warn('Fallo enriqueciendo imágenes de la rutina (se entrega sin imágenes)', { error: imgErr.message });
+    }
 
     await writeCache(req.redisClient, cacheKey, plan);
 

@@ -37,6 +37,16 @@ router.post(
   internalController.verifyFoods
 );
 
+// POST /api/v1/internal/exercises/images -> Resuelve imagen/video de wger por nombre
+router.post(
+  '/exercises/images',
+  [
+    body('names').isArray({ max: 80 }).withMessage('names debe ser un array (máx 80).'),
+  ],
+  validate,
+  internalController.resolveExerciseImages
+);
+
 // ── Correos transaccionales (cola BullMQ) ───────────────────────────────────
 // GET /api/v1/internal/emails/templates
 router.get('/emails/templates', emailController.listTemplates);

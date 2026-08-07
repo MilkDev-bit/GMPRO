@@ -44,7 +44,9 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
-    final calConsumidas = plan.caloriasConsumidas;
+    // Consumo REAL de hoy (sincronizado con el backend), NO la suma del plan.
+    final nut = ref.watch(nutritionProvider);
+    final calConsumidas = nut.consumedCalorias;
     final calMeta = plan.caloriasMeta;
     final calPercent = (calConsumidas / (calMeta > 0 ? calMeta : 1)).clamp(0.0, 1.2);
 
@@ -215,7 +217,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                   Expanded(
                     child: _MacroBarAnimated(
                       label: 'Proteínas',
-                      current: plan.proteinasConsumidas,
+                      current: nut.consumedProteinas,
                       target: plan.proteinasMetaG.toDouble(),
                       unit: 'g',
                       color: AppColors.accentEmeraldOf(context), // WCAG-safe en claro
@@ -226,7 +228,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                   Expanded(
                     child: _MacroBarAnimated(
                       label: 'Carbos',
-                      current: plan.carbohidratosConsumidas,
+                      current: nut.consumedCarbohidratos,
                       target: plan.carbohidratosMetaG.toDouble(),
                       unit: 'g',
                       color: AppColors.accentCyanOf(context),
@@ -237,7 +239,7 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                   Expanded(
                     child: _MacroBarAnimated(
                       label: 'Grasas',
-                      current: plan.grasasConsumidas,
+                      current: nut.consumedGrasas,
                       target: plan.grasasMetaG.toDouble(),
                       unit: 'g',
                       color: AppColors.accentPinkOf(context),

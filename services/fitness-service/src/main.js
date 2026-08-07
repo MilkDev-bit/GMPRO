@@ -118,6 +118,13 @@ async function bootstrap() {
     foodRoutes
   );
 
+  // Diario nutricional real: consumo diario de calorías/macros + agua bebida
+  app.use('/api/v1/nutrition',
+    jwtVerify,
+    writeRateLimiter,
+    require('./routes/nutritionRoutes')
+  );
+
   // ── Ruta interna M2M (ai-service consulta datos del usuario) ──────────────
   // El ai-service necesita datos de fitness para construir el contexto del prompt
   app.use('/api/v1/internal',

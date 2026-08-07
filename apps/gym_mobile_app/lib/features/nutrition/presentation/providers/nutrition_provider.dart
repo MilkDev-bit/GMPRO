@@ -95,8 +95,13 @@ class NutritionState {
     this.error,
     this.isSearching = false,
     this.searchResults = const [],
-    this.waterConsumedMl = 1750,
+    this.waterConsumedMl = 0,
     this.profile = const DietProfile(),
+    this.consumedCalorias = 0,
+    this.consumedProteinas = 0,
+    this.consumedCarbohidratos = 0,
+    this.consumedGrasas = 0,
+    this.consumedFoodIds = const {},
   });
 
   final NutritionPlan? plan;
@@ -104,10 +109,22 @@ class NutritionState {
   final String? error;
   final bool isSearching;
   final List<FoodItem> searchResults;
+
+  /// Agua bebida HOY (ml), sincronizada con el backend (registros_hidratacion).
   final int waterConsumedMl;
 
   /// Perfil actual del socio (persistido). isComplete=false hasta que lo configura.
   final DietProfile profile;
+
+  // ── Consumo REAL de hoy (registros_nutricion, vía fitness-service) ──────────
+  final int consumedCalorias;
+  final double consumedProteinas;
+  final double consumedCarbohidratos;
+  final double consumedGrasas;
+
+  /// nombre de alimento (minúsculas) → id del registro consumido hoy. Sirve para
+  /// mostrar el check y para poder quitarlo (DELETE) al destildar.
+  final Map<String, String> consumedFoodIds;
 
   NutritionState copyWith({
     NutritionPlan? plan,
@@ -117,6 +134,11 @@ class NutritionState {
     List<FoodItem>? searchResults,
     int? waterConsumedMl,
     DietProfile? profile,
+    int? consumedCalorias,
+    double? consumedProteinas,
+    double? consumedCarbohidratos,
+    double? consumedGrasas,
+    Map<String, String>? consumedFoodIds,
   }) {
     return NutritionState(
       plan:            plan ?? this.plan,
@@ -126,6 +148,11 @@ class NutritionState {
       searchResults:   searchResults ?? this.searchResults,
       waterConsumedMl: waterConsumedMl ?? this.waterConsumedMl,
       profile:         profile ?? this.profile,
+      consumedCalorias:       consumedCalorias ?? this.consumedCalorias,
+      consumedProteinas:      consumedProteinas ?? this.consumedProteinas,
+      consumedCarbohidratos:  consumedCarbohidratos ?? this.consumedCarbohidratos,
+      consumedGrasas:         consumedGrasas ?? this.consumedGrasas,
+      consumedFoodIds:        consumedFoodIds ?? this.consumedFoodIds,
     );
   }
 }
@@ -235,6 +262,8 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
           response.data['data'] as Map<String, dynamic>,
         );
         state = state.copyWith(plan: plan, isLoading: false);
+        // Al tener plan, cargamos el consumo REAL de hoy (calorías/agua marcadas).
+        unawaited(loadTodayLog());
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -351,8 +380,93 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
   }
 
   /// Registra consumo de agua en ml.
-  void addWater(int ml) {
-    state = state.copyWith(waterConsumedMl: state.waterConsumedMl + ml);
+  // ── SEGUIMIENTO REAL (fitness-service: registros_nutricion + hidratación) ────
+
+  /// Carga el consumo REAL de hoy (calorías/macros + agua + alimentos marcados)
+  /// desde el backend. Se llama al abrir la pantalla de nutrición.
+  Future<void> loadTodayLog() async {
+    try {
+      final res = await _apiClient.dio.get('${AppConfig.fitnessServiceBaseUrl}/nutrition/today');
+      final data = res.data['data'] as Map<String, dynamic>?;
+      if (data == null) return;
+      final s = (data['summary'] as Map<String, dynamic>?) ?? const {};
+      final entries = (data['entries'] as List<dynamic>?) ?? const [];
+      final map = <String, String>{};
+      for (final e in entries) {
+        final m = e as Map<String, dynamic>;
+        final nombre = (m['nombre_alimento'] as String?)?.toLowerCase().trim();
+        if (nombre != null && nombre.isNotEmpty) map[nombre] = m['id'].toString();
+      }
+      state = state.copyWith(
+        consumedCalorias:      (s['calorias'] as num?)?.toInt() ?? 0,
+        consumedProteinas:     (s['proteinas'] as num?)?.toDouble() ?? 0,
+        consumedCarbohidratos: (s['carbohidratos'] as num?)?.toDouble() ?? 0,
+        consumedGrasas:        (s['grasas'] as num?)?.toDouble() ?? 0,
+        waterConsumedMl:       (s['agua_ml'] as num?)?.toInt() ?? 0,
+        consumedFoodIds:       map,
+      );
+    } catch (_) {
+      // Sin bloquear la UI: si falla, el dashboard queda en 0 (nada consumido aún).
+    }
+  }
+
+  /// Suma agua al total de hoy: optimista en UI + sincroniza con el backend.
+  Future<void> addWater(int ml) async {
+    final optimistic = state.waterConsumedMl + ml;
+    state = state.copyWith(waterConsumedMl: optimistic);
+    try {
+      final res = await _apiClient.dio.post(
+        '${AppConfig.fitnessServiceBaseUrl}/nutrition/water',
+        data: {'ml': ml},
+      );
+      final total = (res.data['data']?['agua_ml'] as num?)?.toInt();
+      if (total != null) state = state.copyWith(waterConsumedMl: total);
+    } catch (_) {
+      // Se conserva el valor optimista; se re-sincroniza al recargar.
+    }
+  }
+
+  /// Marca/desmarca un alimento como consumido HOY (sincronizado). Actualiza los
+  /// totales de consumo con el summary que devuelve el backend.
+  Future<void> toggleFoodConsumed(FoodItem food, String comidaTipo) async {
+    final key = food.nombre.toLowerCase().trim();
+    final existingId = state.consumedFoodIds[key];
+    try {
+      Map<String, dynamic>? summary;
+      final newMap = Map<String, String>.from(state.consumedFoodIds);
+      if (existingId != null) {
+        final res = await _apiClient.dio.delete('${AppConfig.fitnessServiceBaseUrl}/nutrition/food/$existingId');
+        summary = res.data['data']?['summary'] as Map<String, dynamic>?;
+        newMap.remove(key);
+      } else {
+        final res = await _apiClient.dio.post(
+          '${AppConfig.fitnessServiceBaseUrl}/nutrition/food',
+          data: {
+            'comida': comidaTipo,
+            'nombreAlimento': food.nombre,
+            'cantidadGramos': food.porcionG,
+            'calorias': food.calorias,
+            'proteinas': food.proteinas,
+            'carbohidratos': food.carbohidratos,
+            'grasas': food.grasas,
+            'codigoBarras': food.codigoBarras,
+          },
+        );
+        summary = res.data['data']?['summary'] as Map<String, dynamic>?;
+        final id = res.data['data']?['row']?['id'];
+        if (id != null) newMap[key] = id.toString();
+      }
+      state = state.copyWith(
+        consumedFoodIds: newMap,
+        consumedCalorias:      (summary?['calorias'] as num?)?.toInt() ?? state.consumedCalorias,
+        consumedProteinas:     (summary?['proteinas'] as num?)?.toDouble() ?? state.consumedProteinas,
+        consumedCarbohidratos: (summary?['carbohidratos'] as num?)?.toDouble() ?? state.consumedCarbohidratos,
+        consumedGrasas:        (summary?['grasas'] as num?)?.toDouble() ?? state.consumedGrasas,
+        waterConsumedMl:       (summary?['agua_ml'] as num?)?.toInt() ?? state.waterConsumedMl,
+      );
+    } catch (_) {
+      // best-effort; el estado se re-sincroniza al recargar.
+    }
   }
 
   /// Catálogo rápido de sugerencias Open Food Facts

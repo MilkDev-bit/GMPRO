@@ -136,6 +136,8 @@ class _MealCardState extends ConsumerState<MealCard>
                           children: [
                             Text(
                               meal.nombre,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.outfit(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
