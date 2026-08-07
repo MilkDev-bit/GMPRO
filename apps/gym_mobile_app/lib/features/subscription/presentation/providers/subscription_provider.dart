@@ -70,7 +70,10 @@ class SubscriptionNotifier extends StateNotifier<AsyncValue<UserSubscription>> {
   /// Consulta el estatus de membresía contra el microservicio.
   Future<void> fetchSubscription() async {
     if (!mounted) return;
-    state = const AsyncValue.loading();
+    // Solo mostramos "cargando" en la PRIMERA carga. En refrescos posteriores
+    // conservamos el estado actual mientras llega la respuesta, para no parpadear
+    // a "inactiva" (p. ej. tras un refresh de token que recrea/re-consulta).
+    if (!state.hasValue) state = const AsyncValue.loading();
     final result = await _getSubscriptionStatus();
     // El provider puede haberse dispuesto durante el await (un cambio de auth
     // recrea el notifier, o un refresco encolado tras volver del pago). Sin este
@@ -78,7 +81,13 @@ class SubscriptionNotifier extends StateNotifier<AsyncValue<UserSubscription>> {
     if (!mounted) return;
     result.fold(
       (failure) {
-        // Si falló por 402 Payment Required u offline, asumimos estado past_due por seguridad
+        // NO degradar una membresía ACTIVA por un fallo TRANSITORIO (401 por
+        // token expirado, timeout, red). Antes cualquier fallo la marcaba
+        // past_due y la membresía se "inactivaba sola" hasta reiniciar. Si ya
+        // teníamos una membresía válida en memoria, la conservamos; el próximo
+        // refresh la corregirá si de verdad venció.
+        final current = state.valueOrNull;
+        if (current != null && current.isAccessValid) return;
         state = AsyncValue.data(
           UserSubscription(
             status: 'past_due',
@@ -101,7 +110,11 @@ class SubscriptionNotifier extends StateNotifier<AsyncValue<UserSubscription>> {
 final subscriptionProvider =
     StateNotifierProvider<SubscriptionNotifier, AsyncValue<UserSubscription>>((ref) {
   // ID del socio autenticado para filtrar el canal Realtime a su propia fila.
-  final usuarioId = ref.watch(authProvider).user?.id;
+  // .select: SOLO recreamos el notifier cuando cambia el USER ID (login/cambio de
+  // usuario). Antes se hacía ref.watch(authProvider) completo, así que un simple
+  // refresh de token (mismo usuario) recreaba el notifier y re-consultaba →
+  // durante esa recarga la membresía se veía "inactiva" hasta reiniciar.
+  final usuarioId = ref.watch(authProvider.select((s) => s.user?.id));
   return SubscriptionNotifier(
     ref.watch(getSubscriptionStatusUseCaseProvider),
     realtimeService: ref.watch(subscriptionRealtimeServiceProvider),
