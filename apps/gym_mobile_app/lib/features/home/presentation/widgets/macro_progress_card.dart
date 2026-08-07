@@ -47,6 +47,9 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
       if (!mounted) return;
       _entryController.forward();
       _progressController.forward();
+      // Cargar el consumo REAL de hoy (calorías/macros registrados) para que el
+      // resumen del inicio muestre datos reales y se resetee al cambiar de día.
+      ref.read(nutritionProvider.notifier).ensureTodayFresh();
       // Ya NO autogeneramos con defaults: el usuario genera su plan con datos
       // reales desde el formulario (ver estado "completa tu perfil" abajo).
     });
@@ -119,7 +122,11 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
       );
     }
 
-    final int consumed = plan.caloriasConsumidas;
+    // Consumo REAL de hoy (registros_nutricion, vía fitness-service). Antes se
+    // usaba plan.caloriasConsumidas = suma de TODA la comida planeada (lo que se
+    // comería si se comiera el plan entero) → parecía dato mockeado. Ahora refleja
+    // lo que el socio realmente registró hoy; la meta sigue saliendo del plan.
+    final int consumed = nutritionState.consumedCalorias;
     final int goal = plan.caloriasMeta;
     final int remaining = (goal - consumed).clamp(0, goal);
     final double caloriesProgress = goal > 0 ? (consumed / goal).clamp(0.0, 1.0) : 0.0;
@@ -226,21 +233,21 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
                       children: [
                         _MacroSmallCircle(
                           label: 'Proteínas',
-                          consumed: plan.proteinasConsumidas.toInt(),
+                          consumed: nutritionState.consumedProteinas.toInt(),
                           goal: plan.proteinasMetaG,
                           color: AppColors.neonCyan,
                           animValue: _progressAnim.value,
                         ),
                         _MacroSmallCircle(
                           label: 'Carbos',
-                          consumed: plan.carbohidratosConsumidas.toInt(),
+                          consumed: nutritionState.consumedCarbohidratos.toInt(),
                           goal: plan.carbohidratosMetaG,
                           color: AppColors.neonPink,
                           animValue: _progressAnim.value,
                         ),
                         _MacroSmallCircle(
                           label: 'Grasas',
-                          consumed: plan.grasasConsumidas.toInt(),
+                          consumed: nutritionState.consumedGrasas.toInt(),
                           goal: plan.grasasMetaG,
                           color: const Color(0xFFFFB300), // Amarillo neón para grasas
                           animValue: _progressAnim.value,

@@ -407,59 +407,64 @@ class _AiServiceOverlayState extends State<_AiServiceOverlay> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Núcleo IA con pulso continuo (aislado en su propia capa).
-                  const RepaintBoundary(child: _AiCorePulseIcon()),
-                  const SizedBox(height: 36),
-
-                  Text(
-                    'MOTOR IA GYMPRO ACTIVADO',
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.neonPurple,
-                      letterSpacing: 2.2,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Carrusel de micro-textos con efecto Typewriter / CrossFade y curvas premium.
-                  // RepaintBoundary: las transiciones de texto (cada 1.5s) no repintan el resto.
+                  // Carrusel de micro-textos: SOLO el texto cambiante (sin icono
+                  // ni eyebrow). Transición de FUNDIDO limpio: antes usaba
+                  // easeOutBack + deslizamiento vertical, así el texto saliente y
+                  // el entrante se cruzaban en el centro y se "amontonaban". Ahora
+                  // solo fade + un leve escalado, sin desplazamiento vertical.
+                  // Altura holgada para textos de hasta 2 líneas sin recortes.
                   SizedBox(
-                    height: 54,
+                    height: 88,
                     child: RepaintBoundary(
                       child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 450),
-                      switchInCurve: Curves.easeOutBack,
-                      switchOutCurve: Curves.fastOutSlowIn,
-                      transitionBuilder: (Widget child, Animation<double> animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.35),
-                              end: Offset.zero,
-                            ).animate(CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutBack,
-                              reverseCurve: Curves.fastOutSlowIn,
-                            )),
-                            child: child,
+                        duration: const Duration(milliseconds: 500),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(
+                              scale: Tween<double>(begin: 0.97, end: 1.0).animate(
+                                CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                              ),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Align(
+                          key: ValueKey<int>(_currentIndex),
+                          alignment: Alignment.center,
+                          // Degradado neón: "algunas letras en otro color".
+                          child: ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [
+                                Colors.white,
+                                AppColors.neonCyan,
+                                AppColors.neonPurple,
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ).createShader(bounds),
+                            child: Text(
+                              _carouselTexts[_currentIndex],
+                              style: GoogleFonts.outfit(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                height: 1.3,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        );
-                      },
-                      child: Text(
-                        _carouselTexts[_currentIndex],
-                        key: ValueKey<int>(_currentIndex),
-                        style: GoogleFonts.outfit(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
-                    ),
                   ),
+                  const SizedBox(height: 26),
+                  // Indicador animado (puntos que laten) en lugar del icono.
+                  const RepaintBoundary(child: _TypingDots()),
                 ],
               ),
             ),
@@ -470,29 +475,32 @@ class _AiServiceOverlayState extends State<_AiServiceOverlay> {
   }
 }
 
-class _AiCorePulseIcon extends StatefulWidget {
-  const _AiCorePulseIcon();
+/// Tres puntos neón que laten en secuencia. Reemplaza al icono de la pantalla de
+/// IA: da sensación de "procesando" sin usar iconos/emojis, solo movimiento.
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
 
   @override
-  State<_AiCorePulseIcon> createState() => _AiCorePulseIconState();
+  State<_TypingDots> createState() => _TypingDotsState();
 }
 
-class _AiCorePulseIconState extends State<_AiCorePulseIcon>
+class _TypingDotsState extends State<_TypingDots>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _curvedAnimation;
+
+  static const List<Color> _dotColors = [
+    AppColors.neonCyan,
+    AppColors.neonPurple,
+    AppColors.neonPink,
+  ];
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-    _curvedAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.fastOutSlowIn,
-    );
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
   }
 
   @override
@@ -504,38 +512,38 @@ class _AiCorePulseIconState extends State<_AiCorePulseIcon>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _curvedAnimation,
-      // El icono es estático: se pasa como `child` para no reconstruirlo cada frame.
-      child: const Icon(
-        Icons.auto_awesome_rounded,
-        color: AppColors.neonPurple,
-        size: 44,
-      ),
-      builder: (context, child) {
-        final scale = 0.94 + (_curvedAnimation.value * 0.10);
-        final glowAlpha = 0.2 + (_curvedAnimation.value * 0.40);
-
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            padding: const EdgeInsets.all(26),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.neonPurple.withValues(alpha: 0.15),
-              border: Border.all(
-                color: AppColors.neonPurple.withValues(alpha: 0.6),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.neonPurple.withValues(alpha: glowAlpha),
-                  blurRadius: 32,
-                  spreadRadius: 4,
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            // Onda desfasada por punto: cada uno late en su turno.
+            final t = (_controller.value + i * 0.22) % 1.0;
+            final wave = 1.0 - (2.0 * t - 1.0).abs(); // triángulo 0→1→0
+            final scale = 0.6 + 0.5 * wave;
+            final alpha = 0.30 + 0.70 * wave;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              child: Transform.scale(
+                scale: scale,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _dotColors[i].withValues(alpha: alpha),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _dotColors[i].withValues(alpha: 0.5 * wave),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-            child: child,
-          ),
+              ),
+            );
+          }),
         );
       },
     );
