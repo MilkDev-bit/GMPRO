@@ -229,7 +229,7 @@ class _MealCardState extends ConsumerState<MealCard>
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final item = meal.alimentos[index];
-                          return _FoodRowSwipeable(mealId: meal.id, item: item);
+                          return _FoodRowSwipeable(mealId: meal.id, comidaTipo: meal.tipo, item: item);
                         },
                       ),
 
@@ -292,12 +292,15 @@ class _MealCardState extends ConsumerState<MealCard>
 }
 
 class _FoodRowSwipeable extends ConsumerWidget {
-  const _FoodRowSwipeable({required this.mealId, required this.item});
+  const _FoodRowSwipeable({required this.mealId, required this.comidaTipo, required this.item});
   final String mealId;
+  final String comidaTipo;
   final FoodItem item;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final consumed = ref.watch(nutritionProvider
+        .select((s) => s.consumedFoodIds.containsKey(item.nombre.toLowerCase().trim())));
     return Dismissible(
       key: ValueKey('${mealId}_${item.codigoBarras}'),
       direction: DismissDirection.endToStart,
@@ -345,6 +348,20 @@ class _FoodRowSwipeable extends ConsumerWidget {
         ),
         child: Row(
           children: [
+            // Marcar como consumido (sincroniza con el diario nutricional real).
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                ref.read(nutritionProvider.notifier).toggleFoodConsumed(item, comidaTipo);
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Icon(
+                consumed ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                color: consumed ? AppColors.success : AppColors.textMutedOf(context),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 10),
             if (item.esOpenFoodFacts)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
@@ -362,7 +379,7 @@ class _FoodRowSwipeable extends ConsumerWidget {
                   ),
                 ),
               ),
-            const SizedBox(width: 12),
+            if (item.esOpenFoodFacts) const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
