@@ -301,13 +301,20 @@ class AnatomyBodyPainter extends CustomPainter {
   static final Map<String, TextPainter> _labelCache = {};
 
   // Paints reutilizables (se mutan por dibujo; el pintado es de un solo hilo).
-  static final Paint _silhouetteFill = Paint()
-    ..color = const Color(0x401A1730)
-    ..style = PaintingStyle.fill;
+  // El relleno usa un degradado vertical (shader memoizado) para dar volumen
+  // "esculpido" al cuerpo musculoso; se asigna en _drawBodySilhouette.
+  static final Paint _silhouetteFill = Paint()..style = PaintingStyle.fill;
+  static Shader? _bodyFillShader;
   static final Paint _silhouetteStroke = Paint()
-    ..color = const Color(0x0FFFFFFF) // blanco ~6% de opacidad
+    ..color = const Color(0x40FFFFFF) // blanco ~25% (contorno más visible)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.0;
+    ..strokeWidth = 1.4;
+  // Halo exterior tenue: hace que la silueta destaque sobre el fondo oscuro.
+  static final Paint _silhouetteGlow = Paint()
+    ..color = const Color(0x334FD6E0) // cian tenue
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.5
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
   static final Paint _muscleFill = Paint()..style = PaintingStyle.fill;
   static final Paint _muscleGlow = Paint()
     ..style = PaintingStyle.stroke
@@ -349,6 +356,13 @@ class AnatomyBodyPainter extends CustomPainter {
   /// Memoizada por región: se construye una sola vez, no por frame.
   void _drawBodySilhouette(Canvas canvas, Size size, double sx, double sy) {
     final path = _silhouetteCache[region] ??= _computeSilhouettePath(sx, sy);
+    // Degradado de volumen (claro arriba → oscuro abajo) para un look muscular 3D.
+    _silhouetteFill.shader = _bodyFillShader ??= const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0x552F2B4E), Color(0x2E15122A)],
+    ).createShader(Offset.zero & size);
+    canvas.drawPath(path, _silhouetteGlow); // halo exterior (visibilidad)
     canvas.drawPath(path, _silhouetteFill);
     canvas.drawPath(path, _silhouetteStroke);
   }
@@ -357,149 +371,108 @@ class AnatomyBodyPainter extends CustomPainter {
   Path _computeSilhouettePath(double sx, double sy) {
     final path = Path();
 
-    if (region == BodyRegion.anterior) {
-      // ── Vista frontal simplificada ─────────────────────────────────────
-      // Cabeza
-      path.addOval(Rect.fromCenter(center: Offset(80 * sx, 22 * sy), width: 28 * sx, height: 32 * sy));
-      // Cuello
-      path.addRect(Rect.fromLTWH(74 * sx, 36 * sy, 12 * sx, 10 * sy));
-      // Tronco (trapezoidal)
-      path
-        ..moveTo(55 * sx, 46 * sy)
-        ..lineTo(105 * sx, 46 * sy)
-        ..lineTo(108 * sx, 130 * sy)
-        ..lineTo(52 * sx, 130 * sy)
-        ..close();
-      // Pelvis
-      path
-        ..moveTo(52 * sx, 130 * sy)
-        ..lineTo(108 * sx, 130 * sy)
-        ..lineTo(106 * sx, 155 * sy)
-        ..lineTo(54 * sx, 155 * sy)
-        ..close();
-      // Brazo izquierdo
-      path
-        ..moveTo(45 * sx, 48 * sy)
-        ..lineTo(55 * sx, 48 * sy)
-        ..lineTo(58 * sx, 120 * sy)
-        ..lineTo(42 * sx, 120 * sy)
-        ..close();
-      // Antebrazo izquierdo
-      path
-        ..moveTo(40 * sx, 120 * sy)
-        ..lineTo(58 * sx, 120 * sy)
-        ..lineTo(56 * sx, 175 * sy)
-        ..lineTo(38 * sx, 175 * sy)
-        ..close();
-      // Brazo derecho
-      path
-        ..moveTo(105 * sx, 48 * sy)
-        ..lineTo(115 * sx, 48 * sy)
-        ..lineTo(118 * sx, 120 * sy)
-        ..lineTo(102 * sx, 120 * sy)
-        ..close();
-      // Antebrazo derecho
-      path
-        ..moveTo(102 * sx, 120 * sy)
-        ..lineTo(120 * sx, 120 * sy)
-        ..lineTo(122 * sx, 175 * sy)
-        ..lineTo(104 * sx, 175 * sy)
-        ..close();
-      // Pierna izquierda (muslo)
-      path
-        ..moveTo(52 * sx, 155 * sy)
-        ..lineTo(78 * sx, 155 * sy)
-        ..lineTo(76 * sx, 245 * sy)
-        ..lineTo(50 * sx, 245 * sy)
-        ..close();
-      // Pierna izquierda (pantorrilla)
-      path
-        ..moveTo(50 * sx, 245 * sy)
-        ..lineTo(76 * sx, 245 * sy)
-        ..lineTo(74 * sx, 310 * sy)
-        ..lineTo(52 * sx, 310 * sy)
-        ..close();
-      // Pierna derecha (muslo)
-      path
-        ..moveTo(82 * sx, 155 * sy)
-        ..lineTo(108 * sx, 155 * sy)
-        ..lineTo(110 * sx, 245 * sy)
-        ..lineTo(84 * sx, 245 * sy)
-        ..close();
-      // Pierna derecha (pantorrilla)
-      path
-        ..moveTo(84 * sx, 245 * sy)
-        ..lineTo(110 * sx, 245 * sy)
-        ..lineTo(108 * sx, 310 * sy)
-        ..lineTo(86 * sx, 310 * sy)
-        ..close();
-    } else {
-      // ── Vista posterior simplificada ───────────────────────────────────
-      path.addOval(Rect.fromCenter(center: Offset(80 * sx, 22 * sy), width: 28 * sx, height: 32 * sy));
-      path.addRect(Rect.fromLTWH(74 * sx, 36 * sy, 12 * sx, 10 * sy));
-      path
-        ..moveTo(52 * sx, 46 * sy)
-        ..lineTo(108 * sx, 46 * sy)
-        ..lineTo(110 * sx, 130 * sy)
-        ..lineTo(50 * sx, 130 * sy)
-        ..close();
-      path
-        ..moveTo(50 * sx, 130 * sy)
-        ..lineTo(110 * sx, 130 * sy)
-        ..lineTo(108 * sx, 158 * sy)
-        ..lineTo(52 * sx, 158 * sy)
-        ..close();
-      // Brazos posteriores
-      path
-        ..moveTo(40 * sx, 48 * sy)
-        ..lineTo(52 * sx, 48 * sy)
-        ..lineTo(54 * sx, 120 * sy)
-        ..lineTo(38 * sx, 120 * sy)
-        ..close();
-      path
-        ..moveTo(36 * sx, 120 * sy)
-        ..lineTo(54 * sx, 120 * sy)
-        ..lineTo(52 * sx, 175 * sy)
-        ..lineTo(34 * sx, 175 * sy)
-        ..close();
-      path
-        ..moveTo(108 * sx, 48 * sy)
-        ..lineTo(120 * sx, 48 * sy)
-        ..lineTo(122 * sx, 120 * sy)
-        ..lineTo(106 * sx, 120 * sy)
-        ..close();
-      path
-        ..moveTo(106 * sx, 120 * sy)
-        ..lineTo(126 * sx, 120 * sy)
-        ..lineTo(128 * sx, 175 * sy)
-        ..lineTo(108 * sx, 175 * sy)
-        ..close();
-      // Piernas posteriores (muslos + pantorrillas)
-      path
-        ..moveTo(50 * sx, 158 * sy)
-        ..lineTo(78 * sx, 158 * sy)
-        ..lineTo(76 * sx, 248 * sy)
-        ..lineTo(48 * sx, 248 * sy)
-        ..close();
-      path
-        ..moveTo(48 * sx, 248 * sy)
-        ..lineTo(76 * sx, 248 * sy)
-        ..lineTo(74 * sx, 312 * sy)
-        ..lineTo(50 * sx, 312 * sy)
-        ..close();
-      path
-        ..moveTo(82 * sx, 158 * sy)
-        ..lineTo(110 * sx, 158 * sy)
-        ..lineTo(112 * sx, 248 * sy)
-        ..lineTo(84 * sx, 248 * sy)
-        ..close();
-      path
-        ..moveTo(84 * sx, 248 * sy)
-        ..lineTo(112 * sx, 248 * sy)
-        ..lineTo(110 * sx, 312 * sy)
-        ..lineTo(86 * sx, 312 * sy)
-        ..close();
+    // Cuerpo MUSCULOSO con curvas bezier. Todas las subformas se acumulan en UN
+    // solo Path y se rellenan con winding nonzero → los solapamientos se funden
+    // sin costuras internas (hombros anchos, torso en V, bíceps, muslos y
+    // pantorrillas con volumen). Coordenadas base 160×320 (mismos anclajes que
+    // los paths musculares, para que se sobrepongan bien). La silueta es válida
+    // para vista frontal y posterior (los músculos resaltados cambian, no el
+    // contorno del cuerpo).
+    void oval(double cx, double cy, double w, double h) => path.addOval(
+        Rect.fromCenter(center: Offset(cx * sx, cy * sy), width: w * sx, height: h * sy));
+    void capsule(double x, double y, double w, double h, double r) => path.addRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(x * sx, y * sy, w * sx, h * sy), Radius.circular(r * sx)));
+    // curve: [x0,y0, (c1x,c1y,c2x,c2y,x1,y1)...] → subpath cerrado de cúbicas.
+    void curve(List<double> p) {
+      final sub = Path()..moveTo(p[0] * sx, p[1] * sy);
+      for (int i = 2; i + 5 < p.length; i += 6) {
+        sub.cubicTo(p[i] * sx, p[i + 1] * sy, p[i + 2] * sx, p[i + 3] * sy, p[i + 4] * sx, p[i + 5] * sy);
+      }
+      sub.close();
+      path.addPath(sub, Offset.zero);
     }
+
+    // Cabeza y cuello
+    oval(80, 20, 30, 34);
+    capsule(72, 33, 16, 16, 5);
+
+    // Trapecios / hombros altos (unen cuello con deltoides)
+    curve([
+      66, 45, 74, 40, 86, 40, 94, 45,
+      104, 48, 112, 52, 118, 60,
+      100, 58, 60, 58, 42, 60,
+      48, 52, 58, 48, 66, 45,
+    ]);
+
+    // Deltoides: hombros anchos y redondos
+    oval(46, 58, 28, 28);
+    oval(114, 58, 28, 28);
+
+    // Torso en V: pecho ancho → cintura marcada (dorsales que se estrechan)
+    curve([
+      50, 56, 58, 60, 62, 60, 80, 62,
+      98, 60, 102, 60, 110, 56,
+      112, 82, 108, 106, 104, 130,
+      94, 137, 66, 137, 56, 130,
+      52, 106, 48, 82, 50, 56,
+    ]);
+
+    // Brazo IZQUIERDO (bíceps + antebrazo + mano)
+    capsule(40, 60, 16, 52, 8);
+    oval(48, 82, 20, 40);
+    capsule(37, 110, 15, 62, 7);
+    oval(45, 130, 16, 32);
+    oval(44, 176, 16, 18);
+    // Brazo DERECHO (espejo)
+    capsule(104, 60, 16, 52, 8);
+    oval(112, 82, 20, 40);
+    capsule(108, 110, 15, 62, 7);
+    oval(115, 130, 16, 32);
+    oval(116, 176, 16, 18);
+
+    // Pelvis / cadera
+    curve([
+      56, 128, 64, 133, 96, 133, 104, 128,
+      111, 140, 109, 153, 100, 160,
+      90, 164, 70, 164, 60, 160,
+      51, 153, 49, 140, 56, 128,
+    ]);
+
+    // Muslos con bulto exterior (cuádriceps/vasto lateral)
+    curve([
+      52, 154, 49, 182, 51, 212, 58, 238,
+      64, 242, 75, 242, 79, 237,
+      80, 206, 80, 180, 79, 156,
+      70, 152, 60, 152, 52, 154,
+    ]);
+    curve([
+      108, 154, 111, 182, 109, 212, 102, 238,
+      96, 242, 85, 242, 81, 237,
+      80, 206, 80, 180, 81, 156,
+      90, 152, 100, 152, 108, 154,
+    ]);
+
+    // Rodillas
+    oval(66, 240, 22, 18);
+    oval(94, 240, 22, 18);
+
+    // Pantorrillas con vientre (gastrocnemio)
+    curve([
+      58, 248, 53, 264, 54, 288, 62, 306,
+      66, 310, 72, 310, 75, 306,
+      78, 286, 77, 264, 74, 248,
+      68, 244, 62, 244, 58, 248,
+    ]);
+    curve([
+      102, 248, 107, 264, 106, 288, 98, 306,
+      94, 310, 88, 310, 85, 306,
+      82, 286, 83, 264, 86, 248,
+      92, 244, 98, 244, 102, 248,
+    ]);
+
+    // Pies
+    oval(65, 314, 22, 12);
+    oval(95, 314, 22, 12);
 
     return path;
   }
@@ -524,13 +497,14 @@ class AnatomyBodyPainter extends CustomPainter {
     if (path.getBounds().isEmpty) return;
 
     // Relleno sólido translúcido (Paint reutilizable, solo se muta el color).
-    _muscleFill.color = color.withValues(alpha: opacity * 0.6);
+    _muscleFill.color = color.withValues(alpha: opacity * 0.75);
     canvas.drawPath(path, _muscleFill);
 
-    // Borde brillante (neon glow effect) — Paint reutilizable.
+    // Borde brillante (neon glow effect) — Paint reutilizable, más marcado.
     _muscleGlow
-      ..color = color.withValues(alpha: opacity * 0.9)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3.0 * opacity);
+      ..color = color.withValues(alpha: opacity)
+      ..strokeWidth = 1.8
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 4.0 * opacity);
     canvas.drawPath(path, _muscleGlow);
   }
 
