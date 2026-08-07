@@ -176,19 +176,21 @@ class _AiModuleCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   title,
+                  textAlign: TextAlign.center,
                   style: AppTypography.titleLarge.copyWith(
                     fontSize: 17,
                     color: isLocked ? Colors.grey : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   isLocked ? 'Bloqueado hasta regularizar pago' : subtitle,
+                  textAlign: TextAlign.center,
                   style: AppTypography.caption.copyWith(
                     color: isLocked ? const Color(0xFF68608C) : AppColors.textSecondary,
                     fontSize: 11,
