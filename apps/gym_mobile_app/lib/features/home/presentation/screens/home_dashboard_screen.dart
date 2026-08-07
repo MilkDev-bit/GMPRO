@@ -69,7 +69,6 @@ class HomeDashboardScreen extends ConsumerWidget {
               delegate: _GlassAppBarDelegate(
                 user: user?.nombre ?? 'Socio GymPro',
                 subAsync: subAsync,
-                onLogout: () => ref.read(authProvider.notifier).logout(),
                 topPadding: MediaQuery.of(context).padding.top,
               ),
             ),
@@ -155,13 +154,11 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
   const _GlassAppBarDelegate({
     required this.user,
     required this.subAsync,
-    required this.onLogout,
     required this.topPadding,
   });
 
   final String user;
   final AsyncValue subAsync;
-  final VoidCallback onLogout;
   final double topPadding; // inset de la barra de estado (safe area superior)
 
   // El header DEBE incluir el inset superior en su altura; si no, el contenido
@@ -247,13 +244,8 @@ class _GlassAppBarDelegate extends SliverPersistentHeaderDelegate {
                     color: AppColors.textSecondary, size: 22),
                 onPressed: () {},
               ),
-              // Logout
-              IconButton(
-                icon: const Icon(Icons.logout_rounded,
-                    color: AppColors.textMuted, size: 20),
-                tooltip: 'Cerrar Sesión',
-                onPressed: onLogout,
-              ),
+              // El botón de cerrar sesión se retiró del header: el flujo de logout
+              // (con su confirmación) vive en la pantalla de Cuenta/Ajustes.
             ],
       ),
     );
