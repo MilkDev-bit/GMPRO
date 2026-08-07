@@ -125,12 +125,24 @@ class WorkoutNotifier extends StateNotifier<WorkoutState> {
   final SecureStorageService _storage;
 
   /// Carga el perfil de entrenamiento persistido al arrancar (para prellenar el
-  /// formulario y que Ajustes muestre los datos reales). No genera rutina sola.
+  /// formulario y que Ajustes muestre los datos reales) y la última rutina
+  /// generada, para que el plan NO desaparezca al reabrir/recompilar la app.
   Future<void> _loadProfile() async {
     final json = await _storage.getWorkoutProfile();
-    if (json == null) return;
-    final p = WorkoutProfile.fromJson(json);
-    if (mounted) state = state.copyWith(profile: p);
+    if (json != null) {
+      final p = WorkoutProfile.fromJson(json);
+      if (mounted) state = state.copyWith(profile: p);
+    }
+    // Rehidratar la rutina persistida (JSON crudo de la última generación).
+    final planJson = await _storage.getWorkoutPlan();
+    if (planJson != null) {
+      try {
+        final plan = await WorkoutPlan.parseInBackground(planJson);
+        if (mounted) state = state.copyWith(plan: plan);
+      } catch (_) {
+        // JSON corrupto/incompatible: se ignora, el socio puede regenerar.
+      }
+    }
   }
 
   Future<void> _persistProfile(WorkoutProfile p) =>
@@ -179,9 +191,11 @@ class WorkoutNotifier extends StateNotifier<WorkoutState> {
       );
 
       if (response.data['success'] == true && response.data['data'] != null) {
-        final plan = await WorkoutPlan.parseInBackground(
-          response.data['data'] as Map<String, dynamic>,
-        );
+        final raw = response.data['data'] as Map<String, dynamic>;
+        final plan = await WorkoutPlan.parseInBackground(raw);
+        // Persistimos el JSON crudo: al reabrir/recompilar la app se rehidrata
+        // en _loadProfile en vez de perderse (antes solo vivía en memoria).
+        unawaited(_storage.saveWorkoutPlan(raw));
         state = state.copyWith(plan: plan, isLoading: false);
       } else {
         state = state.copyWith(

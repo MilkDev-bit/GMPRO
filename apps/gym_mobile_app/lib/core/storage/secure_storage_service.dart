@@ -98,6 +98,52 @@ class SecureStorageService {
     return null;
   }
 
+  /// Guarda la última dieta generada (JSON crudo de la respuesta del ai-service).
+  Future<void> saveDietPlan(Map<String, dynamic> plan) async {
+    await _storage.write(key: AppConfig.keyDietPlan, value: jsonEncode(plan));
+  }
+
+  /// Recupera la última dieta persistida, o null si aún no se ha generado.
+  Future<Map<String, dynamic>?> getDietPlan() async {
+    final jsonStr = await _storage.read(key: AppConfig.keyDietPlan);
+    if (jsonStr != null && jsonStr.isNotEmpty) {
+      try {
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Borra la dieta persistida (p. ej. al cerrar sesión).
+  Future<void> clearDietPlan() async {
+    await _storage.delete(key: AppConfig.keyDietPlan);
+  }
+
+  /// Guarda la última rutina generada (JSON crudo de la respuesta del ai-service).
+  Future<void> saveWorkoutPlan(Map<String, dynamic> plan) async {
+    await _storage.write(key: AppConfig.keyWorkoutPlan, value: jsonEncode(plan));
+  }
+
+  /// Recupera la última rutina persistida, o null si aún no se ha generado.
+  Future<Map<String, dynamic>?> getWorkoutPlan() async {
+    final jsonStr = await _storage.read(key: AppConfig.keyWorkoutPlan);
+    if (jsonStr != null && jsonStr.isNotEmpty) {
+      try {
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// Borra la rutina persistida (p. ej. al cerrar sesión).
+  Future<void> clearWorkoutPlan() async {
+    await _storage.delete(key: AppConfig.keyWorkoutPlan);
+  }
+
   /// Guarda (o borra, si es null) la ruta local de la foto de perfil.
   Future<void> saveAvatarPath(String? path) async {
     if (path == null || path.isEmpty) {

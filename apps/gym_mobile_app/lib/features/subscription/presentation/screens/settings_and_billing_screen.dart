@@ -16,6 +16,7 @@ import 'package:toastification/toastification.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';

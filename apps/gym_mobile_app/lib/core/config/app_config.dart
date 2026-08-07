@@ -144,6 +144,15 @@ class AppConfig {
   /// Persistido para prellenar el formulario y editarlo desde Ajustes.
   static const String keyWorkoutProfile = 'gympro_workout_profile';
 
+  /// Última dieta generada por la IA (JSON crudo de la respuesta del ai-service).
+  /// Persistida para que el plan sobreviva al cierre/recompilado de la app en vez
+  /// de desaparecer (antes solo vivía en memoria).
+  static const String keyDietPlan = 'gympro_diet_plan';
+
+  /// Última rutina generada por la IA (JSON crudo de la respuesta del ai-service).
+  /// Persistida para que el plan sobreviva al cierre/recompilado de la app.
+  static const String keyWorkoutPlan = 'gympro_workout_plan';
+
   /// Ruta local de la foto de perfil elegida por el socio (en el directorio de
   /// documentos de la app). null = usar el avatar con inicial por defecto.
   static const String keyAvatarPath = 'gympro_avatar_path';

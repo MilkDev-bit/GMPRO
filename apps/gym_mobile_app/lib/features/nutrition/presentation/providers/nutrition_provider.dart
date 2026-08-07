@@ -189,17 +189,31 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
   String lastActividad  = 'moderado';
 
   /// Carga el perfil persistido al arrancar (para prellenar el formulario y que
-  /// Ajustes muestre los datos reales del socio). No genera dieta automáticamente.
+  /// Ajustes muestre los datos reales del socio) y la última dieta generada, para
+  /// que el plan NO desaparezca al reabrir/recompilar la app. No genera dieta sola.
   Future<void> _loadProfile() async {
     final json = await _storage.getDietProfile();
-    if (json == null) return;
-    final p = DietProfile.fromJson(json);
-    lastObjetivo   = p.objetivo;
-    lastPesoKg     = p.pesoKg;
-    lastEstaturaCm = p.estaturaCm;
-    lastEdad       = p.edad;
-    lastActividad  = p.actividad;
-    if (mounted) state = state.copyWith(profile: p);
+    if (json != null) {
+      final p = DietProfile.fromJson(json);
+      lastObjetivo   = p.objetivo;
+      lastPesoKg     = p.pesoKg;
+      lastEstaturaCm = p.estaturaCm;
+      lastEdad       = p.edad;
+      lastActividad  = p.actividad;
+      if (mounted) state = state.copyWith(profile: p);
+    }
+    // Rehidratar la dieta persistida (JSON crudo de la última generación).
+    final planJson = await _storage.getDietPlan();
+    if (planJson != null) {
+      try {
+        final plan = await NutritionPlan.parseInBackground(planJson);
+        if (mounted) state = state.copyWith(plan: plan);
+        // Con plan restaurado, cargamos el consumo REAL de hoy (calorías/agua).
+        unawaited(loadTodayLog());
+      } catch (_) {
+        // JSON corrupto/incompatible: se ignora, el socio puede regenerar.
+      }
+    }
   }
 
   DietProfile get _profileFromLast => DietProfile(
@@ -271,9 +285,11 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
       );
 
       if (response.data['success'] == true && response.data['data'] != null) {
-        final plan = await NutritionPlan.parseInBackground(
-          response.data['data'] as Map<String, dynamic>,
-        );
+        final raw = response.data['data'] as Map<String, dynamic>;
+        final plan = await NutritionPlan.parseInBackground(raw);
+        // Persistimos el JSON crudo: al reabrir/recompilar la app se rehidrata
+        // en _loadProfile en vez de perderse (antes solo vivía en memoria).
+        unawaited(_storage.saveDietPlan(raw));
         state = state.copyWith(plan: plan, isLoading: false);
         // Al tener plan, cargamos el consumo REAL de hoy (calorías/agua marcadas).
         unawaited(loadTodayLog());
