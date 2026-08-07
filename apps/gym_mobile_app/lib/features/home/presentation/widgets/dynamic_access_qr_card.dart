@@ -46,6 +46,16 @@ class _DynamicAccessQrCardState extends ConsumerState<DynamicAccessQrCard>
 
   @override
   Widget build(BuildContext context) {
+    // Al iniciar sesión, la suscripción se refresca de forma asíncrona; el QR se
+    // arranca en initState mientras aún carga (isAccessValid=false) y quedaba en
+    // "pago requerido" hasta recargar. Escuchamos el acceso: en cuanto pasa a
+    // válido, (re)generamos el QR sin recargar.
+    ref.listen<bool>(isAccessValidProvider, (prev, next) {
+      if (next == true && prev != true) {
+        ref.read(qrAccessProvider.notifier).startDynamicRefresh();
+      }
+    });
+
     ref.listen<PaymentCheckoutState>(paymentProvider, (previous, next) {
       if (next.status == PaymentCheckoutStatus.error && next.errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(

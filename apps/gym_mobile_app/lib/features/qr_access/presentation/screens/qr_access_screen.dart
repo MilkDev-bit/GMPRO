@@ -19,6 +19,18 @@ class QrAccessScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Al abrir el panel (o al iniciar sesión), si el acceso es válido pero el QR
+    // no está activo aún, lo generamos. fireImmediately cubre el caso de entrar
+    // con la membresía ya activa; el listen cubre la transición sin recargar.
+    ref.listen<bool>(isAccessValidProvider, (prev, next) {
+      if (next == true) {
+        final st = ref.read(qrAccessProvider).status;
+        if (st != QrStatus.active && st != QrStatus.loading) {
+          ref.read(qrAccessProvider.notifier).startDynamicRefresh();
+        }
+      }
+    }, fireImmediately: true);
+
     final subAsync = ref.watch(subscriptionProvider);
     final qrState = ref.watch(qrAccessProvider);
 
