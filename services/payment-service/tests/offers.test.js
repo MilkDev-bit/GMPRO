@@ -29,6 +29,12 @@ process.env.JWT_ALGORITHM             = 'HS512';
 process.env.STRIPE_SECRET_KEY         = 'sk_test_' + 'x'.repeat(24);
 process.env.STRIPE_WEBHOOK_SECRET     = 'whsec_' + 'x'.repeat(24);
 process.env.STRIPE_DEFAULT_CURRENCY   = 'usd';
+// El precio se resuelve SIEMPRE en el servidor por plan (el controller ya no
+// confía en un priceId del cliente). Sin estas vars, planKey='mensual' → priceId
+// undefined → 400 "Plan inválido" ANTES de validar el cupón.
+process.env.STRIPE_PRICE_ID_MENSUAL    = 'price_mensual_test';
+process.env.STRIPE_PRICE_ID_TRIMESTRAL = 'price_trimestral_test';
+process.env.STRIPE_PRICE_ID_ANUAL      = 'price_anual_test';
 process.env.CASH_PAYMENT_API_KEY      = 'k'.repeat(32);
 process.env.INTER_SERVICE_SECRET      = 's'.repeat(32);
 process.env.CORS_ALLOWED_ORIGINS      = 'http://localhost:5173';
