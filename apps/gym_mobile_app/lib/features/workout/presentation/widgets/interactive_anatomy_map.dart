@@ -149,19 +149,24 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
             _buildGlassBackground(primaryKeys),
 
             // ── CUERPO ANATÓMICO SVG (CustomPainter en RepaintBoundary) ─────
-            Center(
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_highlightAnim, _viewFlipAnim]),
-                builder: (context, _) {
-                  return Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..setEntry(3, 2, 0.001)
-                      ..rotateY(math.pi * _viewFlipAnim.value),
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        size: const Size(160, 320),
-                        painter: AnatomyBodyPainter(
+            // Padding vertical: reserva espacio para el header (arriba) y los
+            // chips de músculos (abajo) para que NO tapen la figura. El cuerpo se
+            // dibuja más pequeño conservando la proporción 1:2 (ancho:alto).
+            Padding(
+              padding: const EdgeInsets.only(top: 52, bottom: 64),
+              child: Center(
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_highlightAnim, _viewFlipAnim]),
+                  builder: (context, _) {
+                    return Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()
+                        ..setEntry(3, 2, 0.001)
+                        ..rotateY(math.pi * _viewFlipAnim.value),
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          size: const Size(122, 244),
+                          painter: AnatomyBodyPainter(
                           region: _activeView,
                           primaryMuscles: primaryKeys,
                           secondaryMuscles: secondaryKeys,
@@ -170,7 +175,8 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
                       ),
                     ),
                   );
-                },
+                  },
+                ),
               ),
             ),
 
@@ -343,12 +349,8 @@ class AnatomyBodyPainter extends CustomPainter {
       _drawMuscleRegion(canvas, size, sx, sy, key, m.color, highlightOpacity * 0.9);
     }
 
-    // 4. Etiquetas flotantes de músculos primarios visibles en esta vista
-    for (final key in primaryMuscles) {
-      final m = MuscleCatalog.byKey(key);
-      if (m == null || m.region != region) continue;
-      _drawMuscleLabel(canvas, size, sx, sy, key, m);
-    }
+    // Nota: las etiquetas de músculos NO se pintan sobre el cuerpo (tapaban el
+    // esquema). Los nombres se muestran en los chips inferiores (_MuscleChipsRow).
   }
 
   /// Silueta simplificada del cuerpo humano (frontal o posterior).
