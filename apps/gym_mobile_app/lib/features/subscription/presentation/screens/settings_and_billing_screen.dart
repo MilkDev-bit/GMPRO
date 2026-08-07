@@ -642,26 +642,35 @@ class _FailedPaymentCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.error.withValues(alpha: 0.6), width: 1),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 14),
-                            const SizedBox(width: 6),
-                            Text(
-                              'PAGO FALLIDO / PAST DUE',
-                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.error),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppColors.error.withValues(alpha: 0.6), width: 1),
                             ),
-                          ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 14),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    'PAGO FALLIDO / PAST DUE',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.error),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       IconButton(
                         onPressed: onOpenInvoices,
                         icon: const Icon(Icons.receipt_long_rounded, color: Colors.white70, size: 22),
@@ -781,36 +790,48 @@ class _ActivePaymentCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.success.withValues(alpha: 0.5), width: 1),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.success,
-                            boxShadow: [
-                              BoxShadow(color: AppColors.success.withValues(alpha: 0.8), blurRadius: 6),
-                            ],
-                          ),
+                  // Expanded + Align: el chip abraza su contenido y queda a la
+                  // izquierda; si la etiqueta es larga, el texto hace ellipsis en
+                  // vez de desbordar (antes el Row sin Flexible reventaba).
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.success.withValues(alpha: 0.5), width: 1),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          subscription.statusDisplayLabel.toUpperCase(),
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.success),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.success,
+                                boxShadow: [
+                                  BoxShadow(color: AppColors.success.withValues(alpha: 0.8), blurRadius: 6),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                subscription.statusDisplayLabel.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.success),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   IconButton(
                     onPressed: onOpenInvoices,
                     icon: const Icon(Icons.receipt_long_rounded, color: Colors.white70, size: 22),

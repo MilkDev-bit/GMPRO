@@ -28,12 +28,34 @@ class SecureStorageService {
               ),
             );
 
+  // ── Scope por usuario ───────────────────────────────────────────────────────
+  // Los datos "de memoria" del socio (perfil de dieta/rutina, planes generados y
+  // avatar) se guardan con la clave base + '_<userId>' para que CADA usuario
+  // conserve lo suyo en el mismo dispositivo y no herede lo del anterior. El id
+  // se toma de userData (persistido en login) y se cachea en memoria.
+  String? _cachedUserId;
+
+  Future<String> _userScope() async {
+    final cached = _cachedUserId;
+    if (cached != null && cached.isNotEmpty) return cached;
+    final data = await getUserData();
+    final id = (data?['id'] ?? data?['usuario_id'] ?? data?['sub'])?.toString();
+    _cachedUserId = (id != null && id.isNotEmpty) ? id : 'anon';
+    return _cachedUserId!;
+  }
+
+  /// Clave con sufijo del usuario actual (aísla los datos por socio).
+  Future<String> _scoped(String base) async => '${base}_${await _userScope()}';
+
   /// Guarda el par de tokens JWT y la sesión en el hardware cifrado.
   Future<void> saveAuthTokens({
     required String accessToken,
     required String refreshToken,
     required Map<String, dynamic> userData,
   }) async {
+    // Fija el scope del usuario que inicia sesión ANTES de cualquier lectura/
+    // escritura de datos por-usuario.
+    _cachedUserId = (userData['id'] ?? userData['usuario_id'])?.toString();
     await Future.wait([
       _storage.write(key: AppConfig.keyAccessToken, value: accessToken),
       _storage.write(key: AppConfig.keyRefreshToken, value: refreshToken),
@@ -64,12 +86,12 @@ class SecureStorageService {
 
   /// Guarda el perfil de dieta (objetivo, peso, estatura, edad, actividad).
   Future<void> saveDietProfile(Map<String, dynamic> profile) async {
-    await _storage.write(key: AppConfig.keyDietProfile, value: jsonEncode(profile));
+    await _storage.write(key: await _scoped(AppConfig.keyDietProfile), value: jsonEncode(profile));
   }
 
   /// Recupera el perfil de dieta persistido, o null si aún no se ha configurado.
   Future<Map<String, dynamic>?> getDietProfile() async {
-    final jsonStr = await _storage.read(key: AppConfig.keyDietProfile);
+    final jsonStr = await _storage.read(key: await _scoped(AppConfig.keyDietProfile));
     if (jsonStr != null && jsonStr.isNotEmpty) {
       try {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -82,12 +104,12 @@ class SecureStorageService {
 
   /// Guarda el perfil de entrenamiento (objetivo, nivel, días/semana, lesiones).
   Future<void> saveWorkoutProfile(Map<String, dynamic> profile) async {
-    await _storage.write(key: AppConfig.keyWorkoutProfile, value: jsonEncode(profile));
+    await _storage.write(key: await _scoped(AppConfig.keyWorkoutProfile), value: jsonEncode(profile));
   }
 
   /// Recupera el perfil de entrenamiento persistido, o null si no se ha configurado.
   Future<Map<String, dynamic>?> getWorkoutProfile() async {
-    final jsonStr = await _storage.read(key: AppConfig.keyWorkoutProfile);
+    final jsonStr = await _storage.read(key: await _scoped(AppConfig.keyWorkoutProfile));
     if (jsonStr != null && jsonStr.isNotEmpty) {
       try {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -100,12 +122,12 @@ class SecureStorageService {
 
   /// Guarda la última dieta generada (JSON crudo de la respuesta del ai-service).
   Future<void> saveDietPlan(Map<String, dynamic> plan) async {
-    await _storage.write(key: AppConfig.keyDietPlan, value: jsonEncode(plan));
+    await _storage.write(key: await _scoped(AppConfig.keyDietPlan), value: jsonEncode(plan));
   }
 
   /// Recupera la última dieta persistida, o null si aún no se ha generado.
   Future<Map<String, dynamic>?> getDietPlan() async {
-    final jsonStr = await _storage.read(key: AppConfig.keyDietPlan);
+    final jsonStr = await _storage.read(key: await _scoped(AppConfig.keyDietPlan));
     if (jsonStr != null && jsonStr.isNotEmpty) {
       try {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -116,19 +138,19 @@ class SecureStorageService {
     return null;
   }
 
-  /// Borra la dieta persistida (p. ej. al cerrar sesión).
+  /// Borra la dieta persistida del usuario actual.
   Future<void> clearDietPlan() async {
-    await _storage.delete(key: AppConfig.keyDietPlan);
+    await _storage.delete(key: await _scoped(AppConfig.keyDietPlan));
   }
 
   /// Guarda la última rutina generada (JSON crudo de la respuesta del ai-service).
   Future<void> saveWorkoutPlan(Map<String, dynamic> plan) async {
-    await _storage.write(key: AppConfig.keyWorkoutPlan, value: jsonEncode(plan));
+    await _storage.write(key: await _scoped(AppConfig.keyWorkoutPlan), value: jsonEncode(plan));
   }
 
   /// Recupera la última rutina persistida, o null si aún no se ha generado.
   Future<Map<String, dynamic>?> getWorkoutPlan() async {
-    final jsonStr = await _storage.read(key: AppConfig.keyWorkoutPlan);
+    final jsonStr = await _storage.read(key: await _scoped(AppConfig.keyWorkoutPlan));
     if (jsonStr != null && jsonStr.isNotEmpty) {
       try {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -139,23 +161,24 @@ class SecureStorageService {
     return null;
   }
 
-  /// Borra la rutina persistida (p. ej. al cerrar sesión).
+  /// Borra la rutina persistida del usuario actual.
   Future<void> clearWorkoutPlan() async {
-    await _storage.delete(key: AppConfig.keyWorkoutPlan);
+    await _storage.delete(key: await _scoped(AppConfig.keyWorkoutPlan));
   }
 
   /// Guarda (o borra, si es null) la ruta local de la foto de perfil.
   Future<void> saveAvatarPath(String? path) async {
+    final key = await _scoped(AppConfig.keyAvatarPath);
     if (path == null || path.isEmpty) {
-      await _storage.delete(key: AppConfig.keyAvatarPath);
+      await _storage.delete(key: key);
     } else {
-      await _storage.write(key: AppConfig.keyAvatarPath, value: path);
+      await _storage.write(key: key, value: path);
     }
   }
 
   /// Recupera la ruta local de la foto de perfil, o null si no se ha elegido.
   Future<String?> getAvatarPath() async {
-    final p = await _storage.read(key: AppConfig.keyAvatarPath);
+    final p = await _storage.read(key: await _scoped(AppConfig.keyAvatarPath));
     return (p != null && p.isNotEmpty) ? p : null;
   }
 
@@ -205,8 +228,12 @@ class SecureStorageService {
     } catch (_) {}
   }
 
-  /// Elimina por completo todas las credenciales y tokens al cerrar sesión.
+  /// Elimina credenciales y tokens al cerrar sesión. NO borra los datos por-
+  /// usuario (dieta/rutina/planes/avatar): quedan aislados por su clave con
+  /// sufijo de userId, así el socio los recupera al volver a entrar. Sí resetea
+  /// el scope en memoria para que el siguiente login use el id correcto.
   Future<void> clearAuth() async {
+    _cachedUserId = null;
     await Future.wait([
       _storage.delete(key: AppConfig.keyAccessToken),
       _storage.delete(key: AppConfig.keyRefreshToken),

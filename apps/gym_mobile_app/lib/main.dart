@@ -27,6 +27,9 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/subscription/presentation/providers/subscription_provider.dart';
+import 'features/subscription/presentation/providers/profile_avatar_provider.dart';
+import 'features/nutrition/presentation/providers/nutrition_provider.dart';
+import 'features/workout/presentation/providers/workout_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -148,6 +151,15 @@ class _GymProAppState extends ConsumerState<GymProApp> {
           // con la sesión ya persistida (y re-suscribe Realtime con el usuarioId
           // correcto), así la membresía aparece activa sin recargar.
           ref.invalidate(subscriptionProvider);
+        } else {
+          // Al SALIR: RESETEAR los providers en memoria (su estado NO observa el
+          // auth, así que retenían los datos del usuario anterior). Los datos NO
+          // se borran: quedan guardados por-usuario (clave con sufijo de userId),
+          // de modo que el siguiente login carga LO SUYO y, al volver, cada socio
+          // recupera su dieta/rutina/avatar.
+          ref.invalidate(nutritionProvider);
+          ref.invalidate(workoutProvider);
+          ref.invalidate(profileAvatarProvider);
         }
       }
     });
