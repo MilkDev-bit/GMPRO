@@ -305,6 +305,8 @@ class AnatomyBodyPainter extends CustomPainter {
   static final Map<BodyRegion, Path> _silhouetteCache = {};
   static final Map<String, Path> _muscleRegionCache = {};
   static final Map<String, TextPainter> _labelCache = {};
+  // Líneas de definición muscular (distintas en frontal vs posterior).
+  static final Map<BodyRegion, Path> _detailCache = {};
 
   // Paints reutilizables (se mutan por dibujo; el pintado es de un solo hilo).
   // El relleno usa un degradado vertical (shader memoizado) para dar volumen
@@ -326,6 +328,12 @@ class AnatomyBodyPainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.5;
   static final Paint _labelBg = Paint()..style = PaintingStyle.fill;
+  // Trazo fino para las líneas de definición (surcos musculares) del cuerpo.
+  static final Paint _detailLine = Paint()
+    ..color = const Color(0x2EFFFFFF) // blanco ~18%
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.1
+    ..strokeCap = StrokeCap.round;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -334,6 +342,10 @@ class AnatomyBodyPainter extends CustomPainter {
 
     // 1. Silueta base del cuerpo
     _drawBodySilhouette(canvas, size, sx, sy);
+
+    // 1b. Líneas de definición (surcos musculares) — DISTINTAS en frontal vs
+    // posterior, para que se note claramente qué cara se está viendo.
+    _drawDefinitionLines(canvas, sx, sy);
 
     // 2. Músculos secundarios (menos intensos)
     for (final key in secondaryMuscles) {
@@ -370,6 +382,64 @@ class AnatomyBodyPainter extends CustomPainter {
     canvas.drawPath(path, _silhouetteGlow); // halo exterior (visibilidad)
     canvas.drawPath(path, _silhouetteFill);
     canvas.drawPath(path, _silhouetteStroke);
+  }
+
+  /// Dibuja las líneas de definición muscular. El trazado cambia según la vista
+  /// (frontal: pecho/abdomen/cuádriceps; posterior: columna/dorsales/glúteos/
+  /// femorales) para que ambas caras se distingan a simple vista. Memoizado.
+  void _drawDefinitionLines(Canvas canvas, double sx, double sy) {
+    final path = _detailCache[region] ??= _computeDetailPath(sx, sy);
+    canvas.drawPath(path, _detailLine);
+  }
+
+  Path _computeDetailPath(double sx, double sy) {
+    final p = Path();
+    void line(double x1, double y1, double x2, double y2) =>
+        p..moveTo(x1 * sx, y1 * sy)..lineTo(x2 * sx, y2 * sy);
+    void arc(double x1, double y1, double cx, double cy, double x2, double y2) =>
+        p..moveTo(x1 * sx, y1 * sy)..quadraticBezierTo(cx * sx, cy * sy, x2 * sx, y2 * sy);
+
+    if (region == BodyRegion.anterior) {
+      // Clavículas
+      arc(60, 52, 80, 58, 100, 52);
+      // Línea media (esternón → línea alba)
+      line(80, 60, 80, 138);
+      // Separación de pectorales
+      arc(80, 66, 70, 80, 62, 90);
+      arc(80, 66, 90, 80, 98, 90);
+      // Marcas abdominales (3 pares de rectos)
+      for (int i = 0; i < 3; i++) {
+        final y = 102.0 + i * 12;
+        line(70, y, 78, y);
+        line(82, y, 90, y);
+      }
+      // Separación de cuádriceps
+      line(65, 164, 66, 232);
+      line(95, 164, 94, 232);
+      // Espinilla (tibial anterior)
+      line(64, 250, 64, 300);
+      line(96, 250, 96, 300);
+    } else {
+      // Columna vertebral
+      line(80, 58, 80, 150);
+      // Trapecio / romboides (diamante superior de la espalda)
+      arc(66, 58, 80, 74, 94, 58);
+      // Dorsales (desde axilas hacia la cintura)
+      arc(56, 72, 66, 100, 62, 130);
+      arc(104, 72, 94, 100, 98, 130);
+      // Zona lumbar
+      arc(72, 122, 80, 132, 88, 122);
+      // Separación de glúteos + pliegue inferior
+      line(80, 132, 80, 160);
+      arc(60, 160, 80, 167, 100, 160);
+      // Femorales (centro de cada muslo posterior)
+      line(65, 166, 66, 234);
+      line(95, 166, 94, 234);
+      // Gemelos (surco central)
+      line(64, 250, 64, 300);
+      line(96, 250, 96, 300);
+    }
+    return p;
   }
 
   /// Construye (una vez) el Path de la silueta según la región activa.
