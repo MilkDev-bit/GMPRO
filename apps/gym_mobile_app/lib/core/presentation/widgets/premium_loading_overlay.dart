@@ -262,31 +262,6 @@ class _LoginSuccessSplashState extends State<_LoginSuccessSplash> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Icono central con aura
-                    Container(
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.neonCyan.withValues(alpha: 0.12),
-                        border: Border.all(
-                          color: AppColors.neonCyan.withValues(alpha: 0.5),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.neonCyan.withValues(alpha: 0.4),
-                            blurRadius: 28,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.bolt_rounded,
-                        color: AppColors.neonCyan,
-                        size: 46,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
                     // Texto tipográfico principal con gradiente neón
                     ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(

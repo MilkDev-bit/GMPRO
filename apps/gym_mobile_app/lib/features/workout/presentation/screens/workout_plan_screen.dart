@@ -331,9 +331,8 @@ class _ExerciseCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            // Cover: foto real de wger o fallback por grupo muscular.
-            _exerciseCover(exercise, size: 64, radius: 14),
-            const SizedBox(width: 16),
+            // La portada/gif del ejercicio ya NO va en la tarjeta de lista; solo
+            // se muestra en el detalle del ejercicio.
             // Details
             Expanded(
               child: Column(
@@ -619,9 +618,7 @@ class _MiniPlayerState extends State<_MiniPlayer> {
         ),
         child: Row(
           children: [
-            // Cover: foto real de wger o fallback por grupo muscular.
-            _exerciseCover(ex, size: 40, radius: 12),
-            const SizedBox(width: 12),
+            // La portada/gif solo se muestra en el detalle del ejercicio.
             // Text
             Expanded(
               child: Column(

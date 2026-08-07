@@ -88,8 +88,6 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.restaurant_menu_rounded, color: AppColors.neonCyan, size: 40),
-            const SizedBox(height: 12),
             Text(
               'Completa tu perfil',
               style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
@@ -103,10 +101,7 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                label: Text('Generar mi plan',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.neonCyan,
                   foregroundColor: Colors.black,
@@ -115,6 +110,8 @@ class _MacroProgressCardState extends ConsumerState<MacroProgressCard>
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () => DietProfileSheet.show(context),
+                child: Text('Generar mi plan',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
               ),
             ),
           ],

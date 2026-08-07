@@ -46,24 +46,13 @@ class AiModulesGrid extends ConsumerWidget {
                       : Colors.white.withValues(alpha: 0.08),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isAccessValid ? Icons.verified_rounded : Icons.lock_rounded,
-                    color: isAccessValid ? AppColors.neonEmerald : AppColors.textMuted,
-                    size: 13,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    isAccessValid ? 'Activo' : 'Bloqueado',
-                    style: AppTypography.caption.copyWith(
-                      color: isAccessValid ? AppColors.neonEmerald : AppColors.textMuted,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ],
+              child: Text(
+                isAccessValid ? 'Activo' : 'Bloqueado',
+                style: AppTypography.caption.copyWith(
+                  color: isAccessValid ? AppColors.neonEmerald : AppColors.textMuted,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
           ],
@@ -80,27 +69,12 @@ class AiModulesGrid extends ConsumerWidget {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.lock_rounded, color: Colors.grey, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    'Las opciones de IA (Dieta y Rutinas) se encuentran desactivadas hasta que se procese correctamente el pago de tu membresía en Stripe.',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              'Las opciones de IA (Dieta y Rutinas) se encuentran desactivadas hasta que se procese correctamente el pago de tu membresía en Stripe.',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
             ),
           ),
 
@@ -110,7 +84,6 @@ class AiModulesGrid extends ConsumerWidget {
               child: _AiModuleCard(
                 title: 'Rutinas con IA',
                 subtitle: 'Generador hipertrofia y fuerza personalizado',
-                icon: Icons.fitness_center_rounded,
                 gradientColors: const [AppColors.neonViolet, AppColors.neonCyan],
                 isLocked: !isAccessValid,
                 onTap: () => _onModuleTapped(context, ref, isAccessValid, 'Rutinas con IA'),
@@ -121,7 +94,6 @@ class AiModulesGrid extends ConsumerWidget {
               child: _AiModuleCard(
                 title: 'Dieta AI',
                 subtitle: 'Plan nutricional macro-ajustado en tiempo real',
-                icon: Icons.restaurant_menu_rounded,
                 gradientColors: const [AppColors.neonPurple, AppColors.neonPink],
                 isLocked: !isAccessValid,
                 onTap: () => _onModuleTapped(context, ref, isAccessValid, 'Dieta AI Coach'),
@@ -160,7 +132,6 @@ class AiModulesGrid extends ConsumerWidget {
 class _AiModuleCard extends StatelessWidget {
   final String title;
   final String subtitle;
-  final IconData icon;
   final List<Color> gradientColors;
   final bool isLocked;
   final VoidCallback onTap;
@@ -168,7 +139,6 @@ class _AiModuleCard extends StatelessWidget {
   const _AiModuleCard({
     required this.title,
     required this.subtitle,
-    required this.icon,
     required this.gradientColors,
     required this.isLocked,
     required this.onTap,
@@ -207,58 +177,24 @@ class _AiModuleCard extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: isLocked ? null : LinearGradient(colors: gradientColors),
-                        color: isLocked ? const Color(0xFF28243A) : null,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Icon(
-                        icon,
-                        color: isLocked ? Colors.grey : Colors.white,
-                        size: 26,
-                      ),
-                    ),
-                    if (isLocked)
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF28243A),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.lock_rounded, color: Colors.grey, size: 20),
-                      )
-                    else
-                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 16),
-                  ],
+                Text(
+                  title,
+                  style: AppTypography.titleLarge.copyWith(
+                    fontSize: 17,
+                    color: isLocked ? Colors.grey : AppColors.textPrimary,
+                  ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTypography.titleLarge.copyWith(
-                        fontSize: 17,
-                        color: isLocked ? Colors.grey : AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isLocked ? 'Bloqueado hasta regularizar pago' : subtitle,
-                      style: AppTypography.caption.copyWith(
-                        color: isLocked ? const Color(0xFF68608C) : AppColors.textSecondary,
-                        fontSize: 11,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  isLocked ? 'Bloqueado hasta regularizar pago' : subtitle,
+                  style: AppTypography.caption.copyWith(
+                    color: isLocked ? const Color(0xFF68608C) : AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
