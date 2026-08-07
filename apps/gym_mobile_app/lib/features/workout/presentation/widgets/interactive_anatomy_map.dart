@@ -103,8 +103,16 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
   @override
   void didUpdateWidget(InteractiveAnatomyMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // El índice viene del PADRE (initialIndex). Sincronizamos la vista SIN llamar
+    // a onExerciseChanged: hacerlo aquí disparaba `setState` del padre DURANTE su
+    // build → "setState called during build" + bucle de rebuild (crash al
+    // regenerar/cambiar de ejercicio). El callback es solo para gestos internos.
     if (widget.initialIndex != oldWidget.initialIndex) {
-      _onExerciseChanged(widget.initialIndex.clamp(0, widget.exercises.length - 1));
+      final idx = widget.initialIndex.clamp(0, widget.exercises.length - 1);
+      // Post-frame: evita mutar estado/animaciones en mitad del update del padre.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncToIndex(idx);
+      });
     }
   }
 
@@ -115,23 +123,23 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
     super.dispose();
   }
 
-  Future<void> _onExerciseChanged(int index) async {
-    if (index == _currentIndex) return;
+  /// Sincroniza la vista al índice externo (del padre). NO invoca el callback,
+  /// así no realimenta al padre ni provoca setState durante su build.
+  Future<void> _syncToIndex(int index) async {
+    if (!mounted || index == _currentIndex) return;
     setState(() => _currentIndex = index);
 
     final newView = _computeBestView(widget.exercises[index]);
     if (newView != _activeView) {
-      // Flip con animación
       await _viewFlipController.forward();
+      if (!mounted) return;
       setState(() => _activeView = newView);
       _viewFlipController.reset();
     }
 
-    // Reiniciar pulso
-    _highlightController.reset();
-    _highlightController.forward();
-
-    widget.onExerciseChanged?.call(index);
+    _highlightController
+      ..reset()
+      ..forward();
   }
 
   @override

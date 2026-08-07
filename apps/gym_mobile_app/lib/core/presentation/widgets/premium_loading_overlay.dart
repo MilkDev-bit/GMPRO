@@ -121,11 +121,16 @@ class PremiumLoadingOverlay extends ConsumerWidget {
         // Overlay animado con curvas premium (easeOutBack / fastOutSlowIn)
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 450),
-          switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.fastOutSlowIn,
+          // LINEAL a propósito: si aquí se pone easeOutBack, el `animation` que
+          // llega al transitionBuilder ya viene fuera de [0,1] (overshoot) y al
+          // volver a curvarlo con easeOutBack lanza "parametric value outside
+          // [0,1]" y opacidades inválidas. La curva de rebote se aplica SOLO a la
+          // escala (que sí puede pasar de 1) vía el CurvedAnimation de abajo.
+          switchInCurve: Curves.linear,
+          switchOutCurve: Curves.linear,
           transitionBuilder: (Widget child, Animation<double> animation) {
             return FadeTransition(
-              opacity: animation,
+              opacity: animation, // ahora en [0,1] → sin aserciones de opacidad
               child: ScaleTransition(
                 scale: Tween<double>(begin: 0.92, end: 1.0).animate(
                   CurvedAnimation(
