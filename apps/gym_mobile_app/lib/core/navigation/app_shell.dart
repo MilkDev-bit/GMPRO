@@ -17,6 +17,7 @@ import '../../features/nutrition/presentation/screens/nutrition_main_screen.dart
 import '../../features/qr_access/presentation/screens/qr_access_screen.dart';
 import '../../features/subscription/presentation/screens/settings_and_billing_screen.dart';
 import '../../features/subscription/presentation/providers/subscription_provider.dart';
+import '../../features/nutrition/presentation/providers/nutrition_provider.dart';
 import '../../features/workout/presentation/screens/workout_main_screen.dart';
 import 'nav_destination.dart';
 import 'shell_nav_provider.dart';
@@ -86,6 +87,8 @@ class _AppShellState extends ConsumerState<AppShell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _pollSubscriptionAfterResume();
+      // Reset diario del diario nutricional: si cambió el día, recarga (0 consumido).
+      ref.read(nutritionProvider.notifier).ensureTodayFresh();
     }
   }
 

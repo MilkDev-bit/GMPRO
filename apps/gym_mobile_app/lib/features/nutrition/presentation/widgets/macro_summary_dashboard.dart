@@ -32,6 +32,25 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
     with SingleTickerProviderStateMixin {
   bool _waterWaveAnimation = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Reset diario: si cambió el día, recarga el consumo (vuelve a 0).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(nutritionProvider.notifier).ensureTodayFresh();
+    });
+  }
+
+  static const _meses = [
+    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+  ];
+
+  String get _hoyLabel {
+    final n = DateTime.now();
+    return 'HOY · ${n.day} ${_meses[n.month - 1]} ${n.year}';
+  }
+
   void _triggerWaterPulse(int amount) {
     // La háptica la dispara Pressable en el gesto (evita doble vibración).
     ref.read(nutritionProvider.notifier).addWater(amount);
@@ -100,6 +119,16 @@ class _MacroSummaryDashboardState extends ConsumerState<MacroSummaryDashboard>
                           fontWeight: FontWeight.w800,
                           color: AppColors.accentCyanOf(context), // WCAG: texto seguro en claro/oscuro
                           letterSpacing: 2.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _hoyLabel,
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textMutedOf(context),
+                          letterSpacing: 1.2,
                         ),
                       ),
                       const SizedBox(height: 6),

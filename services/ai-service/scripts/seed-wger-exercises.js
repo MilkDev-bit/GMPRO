@@ -55,10 +55,12 @@ const CONFIG = {
   supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '',
   geminiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: flag('pro')
-    ? (process.env.GEMINI_MODEL_PRO || 'gemini-2.5-pro')
+    ? (process.env.GEMINI_MODEL_PRO || 'gemini-3.5-flash')
     : (process.env.GEMINI_MODEL || 'gemini-3.5-flash'),
 
   table: 'catalogo_ejercicios',
+  // Esquema real de la tabla en Supabase (PostgREST usa Content-Profile para escribir).
+  dbSchema: process.env.SUPABASE_DB_SCHEMA || 'fitness_service_db',
   wgerUrl: 'https://wger.de/api/v2/exerciseinfo/?limit=20&language=2',
   batchSize: 20,
 
@@ -369,6 +371,10 @@ async function upsertRows(rows) {
         apikey: CONFIG.supabaseKey,
         Authorization: `Bearer ${CONFIG.supabaseKey}`,
         'Content-Type': 'application/json',
+        // La tabla vive en fitness_service_db (no en public). Sin este header,
+        // PostgREST escribiría en el esquema por defecto y daría 404. Requiere que
+        // fitness_service_db esté en "Exposed schemas" de Supabase (Settings→API).
+        'Content-Profile': CONFIG.dbSchema,
         // merge-duplicates = upsert; return=minimal ahorra ancho de banda.
         Prefer: 'resolution=merge-duplicates,return=minimal',
       },

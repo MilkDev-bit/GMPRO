@@ -102,6 +102,7 @@ class NutritionState {
     this.consumedCarbohidratos = 0,
     this.consumedGrasas = 0,
     this.consumedFoodIds = const {},
+    this.logDateIso = '',
   });
 
   final NutritionPlan? plan;
@@ -126,6 +127,10 @@ class NutritionState {
   /// mostrar el check y para poder quitarlo (DELETE) al destildar.
   final Map<String, String> consumedFoodIds;
 
+  /// Fecha (yyyy-mm-dd, local) del último consumo cargado. Se usa para el reset
+  /// diario: si cambia el día, se recarga y el dashboard vuelve a 0.
+  final String logDateIso;
+
   NutritionState copyWith({
     NutritionPlan? plan,
     bool? isLoading,
@@ -139,6 +144,7 @@ class NutritionState {
     double? consumedCarbohidratos,
     double? consumedGrasas,
     Map<String, String>? consumedFoodIds,
+    String? logDateIso,
   }) {
     return NutritionState(
       plan:            plan ?? this.plan,
@@ -153,8 +159,15 @@ class NutritionState {
       consumedCarbohidratos:  consumedCarbohidratos ?? this.consumedCarbohidratos,
       consumedGrasas:         consumedGrasas ?? this.consumedGrasas,
       consumedFoodIds:        consumedFoodIds ?? this.consumedFoodIds,
+      logDateIso:             logDateIso ?? this.logDateIso,
     );
   }
+}
+
+/// Fecha local en formato yyyy-mm-dd (para comparar días sin la hora).
+String _todayIso() {
+  final n = DateTime.now();
+  return '${n.year.toString().padLeft(4, '0')}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
 }
 
 class NutritionNotifier extends StateNotifier<NutritionState> {
@@ -404,9 +417,19 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         consumedGrasas:        (s['grasas'] as num?)?.toDouble() ?? 0,
         waterConsumedMl:       (s['agua_ml'] as num?)?.toInt() ?? 0,
         consumedFoodIds:       map,
+        logDateIso:            _todayIso(),
       );
     } catch (_) {
       // Sin bloquear la UI: si falla, el dashboard queda en 0 (nada consumido aún).
+    }
+  }
+
+  /// Reset diario: si cambió el día desde la última carga (o nunca se cargó),
+  /// recarga el consumo. El backend está keyed por CURRENT_DATE, así que el día
+  /// nuevo llega en 0 y el dashboard se "resetea" visualmente solo.
+  Future<void> ensureTodayFresh() async {
+    if (state.logDateIso != _todayIso()) {
+      await loadTodayLog();
     }
   }
 
