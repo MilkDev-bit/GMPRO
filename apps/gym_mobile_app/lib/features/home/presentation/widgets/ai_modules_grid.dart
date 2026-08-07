@@ -119,7 +119,7 @@ class AiModulesGrid extends ConsumerWidget {
             const SizedBox(width: 16),
             Expanded(
               child: _AiModuleCard(
-                title: 'Dieta AI Coach',
+                title: 'Dieta AI',
                 subtitle: 'Plan nutricional macro-ajustado en tiempo real',
                 icon: Icons.restaurant_menu_rounded,
                 gradientColors: const [AppColors.neonPurple, AppColors.neonPink],

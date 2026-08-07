@@ -90,7 +90,7 @@ class QrAccessScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tu Pasaporte Digital',
+                    'Tu Codigo de Acceso',
                     style: AppTypography.displayMedium,
                   ),
                   const SizedBox(height: 6),

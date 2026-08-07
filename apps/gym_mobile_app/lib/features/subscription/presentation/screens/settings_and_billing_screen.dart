@@ -173,8 +173,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                   _SettingsGlassContainer(
                     children: [
                       _SettingsItem(
-                        icon: Icons.monitor_weight_outlined,
-                        iconColor: AppColors.neonCyan,
                         title: 'Datos Físicos y Objetivo',
                         subtitle: dietProfile.isComplete
                             ? '${dietProfile.objetivoLabel} • ${dietProfile.pesoKg.toStringAsFixed(0)} kg • ${dietProfile.estaturaCm.toStringAsFixed(0)} cm • ${dietProfile.edad} años • ${dietProfile.actividadLabel}'
@@ -183,8 +181,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                       ),
                       Divider(color: AppColors.glassBorderOf(context), height: 1),
                       _SettingsItem(
-                        icon: Icons.fitness_center_rounded,
-                        iconColor: AppColors.neonPurple,
                         title: 'Rutina y Entrenamiento',
                         subtitle: workoutProfile.isComplete
                             ? '${workoutProfile.objetivoLabel} • ${workoutProfile.nivelLabel} • ${workoutProfile.diasPorSemana} días/semana'
@@ -193,8 +189,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                       ),
                       Divider(color: AppColors.glassBorderOf(context), height: 1),
                       _SettingsSwitchItem(
-                        icon: Icons.notifications_active_outlined,
-                        iconColor: AppColors.neonPink,
                         title: 'Notificaciones y Avisos Push',
                         subtitle: 'Pases locales, recordatorios y alertas de acceso',
                         value: _notificationsEnabled,
@@ -216,8 +210,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                       ),
                       Divider(color: AppColors.glassBorderOf(context), height: 1),
                       _SettingsSwitchItem(
-                        icon: Icons.fingerprint_rounded,
-                        iconColor: AppColors.neonPurple,
                         title: 'Administrar Passkeys Biométricos',
                         subtitle: 'Inicia sesión con FaceID o Huella dactilar sin contraseña',
                         value: _passkeysEnabled,
@@ -259,20 +251,15 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppColors.error.withValues(alpha: 0.35), width: 1),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.logout_rounded, color: AppColors.error.withValues(alpha: 0.9), size: 20),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Cerrar Sesión Segura',
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.error.withValues(alpha: 0.9),
-                            ),
+                      child: Center(
+                        child: Text(
+                          'Cerrar Sesión Segura',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.error.withValues(alpha: 0.9),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -312,16 +299,6 @@ class _SettingsAndBillingScreenState extends ConsumerState<SettingsAndBillingScr
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.error.withValues(alpha: 0.14),
-                ),
-                child: Icon(Icons.logout_rounded, color: AppColors.error, size: 26),
-              ),
-              const SizedBox(height: 18),
               Text(
                 '¿Cerrar sesión?',
                 style: AppTypography.titleLarge.copyWith(fontSize: 20),
@@ -652,29 +629,14 @@ class _FailedPaymentCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: AppColors.error.withValues(alpha: 0.6), width: 1),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 14),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    'PAGO FALLIDO / PAST DUE',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.error),
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              'PAGO FALLIDO / PAST DUE',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.error),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: onOpenInvoices,
-                        icon: const Icon(Icons.receipt_long_rounded, color: Colors.white70, size: 22),
-                        tooltip: 'Historial de Facturas',
                       ),
                     ],
                   ),
@@ -706,25 +668,21 @@ class _FailedPaymentCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (isLoading)
-                            const SizedBox(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: isLoading
+                          ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                             )
-                          else ...[
-                            const Icon(Icons.credit_score_rounded, color: Colors.white, size: 20),
-                            const SizedBox(width: 10),
-                            Text(
+                          : Text(
                               'Actualizar Tarjeta / Reintentar Cobro',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
                               style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
                             ),
-                          ],
-                        ],
-                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -830,12 +788,6 @@ class _ActivePaymentCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: onOpenInvoices,
-                    icon: const Icon(Icons.receipt_long_rounded, color: Colors.white70, size: 22),
-                    tooltip: 'Historial de Facturas PDF',
                   ),
                 ],
               ),
@@ -952,15 +904,11 @@ class _SettingsGlassContainer extends StatelessWidget {
 
 class _SettingsItem extends StatelessWidget {
   const _SettingsItem({
-    required this.icon,
-    required this.iconColor,
     required this.title,
     required this.subtitle,
     required this.onTap,
   });
 
-  final IconData icon;
-  final Color iconColor;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -971,29 +919,12 @@ class _SettingsItem extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimaryOf(context))),
-                  const SizedBox(height: 3),
-                  Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondaryOf(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.textMutedOf(context), size: 22),
+            Text(title, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimaryOf(context))),
+            const SizedBox(height: 3),
+            Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondaryOf(context)), maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
         ),
       ),
@@ -1003,16 +934,12 @@ class _SettingsItem extends StatelessWidget {
 
 class _SettingsSwitchItem extends StatelessWidget {
   const _SettingsSwitchItem({
-    required this.icon,
-    required this.iconColor,
     required this.title,
     required this.subtitle,
     required this.value,
     required this.onChanged,
   });
 
-  final IconData icon;
-  final Color iconColor;
   final String title;
   final String subtitle;
   final bool value;
@@ -1024,16 +951,6 @@ class _SettingsSwitchItem extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
