@@ -59,8 +59,10 @@ const CONFIG = {
     : (process.env.GEMINI_MODEL || 'gemini-3.5-flash'),
 
   table: 'catalogo_ejercicios',
-  // Esquema real de la tabla en Supabase (PostgREST usa Content-Profile para escribir).
-  dbSchema: process.env.SUPABASE_DB_SCHEMA || 'fitness_service_db',
+  dbSchema: process.env.SEED_DB_SCHEMA || 'fitness_service_db',
+  // Conexión DIRECTA de Postgres (evita PostgREST y exponer el esquema). Usa el
+  // connection string de Supabase → Settings → Database → Connection string (URI).
+  dbUrl: process.env.SEED_DATABASE_URL || process.env.SUPABASE_DB_URL || process.env.DATABASE_URL || '',
   wgerUrl: 'https://wger.de/api/v2/exerciseinfo/?limit=20&language=2',
   batchSize: 20,
 
@@ -83,6 +85,28 @@ const log = {
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ─── Conexión directa a Postgres (reutiliza el `pg` de fitness-service) ───────
+const path = require('path');
+let _pgPool = null;
+function getPgPool() {
+  if (_pgPool) return _pgPool;
+  let Pool;
+  try {
+    ({ Pool } = require('pg'));
+  } catch {
+    // El ai-service no tiene `pg`; lo tomamos del node_modules de fitness-service.
+    ({ Pool } = require(path.join(__dirname, '../../fitness-service/node_modules/pg')));
+  }
+  // sslmode=require en la URL rompe con el cert self-signed del pooler → lo quitamos
+  // y forzamos TLS por objeto ssl (igual que services/*/src/config/database.js).
+  const connectionString = CONFIG.dbUrl.replace(/[?&]sslmode=[^&]+/i, '');
+  _pgPool = new Pool({ connectionString, ssl: { rejectUnauthorized: false }, max: 4 });
+  return _pgPool;
+}
+async function closePgPool() {
+  if (_pgPool) { try { await _pgPool.end(); } catch { /* noop */ } _pgPool = null; }
+}
 
 // ─── fetch con reintentos y backoff exponencial ──────────────────────────────
 /**
@@ -291,9 +315,14 @@ async function enrichWithGemini(batch) {
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 4096,
+          // Amplio para un lote de 20 ejercicios con descripción.
+          maxOutputTokens: 8192,
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA,
+          // gemini-2.5/3.x "piensan" y ese razonamiento consume tokens de salida →
+          // el JSON salía truncado (finishReason: MAX_TOKENS). thinkingBudget:0 lo
+          // desactiva para que todo el presupuesto vaya al JSON del lote.
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     },
@@ -359,40 +388,45 @@ function mergeRows(batch, enriched) {
  * Upsert por id_wger. Requiere una restricción UNIQUE sobre id_wger en la
  * tabla (on_conflict), o Postgres devuelve 42P10.
  */
+const UPSERT_COLS = [
+  'id_wger', 'uuid_wger', 'nombre', 'nombre_en', 'descripcion', 'categoria', 'nivel',
+  'equipamiento', 'musculo_principal', 'musculo_secundario', 'region_corporal',
+  'imagen_url', 'video_url', 'fuente', 'idioma_original', 'activo',
+];
+
 async function upsertRows(rows) {
   if (!rows.length) return 0;
 
-  const url = `${CONFIG.supabaseUrl}/rest/v1/${CONFIG.table}?on_conflict=id_wger`;
-  const res = await fetchWithRetry(
-    url,
-    {
-      method: 'POST',
-      headers: {
-        apikey: CONFIG.supabaseKey,
-        Authorization: `Bearer ${CONFIG.supabaseKey}`,
-        'Content-Type': 'application/json',
-        // La tabla vive en fitness_service_db (no en public). Sin este header,
-        // PostgREST escribiría en el esquema por defecto y daría 404. Requiere que
-        // fitness_service_db esté en "Exposed schemas" de Supabase (Settings→API).
-        'Content-Profile': CONFIG.dbSchema,
-        // merge-duplicates = upsert; return=minimal ahorra ancho de banda.
-        Prefer: 'resolution=merge-duplicates,return=minimal',
-      },
-      body: JSON.stringify(rows),
-    },
-    'Supabase upsert',
-  );
-  // 200/201/204 = ok
-  if (res.status >= 200 && res.status < 300) return rows.length;
-  return 0;
+  const values = [];
+  const tuples = rows.map((r, i) => {
+    const base = i * UPSERT_COLS.length;
+    const placeholders = UPSERT_COLS.map((_, j) => `$${base + j + 1}`);
+    for (const c of UPSERT_COLS) values.push(r[c] ?? null);
+    return `(${placeholders.join(', ')})`;
+  });
+
+  const updateSet = UPSERT_COLS
+    .filter((c) => c !== 'id_wger')
+    .map((c) => `"${c}" = EXCLUDED."${c}"`)
+    .join(', ');
+
+  const sql = `
+    INSERT INTO ${CONFIG.dbSchema}.${CONFIG.table} (${UPSERT_COLS.map((c) => `"${c}"`).join(', ')})
+    VALUES ${tuples.join(', ')}
+    ON CONFLICT (id_wger) DO UPDATE SET ${updateSet}`;
+
+  await getPgPool().query(sql, values);
+  return rows.length;
 }
 
 // ─── Validación de entorno ───────────────────────────────────────────────────
 function checkEnv() {
   const missing = [];
-  if (!CONFIG.supabaseUrl) missing.push('SUPABASE_URL');
-  if (!CONFIG.supabaseKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
   if (!CONFIG.geminiKey) missing.push('GEMINI_API_KEY');
+  // Escritura por conexión directa de Postgres (no Supabase REST).
+  if (!CONFIG.dryRun && !CONFIG.dbUrl) {
+    missing.push('SEED_DATABASE_URL (connection string de Postgres de Supabase → Settings → Database)');
+  }
   if (missing.length) {
     log.err(`Faltan variables de entorno: ${missing.join(', ')}`);
     log.info('Cárgalas desde services/ai-service/.env o expórtalas antes de ejecutar.');
@@ -453,12 +487,15 @@ async function main() {
 
   if (stats.failures > 0 && stats.upserted === 0 && !CONFIG.dryRun) {
     log.err('Ningún lote se cargó correctamente.');
+    await closePgPool();
     process.exit(1);
   }
   log.ok('Seed completado.');
+  await closePgPool(); // libera la conexión pg para que el proceso termine
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   log.err(`Error fatal: ${err.message}`);
+  await closePgPool();
   process.exit(1);
 });
