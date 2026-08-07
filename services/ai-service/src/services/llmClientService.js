@@ -211,7 +211,14 @@ async function generateStructuredContent(systemPrompt, userPrompt, options = fal
     responseSchema   = null,
     openaiJsonSchema = null,
     timeoutMs        = 45_000,
+    // Temperatura por llamada: los planes usan una alta (≈0.9) para que cada
+    // generación sea variada; si no se pasa, cae al default global.
+    temperature      = null,
   } = opts;
+
+  const effectiveTemperature = (temperature != null)
+    ? temperature
+    : (env.AI_TEMPERATURE || 0.3);
 
   const provider   = env.AI_PROVIDER;
   const controller = new AbortController();
@@ -223,7 +230,9 @@ async function generateStructuredContent(systemPrompt, userPrompt, options = fal
       const fallbackModel = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
       const generationConfig = {
-        temperature:      env.AI_TEMPERATURE || 0.3,
+        temperature:      effectiveTemperature,
+        // Un topP alto amplía el muestreo y aporta más diversidad entre planes.
+        topP:             env.AI_TOP_P || 0.95,
         // Planes de rutina/dieta son JSON grandes; damos margen amplio.
         maxOutputTokens:  parseInt(process.env.AI_STRUCTURED_MAX_TOKENS || '8192', 10),
         responseMimeType: 'application/json',
@@ -293,7 +302,8 @@ async function generateStructuredContent(systemPrompt, userPrompt, options = fal
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          temperature: env.AI_TEMPERATURE || 0.3,
+          temperature: effectiveTemperature,
+          top_p:       env.AI_TOP_P || 0.95,
           response_format,
         }),
         signal: controller.signal,

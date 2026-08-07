@@ -33,18 +33,54 @@ const logger = createServiceLogger('ai-service:recommendationController');
 const CACHE_TTL = env.AI_RECOMMENDATION_CACHE_TTL || 86_400; // 24h por defecto
 const IS_GEMINI = env.AI_PROVIDER === 'gemini';
 
+// Nº de variantes DISTINTAS que se rotan por perfil. Antes la caché era
+// determinista por perfil → el mismo socio recibía SIEMPRE el mismo plan durante
+// 24h (se sentía repetitivo). Ahora cada generación con el mismo perfil rota
+// entre N planes diferentes (cacheados), y sólo se repite tras dar la vuelta.
+//
+// ECONOMÍA DE TOKENS: este número es TAMBIÉN el tope de generaciones que gastan
+// tokens por perfil dentro de la ventana de caché (TTL). Una vez creadas las N
+// variantes, TODA petición posterior con el mismo perfil se sirve desde caché
+// (0 tokens) hasta que expira el TTL. Con 3, el socio puede "rotar" hasta 3
+// planes distintos y a partir de ahí reutiliza los cacheados sin coste.
+const PLAN_VARIANTS = parseInt(env.AI_PLAN_VARIANTS || process.env.AI_PLAN_VARIANTS || '3', 10) || 3;
+// Temperatura alta para planes: aporta diversidad real entre generaciones.
+const PLAN_TEMPERATURE = parseFloat(env.AI_PLAN_TEMPERATURE || process.env.AI_PLAN_TEMPERATURE || '0.9') || 0.9;
+
 // ── Helpers de caché Redis ────────────────────────────────────────────────────
+/** Hash estable del perfil/params (no depende del orden de inserción de claves). */
+function profileHash(params) {
+  const stable = JSON.stringify(params, Object.keys(params).sort());
+  return crypto.createHash('sha256').update(stable).digest('hex').slice(0, 32);
+}
+
 /**
- * Construye una clave de caché determinista a partir del perfil/params del usuario.
+ * Construye la clave de caché para una VARIANTE concreta del perfil.
  * @param {string} kind - 'routine' | 'diet'
  * @param {string} usuarioId
- * @param {object} params - Parámetros normalizados que determinan el plan.
+ * @param {string} hash - Hash del perfil (de profileHash).
+ * @param {number} variant - Índice de variante [0, PLAN_VARIANTS).
  */
-function buildCacheKey(kind, usuarioId, params) {
-  // Orden estable de claves para que el hash no dependa del orden de inserción.
-  const stable = JSON.stringify(params, Object.keys(params).sort());
-  const hash = crypto.createHash('sha256').update(stable).digest('hex').slice(0, 32);
-  return `ai:reco:${kind}:${usuarioId}:${hash}`;
+function buildCacheKey(kind, usuarioId, hash, variant) {
+  return `ai:reco:${kind}:${usuarioId}:${hash}:v${variant}`;
+}
+
+/**
+ * Devuelve el siguiente índice de variante para (kind, usuario, perfil), rotando
+ * en [0, PLAN_VARIANTS). Usa un contador en Redis (INCR) para que cada solicitud
+ * avance a una variante distinta; sin Redis, elige una al azar.
+ */
+async function nextVariant(redisClient, kind, usuarioId, hash) {
+  const N = PLAN_VARIANTS;
+  if (!redisClient) return Math.floor(Math.random() * N);
+  try {
+    const counterKey = `ai:reco:${kind}:${usuarioId}:${hash}:cnt`;
+    const n = await redisClient.incr(counterKey);
+    if (n === 1) await redisClient.expire(counterKey, CACHE_TTL);
+    return (n - 1) % N;
+  } catch (_) {
+    return Math.floor(Math.random() * N);
+  }
 }
 
 async function readCache(redisClient, key) {
@@ -69,14 +105,16 @@ async function writeCache(redisClient, key, value) {
 
 /** Devuelve las opciones de esquema estructurado según el proveedor activo. */
 function schemaOptions(kind) {
+  // temperature alta → planes variados en cada generación.
+  const base = { useProModel: true, temperature: PLAN_TEMPERATURE };
   if (kind === 'routine') {
     return IS_GEMINI
-      ? { useProModel: true, responseSchema: schemas.geminiRoutineSchema() }
-      : { useProModel: true, openaiJsonSchema: schemas.openaiRoutineSchema() };
+      ? { ...base, responseSchema: schemas.geminiRoutineSchema() }
+      : { ...base, openaiJsonSchema: schemas.openaiRoutineSchema() };
   }
   return IS_GEMINI
-    ? { useProModel: true, responseSchema: schemas.geminiDietSchema() }
-    : { useProModel: true, openaiJsonSchema: schemas.openaiDietSchema() };
+    ? { ...base, responseSchema: schemas.geminiDietSchema() }
+    : { ...base, openaiJsonSchema: schemas.openaiDietSchema() };
 }
 
 /** Parseo tolerante: intenta rescatar el bloque JSON aunque venga con envoltura. */
@@ -125,14 +163,17 @@ async function generateRoutinePlan(req, res, next) {
       });
     }
 
-    // ── Caché: si el mismo perfil ya generó plan, responder al instante ───────
-    const cacheKey = buildCacheKey('routine', usuarioId, {
+    // ── Caché por VARIANTE: rota entre PLAN_VARIANTS planes distintos por perfil,
+    // así el socio no recibe siempre el mismo (antes la caché era única por perfil).
+    const hash = profileHash({
       objetivo, diasPorSemana, nivel, lesiones: checkLesiones.sanitized,
       pesoKg, estaturaCm, edad, actividad: checkActividad.sanitized,
     });
+    const variant = await nextVariant(req.redisClient, 'routine', usuarioId, hash);
+    const cacheKey = buildCacheKey('routine', usuarioId, hash, variant);
     const cached = await readCache(req.redisClient, cacheKey);
     if (cached) {
-      logger.info('Rutina servida desde caché Redis', { usuarioId, cacheKey });
+      logger.info('Rutina servida desde caché Redis', { usuarioId, cacheKey, variant });
       return res.status(200).json({ success: true, data: cached, error: null });
     }
 
@@ -153,6 +194,15 @@ menos), ordenados de compuestos a aislados, cubriendo por completo los grupos
 musculares de ese día. Incluye trabajo principal, accesorios y al menos un
 ejercicio de aislamiento. NO entregues días con 3 o 4 ejercicios: se considera
 incompleto. Ajusta series/repeticiones al objetivo y nivel del socio.
+
+## VARIEDAD (IMPORTANTE)
+Diseña una rutina FRESCA y VARIADA. Para el mismo objetivo hay muchas
+combinaciones válidas: alterna la selección de ejercicios, sus variantes (barra,
+mancuerna, polea, peso corporal), el orden y los esquemas de series/repeticiones.
+Usa el campo <variante_solicitada> como semilla de diversidad: cada número debe
+producir una rutina claramente DISTINTA (distintos ejercicios y estructura), sin
+repetir siempre los mismos movimientos básicos. Mantén el rigor científico y la
+seguridad, pero evita plantillas idénticas.
 
 Responde solo el JSON del esquema, sin texto adicional.
 
@@ -185,7 +235,8 @@ nivel: ${checkNivel.sanitized}
 lesiones_restricciones: ${checkLesiones.sanitized}
 ${datosFisicos}
 mediciones_recientes: ${JSON.stringify(userContext.ultimas_mediciones || [])}
-</datos_socio>`;
+</datos_socio>
+<variante_solicitada>${variant + 1} de ${PLAN_VARIANTS} — entrega una rutina distinta a las demás variantes (semilla ${crypto.randomBytes(4).toString('hex')})</variante_solicitada>`;
 
     logger.info('Generando plan de rutina IA (structured output)', { usuarioId, objetivo, diasPorSemana, nivel });
 
@@ -279,13 +330,16 @@ async function generateDietPlan(req, res, next) {
       });
     }
 
-    // ── Caché por perfil nutricional ──────────────────────────────────────────
-    const cacheKey = buildCacheKey('diet', usuarioId, {
+    // ── Caché por VARIANTE nutricional: rota entre PLAN_VARIANTS planes distintos
+    // por perfil, para que el socio no reciba siempre la misma dieta.
+    const hash = profileHash({
       objetivo, pesoKg, estaturaCm, edad, actividad, restricciones: checkRestricciones.sanitized,
     });
+    const variant = await nextVariant(req.redisClient, 'diet', usuarioId, hash);
+    const cacheKey = buildCacheKey('diet', usuarioId, hash, variant);
     const cached = await readCache(req.redisClient, cacheKey);
     if (cached) {
-      logger.info('Dieta servida desde caché Redis', { usuarioId, cacheKey });
+      logger.info('Dieta servida desde caché Redis', { usuarioId, cacheKey, variant });
       return res.status(200).json({ success: true, data: cached, error: null });
     }
 
@@ -295,6 +349,14 @@ async function generateDietPlan(req, res, next) {
 Genera un plan nutricional con desglose de macros conforme al esquema. Asocia cada
 alimento a un código de barras de Open Food Facts cuando sea posible. La energía
 debe respetar Atwater (proteína 4 kcal/g, carbohidrato 4 kcal/g, grasa 9 kcal/g).
+
+## VARIEDAD (IMPORTANTE)
+Diseña un plan VARIADO y apetecible. Alterna fuentes de proteína, carbohidratos y
+grasas, y varía las comidas entre generaciones (evita proponer siempre pollo con
+arroz y avena). Usa <variante_solicitada> como semilla de diversidad: cada número
+debe producir un menú claramente DISTINTO en alimentos y preparaciones, respetando
+las calorías/macros del objetivo y las restricciones del socio.
+
 Responde solo el JSON del esquema, sin texto adicional.
 
 ## SEGURIDAD DE ENTRADA
@@ -310,7 +372,8 @@ estatura_cm: ${Number(estaturaCm)}
 edad: ${Number(edad)}
 actividad: ${checkActividad.sanitized}
 restricciones_alimentarias: ${checkRestricciones.sanitized}
-</datos_socio>`;
+</datos_socio>
+<variante_solicitada>${variant + 1} de ${PLAN_VARIANTS} — entrega un menú distinto a las demás variantes (semilla ${crypto.randomBytes(4).toString('hex')})</variante_solicitada>`;
 
     logger.info('Generando plan nutricional IA (structured output)', { usuarioId, objetivo, pesoKg });
 
