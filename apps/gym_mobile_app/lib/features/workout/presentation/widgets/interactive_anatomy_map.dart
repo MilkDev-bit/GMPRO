@@ -148,6 +148,9 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
             // ── FONDO BOKEH GLASSMORPHISM (Aislado en su capa de pintado) ───
             _buildGlassBackground(primaryKeys),
 
+            // ── FOCO RADIAL detrás de la figura (realce tipo escenario) ─────
+            _buildSpotlight(primaryKeys),
+
             // ── CUERPO ANATÓMICO SVG (CustomPainter en RepaintBoundary) ─────
             // Padding vertical: reserva espacio para el header (arriba) y los
             // chips de músculos (abajo) para que NO tapen la figura. El cuerpo se
@@ -247,6 +250,30 @@ class _InteractiveAnatomyMapState extends State<InteractiveAnatomyMap>
     );
   }
 
+  /// Foco radial suave detrás del cuerpo, tintado por el color del primer músculo
+  /// primario: hace que la figura resalte como en un escenario iluminado.
+  Widget _buildSpotlight(List<String> primaryKeys) {
+    Color glow = AppColors.neonPink;
+    if (primaryKeys.isNotEmpty) {
+      final m = MuscleCatalog.byKey(primaryKeys.first);
+      if (m != null) glow = m.color;
+    }
+    return IgnorePointer(
+      child: Center(
+        child: Container(
+          width: 260,
+          height: 340,
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              radius: 0.62,
+              colors: [glow.withValues(alpha: 0.22), Colors.transparent],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildGlassBackground(List<String> primaryKeys) {
     // Color del primer músculo primario o fallback al rosa neón
     Color glowColor = AppColors.neonPink;
@@ -323,6 +350,15 @@ class AnatomyBodyPainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..strokeWidth = 2.5
     ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+  // Sombra de suelo: elipse difusa bajo los pies → el cuerpo "se apoya" (3D).
+  static final Paint _groundShadow = Paint()
+    ..color = const Color(0x59000000)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9);
+  // Luz de borde (rim light) direccional: sheen claro arriba-izq que se desvanece.
+  static final Paint _rimLight = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.6;
+  static Shader? _rimShader;
   static final Paint _muscleFill = Paint()..style = PaintingStyle.fill;
   static final Paint _muscleGlow = Paint()
     ..style = PaintingStyle.stroke
@@ -339,6 +375,12 @@ class AnatomyBodyPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final sx = size.width / 160;
     final sy = size.height / 320;
+
+    // 0. Sombra de suelo (apoyo 3D bajo los pies)
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(80 * sx, 315 * sy), width: 92 * sx, height: 18 * sy),
+      _groundShadow,
+    );
 
     // 1. Silueta base del cuerpo
     _drawBodySilhouette(canvas, size, sx, sy);
@@ -382,6 +424,15 @@ class AnatomyBodyPainter extends CustomPainter {
     canvas.drawPath(path, _silhouetteGlow); // halo exterior (visibilidad)
     canvas.drawPath(path, _silhouetteFill);
     canvas.drawPath(path, _silhouetteStroke);
+    // Luz de borde: sheen claro que entra por arriba-izquierda y se desvanece,
+    // simula una fuente de luz y da relieve escultórico al contorno.
+    _rimLight.shader = _rimShader ??= const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xB3FFFFFF), Color(0x00FFFFFF)],
+      stops: [0.0, 0.45],
+    ).createShader(Offset.zero & size);
+    canvas.drawPath(path, _rimLight);
   }
 
   /// Dibuja las líneas de definición muscular. El trazado cambia según la vista
@@ -563,9 +614,17 @@ class AnatomyBodyPainter extends CustomPainter {
     );
     if (path.getBounds().isEmpty) return;
 
-    // Relleno sólido translúcido (Paint reutilizable, solo se muta el color).
-    _muscleFill.color = color.withValues(alpha: opacity * 0.75);
+    // Relleno con degradado RADIAL (brillante al centro → tenue a los bordes):
+    // da un aspecto de "mapa de calor" luminoso en vez de un color plano.
+    final b = path.getBounds();
+    _muscleFill.shader = RadialGradient(
+      colors: [
+        color.withValues(alpha: opacity),
+        color.withValues(alpha: opacity * 0.35),
+      ],
+    ).createShader(b);
     canvas.drawPath(path, _muscleFill);
+    _muscleFill.shader = null; // se limpia para no filtrar a otros dibujos
 
     // Borde brillante (neon glow effect) — Paint reutilizable, más marcado.
     _muscleGlow
