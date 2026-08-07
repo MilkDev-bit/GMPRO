@@ -589,9 +589,18 @@ class AnatomyBodyPainter extends CustomPainter {
       48, 52, 58, 48, 66, 45,
     ]);
 
-    // Deltoides: hombros anchos y redondos
-    oval(46, 58, 28, 28);
-    oval(114, 58, 28, 28);
+    // Deltoides: casquete de hombro (NO un círculo). Domo suave arriba que baja
+    // y se funde con el brazo, evitando el aspecto de "bola".
+    curve([
+      57, 49, 49, 46, 41, 50, 37, 61,
+      35, 70, 37, 78, 45, 78,
+      52, 76, 56, 64, 57, 49,
+    ]);
+    curve([
+      103, 49, 111, 46, 119, 50, 123, 61,
+      125, 70, 123, 78, 115, 78,
+      108, 76, 104, 64, 103, 49,
+    ]);
 
     // Torso en V: pecho ancho → cintura marcada (dorsales que se estrechan)
     curve([

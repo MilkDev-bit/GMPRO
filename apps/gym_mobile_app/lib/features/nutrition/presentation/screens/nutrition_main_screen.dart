@@ -345,12 +345,17 @@ class _ElasticStripeButtonState extends State<_ElasticStripeButton>
               else
                 const Icon(Icons.payment_rounded, color: Colors.white, size: 22),
               const SizedBox(width: 10),
-              Text(
-                widget.isLoading ? 'Conectando con Stripe...' : 'Regularizar Membresía (Stripe)',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+              Flexible(
+                child: Text(
+                  widget.isLoading ? 'Conectando con Stripe...' : 'Regularizar Membresía (Stripe)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],
