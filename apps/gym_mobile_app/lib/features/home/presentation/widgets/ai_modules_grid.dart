@@ -1,9 +1,14 @@
 /// @file lib/features/home/presentation/widgets/ai_modules_grid.dart
 /// @description Grid de módulos IA (Dieta y Rutinas) que llama al pago real en Stripe si está vencido.
+/// UI alineada al design system calmado (openGym): superficies neutras, acento único por
+/// módulo (esmeralda/cian), estado con PillTag. La lógica de acceso/pago no se toca.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/presentation/widgets/pill_tag.dart';
+import '../../../../core/presentation/widgets/pressable.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../payment/presentation/providers/payment_provider.dart';
 import '../../../payment/presentation/widgets/plan_selector_sheet.dart';
@@ -27,52 +32,35 @@ class AiModulesGrid extends ConsumerWidget {
             Expanded(
               child: Text(
                 'Coaching inteligente',
-                style: AppTypography.titleLarge.copyWith(fontSize: 18),
+                style: AppTypography.titleLargeOf(context).copyWith(fontSize: 18),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: isAccessValid
-                    ? AppColors.neonEmerald.withValues(alpha: 0.10)
-                    : AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: isAccessValid
-                      ? AppColors.neonEmerald.withValues(alpha: 0.35)
-                      : Colors.white.withValues(alpha: 0.08),
-                ),
-              ),
-              child: Text(
-                isAccessValid ? 'Activo' : 'Bloqueado',
-                style: AppTypography.caption.copyWith(
-                  color: isAccessValid ? AppColors.neonEmerald : AppColors.textMuted,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
-              ),
+            const SizedBox(width: AppSpacing.md),
+            PillTag(
+              label: isAccessValid ? 'Activo' : 'Bloqueado',
+              icon: isAccessValid ? Icons.bolt_rounded : Icons.lock_outline_rounded,
+              tone: isAccessValid ? PillTone.active : PillTone.neutral,
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
 
         if (!isAccessValid)
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 1),
+              color: AppColors.surfaceOf(context),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              border: Border.all(color: AppColors.glassBorderOf(context), width: 1),
             ),
             child: Text(
               'Las opciones de IA (Dieta y Rutinas) se encuentran desactivadas hasta que se procese correctamente el pago de tu membresía en Stripe.',
-              style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
+              style: AppTypography.bodyMediumOf(context).copyWith(
+                color: AppColors.textSecondaryOf(context),
                 fontSize: 13,
               ),
             ),
@@ -84,17 +72,19 @@ class AiModulesGrid extends ConsumerWidget {
               child: _AiModuleCard(
                 title: 'Rutinas con IA',
                 subtitle: 'Generador hipertrofia y fuerza personalizado',
-                gradientColors: const [AppColors.neonViolet, AppColors.neonCyan],
+                icon: Icons.fitness_center_rounded,
+                accent: AppColors.accentEmeraldOf(context),
                 isLocked: !isAccessValid,
                 onTap: () => _onModuleTapped(context, ref, isAccessValid, 'Rutinas con IA'),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _AiModuleCard(
                 title: 'Dieta AI',
                 subtitle: 'Plan nutricional macro-ajustado en tiempo real',
-                gradientColors: const [AppColors.neonPurple, AppColors.neonPink],
+                icon: Icons.restaurant_rounded,
+                accent: AppColors.accentCyanOf(context),
                 isLocked: !isAccessValid,
                 onTap: () => _onModuleTapped(context, ref, isAccessValid, 'Dieta AI Coach'),
               ),
@@ -132,75 +122,89 @@ class AiModulesGrid extends ConsumerWidget {
 class _AiModuleCard extends StatelessWidget {
   final String title;
   final String subtitle;
-  final List<Color> gradientColors;
+  final IconData icon;
+  final Color accent;
   final bool isLocked;
   final VoidCallback onTap;
 
   const _AiModuleCard({
     required this.title,
     required this.subtitle,
-    required this.gradientColors,
+    required this.icon,
+    required this.accent,
     required this.isLocked,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      height: 180,
-      decoration: BoxDecoration(
-        color: isLocked ? const Color(0xFF161324) : AppColors.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: isLocked
-              ? Colors.grey.withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.15),
-          width: 1.2,
-        ),
-        boxShadow: isLocked
-            ? []
-            : [
-                BoxShadow(
-                  color: gradientColors.first.withValues(alpha: 0.25),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(28),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.titleLarge.copyWith(
-                    fontSize: 17,
-                    color: isLocked ? Colors.grey : AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  isLocked ? 'Bloqueado hasta regularizar pago' : subtitle,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.caption.copyWith(
-                    color: isLocked ? const Color(0xFF68608C) : AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+    // Cuando está bloqueado, el acento se neutraliza (gris) para no invitar al tap.
+    final effectiveAccent =
+        isLocked ? AppColors.textMutedOf(context) : accent;
+
+    return Pressable(
+      haptic: PressHaptic.selection,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        height: 172,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceOf(context),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(
+            color: isLocked
+                ? AppColors.glassBorderOf(context)
+                : accent.withValues(alpha: 0.30),
+            width: 1,
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Ícono cuadrado con acento (o candado si está bloqueado).
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: effectiveAccent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(
+                    color: effectiveAccent.withValues(alpha: 0.35), width: 1),
+              ),
+              child: Icon(
+                isLocked ? Icons.lock_rounded : icon,
+                size: 22,
+                color: effectiveAccent,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              title,
+              style: AppTypography.buttonLabelOf(context).copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: isLocked
+                    ? AppColors.textSecondaryOf(context)
+                    : AppColors.textPrimaryOf(context),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isLocked ? 'Bloqueado hasta regularizar pago' : subtitle,
+              style: AppTypography.bodyMediumOf(context).copyWith(
+                color: isLocked
+                    ? AppColors.textMutedOf(context)
+                    : AppColors.textSecondaryOf(context),
+                fontSize: 12,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );

@@ -36,6 +36,10 @@ dependencies:
   isar_community_flutter_libs: ^3.3.2  # Binarios nativos de Isar para Flutter
   connectivity_plus: ^6.1.0       # Escucha de cambios de red para disparar la sincronización
 
+  # ── Entrenamiento guiado (openGym port) ─────────────────────────────────────
+  wakelock_plus: ^1.2.8           # Mantiene la pantalla despierta mientras se entrena
+  shared_preferences: ^2.5.5      # Historial local de sesiones (progresión + PR)
+
   # ── Cliente HTTP y Red ──────────────────────────────────────────────────────
   dio: ^5.7.0                     # Cliente HTTP robusto con interceptores para JWT y reintentos
 
