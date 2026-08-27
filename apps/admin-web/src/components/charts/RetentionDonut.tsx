@@ -1,17 +1,12 @@
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 
 interface Props {
-  /** Porcentaje 0..100. */
   value: number;
   dark?: boolean;
   centerLabel?: string;
   height?: number;
 }
 
-/**
- * Dona/gauge de retención: pista de fondo gris muy clara + progreso morado,
- * con el porcentaje centrado dentro de la dona.
- */
 export function RetentionDonut({ value, dark, centerLabel = 'Retención', height = 240 }: Props) {
   const pct = Math.max(0, Math.min(100, value));
   const track = dark ? '#374151' : '#EDE9FE';

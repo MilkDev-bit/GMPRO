@@ -21,14 +21,14 @@ export const getAccessToken = () => accessToken;
 
 let refreshing: Promise<boolean> | null = null;
 
-/** Intenta renovar el access token con la cookie de refresh (single-flight). */
+/** Intenta renovar el access token con la cookie de refresh*/
 async function tryRefresh(): Promise<boolean> {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     try {
       const res = await fetch(`${API.auth}/refresh`, {
         method: 'POST',
-        credentials: 'include', // envía la cookie httpOnly de refresh
+        credentials: 'include',
       });
       if (!res.ok) return false;
       const json = (await res.json()) as ApiEnvelope<{ accessToken: string }>;
@@ -69,7 +69,6 @@ async function request<T>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
-  // 401 → un solo intento de refresh + retry (evita bucle con _retried).
   if (res.status === 401 && !_retried) {
     if (await tryRefresh()) return request<T>(method, url, body, true);
   }

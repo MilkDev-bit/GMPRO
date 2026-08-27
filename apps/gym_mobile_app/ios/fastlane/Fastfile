@@ -1,11 +1,3 @@
-# ios/fastlane/Fastfile
-# El IPA ya lo compila Flutter (con --obfuscate + firma) en el workflow; aquí se
-# sube a TestFlight usando una App Store Connect API Key (.p8) — no requiere
-# usuario/2FA.
-#
-# ALTERNATIVA A ESCALA: `match` para gestionar certificados/perfiles en un repo
-# git cifrado (recomendado si hay varios devs/máquinas). Aquí usamos el keychain
-# temporal del runner (ver ios-release.yml), autocontenido.
 default_platform(:ios)
 
 platform :ios do
@@ -18,7 +10,6 @@ platform :ios do
       in_house: false,
     )
 
-    # El nombre del .ipa depende del scheme; se resuelve por glob para robustez.
     ipa_path = Dir["../build/ios/ipa/*.ipa"].first
     UI.user_error!("No se encontró el IPA en build/ios/ipa/") if ipa_path.nil?
 

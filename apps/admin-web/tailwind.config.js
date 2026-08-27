@@ -5,8 +5,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primario morado/violeta TailAdmin. Se usan también las utilidades
-        // nativas indigo-* de Tailwind para estados (bg-indigo-50, text-indigo-600).
         brand: {
           DEFAULT: '#7C3AED',
           50:  '#F5F3FF',

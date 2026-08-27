@@ -10,10 +10,6 @@ interface Props {
 
 const AXIS = '#94a3b8';
 
-/**
- * Barras Altas vs Bajas: esquinas superiores redondeadas, morado sólido para el
- * dato principal (altas) y morado muy pálido para la comparativa (bajas).
- */
 export function AltasBajasBarChart({ data, dark, height = 300 }: Props) {
   const grid = dark ? '#334155' : '#eef2f7';
   return (

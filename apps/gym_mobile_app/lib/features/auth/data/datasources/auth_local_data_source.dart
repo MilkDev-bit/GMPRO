@@ -1,6 +1,3 @@
-/// @file lib/features/auth/data/datasources/auth_local_data_source.dart
-/// @description Fuente de datos local en hardware (Keychain/Keystore) para persistencia de sesión JWT.
-
 import '../../../../core/storage/secure_storage_service.dart';
 import '../models/auth_response_model.dart';
 

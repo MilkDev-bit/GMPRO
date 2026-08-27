@@ -1,6 +1,3 @@
-// Contexto de autenticación del panel. Login contra auth-service; solo permite
-// entrar a roles internos (staff/admin). El token se guarda en memoria (api.ts).
-
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { API, STAFF_ROLES } from '../lib/config';
 import { http, setAccessToken, type ApiEnvelope } from '../lib/api';
@@ -25,7 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<StaffUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Al montar, intenta rehidratar sesión con la cookie de refresh.
   useEffect(() => {
     (async () => {
       try {
@@ -41,14 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch { /* sin sesión */ } finally { setLoading(false); }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function login(email: string, password: string) {
     const data = await http.post<{ accessToken: string; user: StaffUser }>(
       `${API.auth}/login`, { email, password },
     );
-    // Gate de rol: los socios NO entran al panel.
     if (!STAFF_ROLES.includes(data.user.rol as (typeof STAFF_ROLES)[number])) {
       setAccessToken(null);
       throw new Error('Esta cuenta no tiene permisos de administración.');

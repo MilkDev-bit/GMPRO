@@ -1,6 +1,3 @@
-// Consumo de GET /admin/finance/series (payment-service) + agregación por periodo.
-// La serie llega mensual; el pill Mensual/Trimestral/Anual agrega en cliente.
-
 import type { Period, RangePoint, AltaBaja } from './financeSample';
 
 export interface MonthIngreso { ym: string; label: string; value: number; }
@@ -23,7 +20,7 @@ export function aggregateIngresos(monthly: MonthIngreso[], period: Period): Rang
 
   if (period === 'Trimestral') {
     const last24 = monthly.slice(-24);
-    const buckets = new Map<string, number>(); // clave "YYYY-Q#"
+    const buckets = new Map<string, number>();
     for (const m of last24) {
       const q = Math.floor((monthOf(m.ym) - 1) / 3) + 1;
       const key = `${yearOf(m.ym)}-Q${q}`;
@@ -41,7 +38,6 @@ export function aggregateIngresos(monthly: MonthIngreso[], period: Period): Rang
   return [...byYear.entries()].map(([y, value]) => ({ label: String(y), value }));
 }
 
-/** Últimos 6 meses de altas vs bajas (para el gráfico de barras). */
 export function lastAltasBajas(monthly: MonthAltaBaja[]): AltaBaja[] {
   return monthly.slice(-6).map((m) => ({
     label: MES[monthOf(m.ym) - 1],

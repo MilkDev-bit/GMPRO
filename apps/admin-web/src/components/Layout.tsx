@@ -111,7 +111,6 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* ── Contenido ───────────────────────────────────────────────────── */}
       <div className="flex flex-col min-w-0">
         {/* Topbar */}
         <header className="h-16 flex items-center justify-between gap-4 px-4 md:px-8 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-10">

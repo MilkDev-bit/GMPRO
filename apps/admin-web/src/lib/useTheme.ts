@@ -10,8 +10,6 @@ function read(): Theme {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-// Store a nivel de módulo: TODOS los consumidores comparten el mismo estado, de
-// modo que el toggle del topbar actualiza en vivo el `dark` de los gráficos.
 let current: Theme = read();
 const listeners = new Set<() => void>();
 
@@ -34,7 +32,6 @@ function subscribe(cb: () => void) {
   return () => listeners.delete(cb);
 }
 
-/** Modo claro/oscuro por clase `dark` en <html>, compartido y persistido. */
 export function useTheme() {
   const theme = useSyncExternalStore(subscribe, () => current, () => 'light' as Theme);
   const toggle = useCallback(() => setTheme(current === 'dark' ? 'light' : 'dark'), []);

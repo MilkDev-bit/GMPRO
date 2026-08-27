@@ -1,6 +1,3 @@
-// Iconos outline inline (estilo Heroicons/Lucide) — sin dependencia externa.
-// Heredan el color vía `currentColor` y el tamaño vía `className` (w-5 h-5).
-
 import type { SVGProps } from 'react';
 
 type IconProps = SVGProps<SVGSVGElement>;

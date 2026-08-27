@@ -1,6 +1,3 @@
-/// @file lib/features/auth/data/datasources/auth_remote_data_source.dart
-/// @description Fuente de datos remota para obtener tokens nativos de OS e intercambiarlos en auth-service.
-
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -11,16 +8,12 @@ import '../models/auth_response_model.dart';
 import '../models/oauth_credential_model.dart';
 
 abstract class AuthRemoteDataSource {
-  /// Abre la hoja nativa del SO para Apple Sign-In e intercepta cancelaciones del usuario.
   Future<OAuthCredentialModel> getAppleNativeCredential();
 
-  /// Abre la ventana nativa del SO para Google Sign-In e intercepta cancelaciones.
   Future<OAuthCredentialModel> getGoogleNativeCredential();
 
-  /// Envía el idToken nativo verificado al backend de GymPro (/oauth-login) para emitir JWT.
   Future<AuthResponseModel> sendOAuthToBackend(OAuthCredentialModel credential);
 
-  /// Solicita el cierre de sesión remoto en el backend (/logout).
   Future<void> logoutRemote();
 
   /// Login por email + contraseña (/login). Recuperación en dispositivo nuevo.

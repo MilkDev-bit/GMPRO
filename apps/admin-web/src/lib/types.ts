@@ -1,6 +1,3 @@
-// Contratos de datos del panel. Reflejan lo que los endpoints ADMIN del backend
-// deben devolver (ver README → "Endpoints backend a crear").
-
 export interface Member {
   id: string;
   nombre: string;
@@ -38,7 +35,7 @@ export interface Offer {
   id: string;
   nombre: string;
   tipo: 'porcentaje' | 'monto_fijo' | 'meses_gratis';
-  valor: number; // % , importe, o nº de meses
+  valor: number; // % , importe
   codigo: string;
   activa: boolean;
   valido_desde: string;

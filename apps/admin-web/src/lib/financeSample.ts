@@ -1,32 +1,22 @@
-// Series de MUESTRA para los gráficos del dashboard financiero.
-//
-// El backend hoy expone GET /admin/finance/summary (escalares reales), pero aún
-// NO una serie temporal de ingresos. Para no bloquear la UI, estos helpers
-// sintetizan una serie representativa a partir del resumen real; las tarjetas de
-// gráfico lo marcan visiblemente como "muestra". Cuando exista el endpoint
-// GET /admin/finance/series, basta con sustituir estas funciones por el fetch.
-
 export type Period = 'Mensual' | 'Trimestral' | 'Anual';
 export interface RangePoint { label: string; value: number; }
 export interface AltaBaja { label: string; altas: number; bajas: number; }
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-/** 36 meses terminando en el mes actual, con tendencia suave hacia `target`. */
 function base36(target: number): { y: number; m: number; value: number }[] {
   const now = new Date();
   const pts: { y: number; m: number; value: number }[] = [];
   for (let i = 35; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const t = (35 - i) / 35;                                   // 0..1
-    const growth = 0.55 + 0.45 * t;                            // crece con el tiempo
+    const t = (35 - i) / 35;                                  
+    const growth = 0.55 + 0.45 * t;                            
     const season = 1 + 0.06 * Math.sin((d.getMonth() / 12) * Math.PI * 2);
     pts.push({ y: d.getFullYear(), m: d.getMonth(), value: Math.round(target * growth * season) });
   }
   return pts;
 }
 
-/** Serie de ingresos según el periodo seleccionado (pill Mensual/Trimestral/Anual). */
 export function ingresosSeries(target: number, period: Period): RangePoint[] {
   const b = base36(target || 1);
 
@@ -46,13 +36,11 @@ export function ingresosSeries(target: number, period: Period): RangePoint[] {
     return out;
   }
 
-  // Anual: suma por año (3 años)
   const byYear = new Map<number, number>();
   for (const p of b) byYear.set(p.y, (byYear.get(p.y) ?? 0) + p.value);
   return [...byYear.entries()].map(([y, value]) => ({ label: String(y), value }));
 }
 
-/** Últimos 6 meses de altas vs bajas; el mes actual usa los valores reales. */
 export function altasBajasSeries(altas: number, bajas: number): AltaBaja[] {
   const now = new Date();
   const wob = (n: number, k: number, i: number) =>
@@ -69,7 +57,6 @@ export function altasBajasSeries(altas: number, bajas: number): AltaBaja[] {
   return out;
 }
 
-/** Variación % del último punto respecto al anterior (para el chip de tendencia). */
 export function lastDelta(series: RangePoint[]): number {
   if (series.length < 2) return 0;
   const a = series[series.length - 2].value;

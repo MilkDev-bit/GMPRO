@@ -5,17 +5,12 @@ export interface SeriesPoint { label: string; value: number; }
 interface Props {
   data: SeriesPoint[];
   dark?: boolean;
-  /** Formatea el valor (eje Y y tooltip). */
   format?: (n: number) => string;
   height?: number;
 }
 
 const AXIS = '#94a3b8';
 
-/**
- * Gráfico de área de ingresos (MRR). Curva monotone, gradiente vertical
- * morado→transparente, sin grid vertical y grid horizontal punteado tenue.
- */
 export function RevenueAreaChart({ data, dark, format = (n) => String(n), height = 300 }: Props) {
   const grid = dark ? '#334155' : '#eef2f7';
   return (

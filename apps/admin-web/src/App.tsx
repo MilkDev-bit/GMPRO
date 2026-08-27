@@ -9,11 +9,6 @@ import { MembersPage } from './pages/MembersPage';
 import { FinancePage } from './pages/FinancePage';
 import { OffersPage } from './pages/OffersPage';
 
-/**
- * Envuelve rutas que requieren sesión de staff/admin. Las rutas `adminOnly`
- * (finanzas, ingresos, ofertas) se reservan al rol mayor: recepción (staff) es
- * redirigida a Miembros.
- */
 function Protected({ children, adminOnly }: { children: JSX.Element; adminOnly?: boolean }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-8 text-gray-500">Cargando…</div>;
@@ -27,8 +22,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-      {/* Retorno público de Stripe Checkout (rebota a la app móvil vía deep link).
-          Deben ir ANTES del catch-all y NO requieren sesión de staff. */}
       <Route path="/payment/success" element={<PaymentReturnPage kind="success" />} />
       <Route path="/payment/cancel" element={<PaymentReturnPage kind="cancel" />} />
       <Route path="/" element={<Protected adminOnly><DashboardPage /></Protected>} />

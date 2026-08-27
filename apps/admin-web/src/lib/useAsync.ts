@@ -8,7 +8,6 @@ interface AsyncState<T> {
   reload: () => void;
 }
 
-/** Hook simple de fetch con estados loading/error y recarga manual. */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): AsyncState<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +25,6 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): AsyncSt
       })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(run, [run]);
