@@ -105,8 +105,11 @@ function geminiDietSchema() {
             carbohidratos: { type: 'NUMBER' },
             grasas:        { type: 'NUMBER' },
             alimentos:     { type: 'ARRAY', items: foodSchema },
+            // Pasos de preparación de la receta (breves, en orden). Lo que faltaba:
+            // antes solo se daban ingredientes, no cómo cocinarlos.
+            preparacion:   { type: 'ARRAY', items: { type: 'STRING' } },
           },
-          required: ['tipo', 'calorias', 'proteinas', 'carbohidratos', 'grasas', 'alimentos'],
+          required: ['tipo', 'calorias', 'proteinas', 'carbohidratos', 'grasas', 'alimentos', 'preparacion'],
         },
       },
     },

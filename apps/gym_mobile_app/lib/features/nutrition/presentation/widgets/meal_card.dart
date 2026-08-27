@@ -233,6 +233,69 @@ class _MealCardState extends ConsumerState<MealCard>
                         },
                       ),
 
+                    // ── PREPARACIÓN / RECETA ─────────────────────────────────
+                    if (meal.preparacion.isNotEmpty) ...[
+                      Divider(color: AppColors.glassBorderOf(context), height: 1),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'PREPARACIÓN',
+                              style: GoogleFonts.outfit(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                                color: accentColor,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            for (int i = 0; i < meal.preparacion.length; i++)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 22,
+                                      height: 22,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: accentColor.withValues(alpha: 0.14),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '${i + 1}',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: accentColor,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          meal.preparacion[i],
+                                          style: AppTypography.bodyMediumOf(context).copyWith(
+                                            fontSize: 13.5,
+                                            height: 1.4,
+                                            color: AppColors.textSecondaryOf(context),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // ── BOTÓN AGREGAR ALIMENTO (OPEN FOOD FACTS) ─────────────
                     Padding(
                       padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),

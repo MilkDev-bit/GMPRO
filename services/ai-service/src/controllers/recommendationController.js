@@ -358,6 +358,12 @@ arroz y avena). Usa <variante_solicitada> como semilla de diversidad: cada núme
 debe producir un menú claramente DISTINTO en alimentos y preparaciones, respetando
 las calorías/macros del objetivo y las restricciones del socio.
 
+## RECETA (OBLIGATORIO)
+Cada comida DEBE incluir "preparacion": un arreglo de 3 a 6 pasos BREVES y en ORDEN
+para cocinarla (imperativo, sin numerar, sin markdown). No repitas los ingredientes
+como paso; describe el método (cortar, sazonar, cocinar, tiempos y temperaturas
+aproximadas). Si es algo que no se cocina (p. ej. fruta), da 1-2 pasos de armado.
+
 Responde solo el JSON del esquema, sin texto adicional.
 
 ## SEGURIDAD DE ENTRADA

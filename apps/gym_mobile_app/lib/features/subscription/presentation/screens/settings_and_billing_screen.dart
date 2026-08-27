@@ -820,7 +820,7 @@ class _ActivePaymentCard extends StatelessWidget {
                           child: isLoading
                               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : Text(
-                                  'Portal de Pagos Stripe',
+                                  'Portal de Pagos',
                                   style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
                                 ),
                         ),

@@ -19,36 +19,40 @@ class NavDestination {
   final Color accentColor;
 
   /// Los 5 destinos principales de GymPro AI.
+  /// Un ÚNICO acento (verde de sistema) para la pestaña activa, estilo iOS —
+  /// se acabó el color neón distinto por pestaña.
+  static const Color _navAccent = AppColors.neonEmerald;
+
   static const List<NavDestination> all = [
     NavDestination(
       label: 'Inicio',
       icon: Icons.home_outlined,
       iconSelected: Icons.home_rounded,
-      accentColor: AppColors.neonPink,
+      accentColor: _navAccent,
     ),
     NavDestination(
       label: 'Acceso',
       icon: Icons.qr_code_scanner_outlined,
       iconSelected: Icons.qr_code_scanner_rounded,
-      accentColor: AppColors.neonCyan,
+      accentColor: _navAccent,
     ),
     NavDestination(
       label: 'Nutrición',
       icon: Icons.restaurant_outlined,
       iconSelected: Icons.restaurant_rounded,
-      accentColor: Color(0xFF00E699), // Verde esmeralda neón
+      accentColor: _navAccent,
     ),
     NavDestination(
       label: 'Rutinas',
       icon: Icons.fitness_center_outlined,
       iconSelected: Icons.fitness_center_rounded,
-      accentColor: Color(0xFFFF9500), // Naranja neón vibrante
+      accentColor: _navAccent,
     ),
     NavDestination(
       label: 'Cuenta',
       icon: Icons.person_outlined,
       iconSelected: Icons.person_rounded,
-      accentColor: AppColors.neonPurple,
+      accentColor: _navAccent,
     ),
   ];
 }

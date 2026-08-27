@@ -137,7 +137,8 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
             pinned: true,
             expandedHeight: 120,
             flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              // Espacio a la derecha para que el título no quede bajo el botón ↻.
+              titlePadding: const EdgeInsets.fromLTRB(20, 0, 64, 16),
               title: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,16 +704,18 @@ Future<void> showExerciseDetailSheet(BuildContext context, WorkoutExercise ex) {
             const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 54,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: accent,
                   foregroundColor: Colors.white,
                   elevation: 0,
+                  padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: Text('Entendido', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                child: Text('Entendido',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w700, height: 1.0)),
               ),
             ),
           ],

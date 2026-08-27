@@ -91,6 +91,7 @@ class Meal {
     required this.nombre,
     required this.horaSugerida,
     required this.alimentos,
+    this.preparacion = const [],
   });
 
   final String id;
@@ -98,6 +99,10 @@ class Meal {
   final String nombre;
   final String horaSugerida;
   final List<FoodItem> alimentos;
+
+  /// Pasos de preparación de la receta (en orden). Vacío si el plan es previo a
+  /// esta función o si la comida no requiere cocción.
+  final List<String> preparacion;
 
   int get caloriasTotal => alimentos.fold(0, (sum, f) => sum + f.calorias);
   double get proteinasTotal =>
@@ -107,13 +112,14 @@ class Meal {
   double get grasasTotal =>
       double.parse(alimentos.fold(0.0, (sum, f) => sum + f.grasas).toStringAsFixed(1));
 
-  Meal copyWith({List<FoodItem>? alimentos}) {
+  Meal copyWith({List<FoodItem>? alimentos, List<String>? preparacion}) {
     return Meal(
       id: id,
       tipo: tipo,
       nombre: nombre,
       horaSugerida: horaSugerida,
       alimentos: alimentos ?? this.alimentos,
+      preparacion: preparacion ?? this.preparacion,
     );
   }
 
@@ -125,6 +131,10 @@ class Meal {
       nombre: json['nombre'] as String? ?? 'Comida',
       horaSugerida: json['hora_sugerida'] as String? ?? '12:00 PM',
       alimentos: list.map((x) => FoodItem.fromJson(x as Map<String, dynamic>)).toList(),
+      preparacion: (json['preparacion'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .where((s) => s.trim().isNotEmpty)
+          .toList(),
     );
   }
 
@@ -134,6 +144,7 @@ class Meal {
         'nombre': nombre,
         'hora_sugerida': horaSugerida,
         'alimentos': alimentos.map((x) => x.toJson()).toList(),
+        'preparacion': preparacion,
       };
 }
 
