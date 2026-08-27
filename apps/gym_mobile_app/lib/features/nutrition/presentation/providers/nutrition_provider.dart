@@ -196,6 +196,11 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
   int    lastEdad       = 25;
   String lastActividad  = 'moderado';
   String lastIngredientes = '';
+  /// Peso con el que se generó el plan ACTUAL (base para detectar descompensación).
+  double lastPlanPesoKg = 0;
+
+  /// Peso base del plan vigente (0 si aún no hay plan generado).
+  double get planPesoKg => lastPlanPesoKg;
 
   /// Carga el perfil persistido al arrancar (para prellenar el formulario y que
   /// Ajustes muestre los datos reales del socio) y la última dieta generada, para
@@ -216,6 +221,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     final planJson = await _storage.getDietPlan();
     if (planJson != null) {
       try {
+        lastPlanPesoKg = (planJson['peso_base_kg'] as num?)?.toDouble() ?? lastPesoKg;
         final plan = await NutritionPlan.parseInBackground(planJson);
         if (mounted) state = state.copyWith(plan: plan);
         // Con plan restaurado, cargamos el consumo REAL de hoy (calorías/agua).
@@ -237,6 +243,17 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
       );
 
   Future<void> _persistProfile(DietProfile p) => _storage.saveDietProfile(p.toJson());
+
+  /// Actualiza SOLO el peso del perfil (sin regenerar el plan). Lo llama el registro
+  /// de peso corporal (Stats) para que el peso sea una fuente de verdad única: el
+  /// próximo plan se generará con el peso real más reciente.
+  Future<void> setProfileWeight(double kg) async {
+    if (kg <= 0 || kg == lastPesoKg) return;
+    lastPesoKg = kg;
+    final p = _profileFromLast;
+    if (mounted) state = state.copyWith(profile: p);
+    await _persistProfile(p);
+  }
 
   /// Guarda el perfil editado desde Ajustes. Persiste y, si ya existe una dieta
   /// generada, la recalcula con los nuevos datos.
@@ -300,6 +317,9 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
 
       if (response.data['success'] == true && response.data['data'] != null) {
         final raw = response.data['data'] as Map<String, dynamic>;
+        // Peso con el que se calculó ESTE plan (base para detectar descompensación).
+        lastPlanPesoKg = lastPesoKg;
+        raw['peso_base_kg'] = lastPesoKg;
         final plan = await NutritionPlan.parseInBackground(raw);
         // Persistimos el JSON crudo: al reabrir/recompilar la app se rehidrata
         // en _loadProfile en vez de perderse (antes solo vivía en memoria).
@@ -511,6 +531,36 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
       }
       state = state.copyWith(
         consumedFoodIds: newMap,
+        consumedCalorias:      (summary?['calorias'] as num?)?.toInt() ?? state.consumedCalorias,
+        consumedProteinas:     (summary?['proteinas'] as num?)?.toDouble() ?? state.consumedProteinas,
+        consumedCarbohidratos: (summary?['carbohidratos'] as num?)?.toDouble() ?? state.consumedCarbohidratos,
+        consumedGrasas:        (summary?['grasas'] as num?)?.toDouble() ?? state.consumedGrasas,
+        waterConsumedMl:       (summary?['agua_ml'] as num?)?.toInt() ?? state.waterConsumedMl,
+      );
+    } catch (_) {
+      // best-effort; el estado se re-sincroniza al recargar.
+    }
+  }
+
+  /// Registra un ANTOJO/EXTRA: un alimento fuera del plan. Se guarda bajo la comida
+  /// "extra" (no ensucia las comidas planificadas) y suma al total del día.
+  Future<void> logExtraFood(FoodItem food) async {
+    try {
+      final res = await _apiClient.dio.post(
+        '${AppConfig.fitnessServiceBaseUrl}/nutrition/food',
+        data: {
+          'comida': 'extra',
+          'nombreAlimento': food.nombre,
+          'cantidadGramos': food.porcionG,
+          'calorias': food.calorias,
+          'proteinas': food.proteinas,
+          'carbohidratos': food.carbohidratos,
+          'grasas': food.grasas,
+          'codigoBarras': food.codigoBarras,
+        },
+      );
+      final summary = res.data['data']?['summary'] as Map<String, dynamic>?;
+      state = state.copyWith(
         consumedCalorias:      (summary?['calorias'] as num?)?.toInt() ?? state.consumedCalorias,
         consumedProteinas:     (summary?['proteinas'] as num?)?.toDouble() ?? state.consumedProteinas,
         consumedCarbohidratos: (summary?['carbohidratos'] as num?)?.toDouble() ?? state.consumedCarbohidratos,

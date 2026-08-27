@@ -12,6 +12,8 @@ import '../providers/nutrition_provider.dart';
 import '../widgets/macro_summary_dashboard.dart';
 import '../widgets/meal_card.dart';
 import '../widgets/diet_profile_sheet.dart';
+import '../widgets/food_search_modal.dart';
+import '../widgets/weight_check_banner.dart';
 
 class NutritionPlanScreen extends ConsumerWidget {
   const NutritionPlanScreen({super.key, required this.plan});
@@ -96,6 +98,9 @@ class NutritionPlanScreen extends ConsumerWidget {
                     16, 8, 16, 120 + MediaQuery.of(context).padding.bottom),
                 sliver: SliverList.list(
                   children: [
+                    // 0. SEGUIMIENTO DE PESO (recordatorio / reajuste por drift)
+                    const WeightCheckBanner(),
+
                     // 1. DASHBOARD DE MACROS & HIDRATACIÓN
                     MacroSummaryDashboard(
                       plan: plan,
@@ -126,6 +131,10 @@ class NutritionPlanScreen extends ConsumerWidget {
 
                     // 3. TARJETAS DE COMIDA
                     ...plan.comidas.map((meal) => MealCard(meal: meal)),
+                    const SizedBox(height: 16),
+
+                    // 3.5 REGISTRAR ANTOJO / EXTRA (algo fuera del plan)
+                    _AntojoButton(onTap: () => _registrarAntojo(context, ref)),
                     const SizedBox(height: 20),
 
                     // 4. BOTÓN REAJUSTAR IA
@@ -183,6 +192,78 @@ class NutritionPlanScreen extends ConsumerWidget {
           ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Abre el buscador en modo "extra": registra un antojo fuera del plan y lo suma
+  /// al consumo del día, sin ensuciar las comidas planificadas.
+  void _registrarAntojo(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => FoodSearchModal(
+        confirmLabel: 'Registrar antojo',
+        onFoodChosen: (food) {
+          ref.read(nutritionProvider.notifier).logExtraFood(food);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Antojo registrado: ${food.nombre}'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AntojoButton extends StatelessWidget {
+  const _AntojoButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final amber = AppColors.warningOf(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: amber.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: amber.withValues(alpha: 0.40), width: 1),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.local_pizza_outlined, color: amber, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Registrar antojo / extra',
+                      style: GoogleFonts.outfit(
+                          fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Algo fuera del plan que comiste hoy',
+                      style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.add_rounded, color: amber, size: 22),
+            ],
+          ),
+        ),
       ),
     );
   }

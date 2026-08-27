@@ -16,8 +16,20 @@ import '../../domain/entities/nutrition_entities.dart';
 import '../providers/nutrition_provider.dart';
 
 class FoodSearchModal extends ConsumerStatefulWidget {
-  const FoodSearchModal({super.key, required this.mealId});
-  final String mealId;
+  const FoodSearchModal({
+    super.key,
+    this.mealId,
+    this.onFoodChosen,
+    this.confirmLabel = 'Confirmar y Agregar a Comida',
+  });
+
+  /// Comida a la que se agrega (modo normal). null en modo "extra/antojo".
+  final String? mealId;
+
+  /// Si se provee, se llama con el alimento elegido EN VEZ de agregarlo a una
+  /// comida del plan (para registrar antojos/extras). Tiene prioridad sobre mealId.
+  final void Function(FoodItem food)? onFoodChosen;
+  final String confirmLabel;
 
   @override
   ConsumerState<FoodSearchModal> createState() => _FoodSearchModalState();
@@ -412,7 +424,7 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
             child: ElevatedButton.icon(
               icon: const Icon(Icons.check_circle_rounded, size: 22),
               label: Text(
-                'Confirmar y Agregar a Comida',
+                widget.confirmLabel,
                 style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               style: ElevatedButton.styleFrom(
@@ -425,7 +437,11 @@ class _FoodSearchModalState extends ConsumerState<FoodSearchModal> {
               ),
               onPressed: () {
                 HapticFeedback.heavyImpact();
-                ref.read(nutritionProvider.notifier).addFoodToMeal(widget.mealId, customized);
+                if (widget.onFoodChosen != null) {
+                  widget.onFoodChosen!(customized);
+                } else if (widget.mealId != null) {
+                  ref.read(nutritionProvider.notifier).addFoodToMeal(widget.mealId!, customized);
+                }
                 Navigator.pop(context);
               },
             ),
