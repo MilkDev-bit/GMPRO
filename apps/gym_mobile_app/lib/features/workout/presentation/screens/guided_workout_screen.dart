@@ -365,8 +365,9 @@ class _FinishedView extends StatelessWidget {
 }
 
 // ── Componentes ───────────────────────────────────────────────────────────────
-/// Demostración del ejercicio: GIF animado (o imagen). Los frames de free-exercise-db
-/// tienen fondo claro, así que el contenedor va en blanco para que se vean bien.
+/// Demostración del ejercicio: GIF animado (o imagen). Usa `cover` para llenar todo
+/// el espacio sin barras: recorta el borde sobrante (casi siempre fondo) y deja la
+/// figura centrada bien grande. Proporción 4:3, cómoda para las fotos del dataset.
 class _ExerciseMedia extends StatelessWidget {
   const _ExerciseMedia({required this.url});
   final String url;
@@ -376,26 +377,24 @@ class _ExerciseMedia extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: AspectRatio(
-        aspectRatio: 16 / 10,
-        child: Container(
-          color: Colors.white,
-          child: CachedNetworkImage(
-            imageUrl: url,
-            fit: BoxFit.contain,
-            placeholder: (_, __) => Container(
-              color: AppColors.darkSurfaceElevated,
-              alignment: Alignment.center,
-              child: const SizedBox(
-                width: 28, height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.neonCyan),
-              ),
+        aspectRatio: 4 / 3,
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          placeholder: (_, __) => Container(
+            color: AppColors.darkSurfaceElevated,
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 28, height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.neonCyan),
             ),
-            errorWidget: (_, __, ___) => Container(
-              color: AppColors.darkSurfaceElevated,
-              alignment: Alignment.center,
-              child: const Icon(Icons.fitness_center_rounded,
-                  color: AppColors.textMuted, size: 40),
-            ),
+          ),
+          errorWidget: (_, __, ___) => Container(
+            color: AppColors.darkSurfaceElevated,
+            alignment: Alignment.center,
+            child: const Icon(Icons.fitness_center_rounded,
+                color: AppColors.textMuted, size: 40),
           ),
         ),
       ),
