@@ -377,7 +377,6 @@ class _StartWorkoutButton extends StatelessWidget {
                 color: emerald.withValues(alpha: 0.20),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.play_arrow_rounded, color: emerald, size: 26),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -429,7 +428,6 @@ class _StatsAccessButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.insights_rounded, color: cyan, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
