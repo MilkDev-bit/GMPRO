@@ -25,11 +25,15 @@ class NutritionPlanScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          CustomScrollView(
+          // SafeArea(top) para que "PLAN NUTRICIONAL" no quede bajo el notch.
+          SafeArea(
+            bottom: false,
+            child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               // ── CABECERA PEGADIZA ──────────────────────────────────────────
               SliverAppBar(
+                primary: false,
                 backgroundColor: AppColors.background,
                 surfaceTintColor: Colors.transparent,
                 pinned: true,
@@ -81,7 +85,8 @@ class NutritionPlanScreen extends ConsumerWidget {
 
               // ── CUERPO PRINCIPAL ───────────────────────────────────────────
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                padding: EdgeInsets.fromLTRB(
+                    16, 8, 16, 120 + MediaQuery.of(context).padding.bottom),
                 sliver: SliverList.list(
                   children: [
                     // 1. DASHBOARD DE MACROS & HIDRATACIÓN
@@ -168,6 +173,7 @@ class NutritionPlanScreen extends ConsumerWidget {
                 ),
               ),
             ],
+          ),
           ),
         ],
       ),

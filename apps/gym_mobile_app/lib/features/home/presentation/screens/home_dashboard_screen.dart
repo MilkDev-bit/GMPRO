@@ -75,7 +75,10 @@ class HomeDashboardScreen extends ConsumerWidget {
 
             // ── CUERPO CON PADDING PARA LA BARRA FLOTANTE ─────────────────
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, kGlassBarHeight),
+              // +safe-area inferior: si no, la última tarjeta queda tras la barra
+              // flotante en teléfonos con barra de gestos.
+              padding: EdgeInsets.fromLTRB(
+                  20, 8, 20, kGlassBarHeight + MediaQuery.of(context).padding.bottom),
               sliver: SliverList.list(
                 children: [
                   // Saludo personalizado

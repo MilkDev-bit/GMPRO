@@ -83,9 +83,11 @@ class _IngredientPickerSheetState extends ConsumerState<IngredientPickerSheet> {
     final emerald = AppColors.accentEmeraldOf(context);
     final results = state.searchResults;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: DraggableScrollableSheet(
+    // Alto del teclado: se lo pasamos a la lista de resultados como padding inferior,
+    // así los ítems que matchean nunca quedan tapados por el teclado.
+    final keyboard = MediaQuery.of(context).viewInsets.bottom;
+
+    return DraggableScrollableSheet(
         initialChildSize: 0.85,
         minChildSize: 0.5,
         maxChildSize: 0.95,
@@ -180,14 +182,21 @@ class _IngredientPickerSheetState extends ConsumerState<IngredientPickerSheet> {
                 if (_selected.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _selected.values
-                            .map((n) => _SelectedChip(label: n, onRemove: () => _toggle(n)))
-                            .toList(),
+                    child: ConstrainedBox(
+                      // Tope de alto + scroll: aunque elijas muchos ingredientes, los
+                      // chips no empujan la lista ni provocan overflow con el teclado.
+                      constraints: const BoxConstraints(maxHeight: 76),
+                      child: SingleChildScrollView(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _selected.values
+                                .map((n) => _SelectedChip(label: n, onRemove: () => _toggle(n)))
+                                .toList(),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -204,7 +213,7 @@ class _IngredientPickerSheetState extends ConsumerState<IngredientPickerSheet> {
                             )
                           : ListView.separated(
                               controller: scrollController,
-                              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+                              padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + keyboard),
                               itemCount: results.length,
                               separatorBuilder: (_, __) => const SizedBox(height: 8),
                               itemBuilder: (context, i) {
@@ -224,13 +233,13 @@ class _IngredientPickerSheetState extends ConsumerState<IngredientPickerSheet> {
                 SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
                     child: Pressable(
                       haptic: PressHaptic.medium,
                       onTap: () => Navigator.of(context).pop(_selected.values.toList()),
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           gradient: AppColors.primaryGradient,
@@ -251,8 +260,7 @@ class _IngredientPickerSheetState extends ConsumerState<IngredientPickerSheet> {
             ),
           );
         },
-      ),
-    );
+      );
   }
 }
 

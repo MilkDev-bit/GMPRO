@@ -36,7 +36,10 @@ class QrAccessScreen extends ConsumerWidget {
     WidgetsBinding.instance.addPostFrameCallback((_) => ensureQrStarted());
 
     final subAsync = ref.watch(subscriptionProvider);
-    final qrState = ref.watch(qrAccessProvider);
+    // Solo escuchamos el STATUS aquí: así la pantalla NO se reconstruye cada segundo
+    // por la cuenta atrás (eso hacía parpadear el QR). El QR y el contador viven en
+    // widgets aislados que escuchan solo su parte del estado.
+    final qrStatus = ref.watch(qrAccessProvider.select((s) => s.status));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -161,7 +164,7 @@ class QrAccessScreen extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            child: _buildQrContent(qrState),
+                            child: _buildQrContent(qrStatus),
                           ),
                         ),
                       ),
@@ -184,8 +187,8 @@ class QrAccessScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildQrContent(QrAccessState qrState) {
-    switch (qrState.status) {
+  Widget _buildQrContent(QrStatus status) {
+    switch (status) {
       case QrStatus.initial:
       case QrStatus.loading:
         return const _QrLoadingState();
@@ -193,42 +196,68 @@ class QrAccessScreen extends ConsumerWidget {
       case QrStatus.paymentRequired:
         return const _QrErrorState();
       case QrStatus.active:
-        if (qrState.qrToken == null) return const _QrLoadingState();
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: QrImageView(
-                data: qrState.qrToken!.token,
-                version: QrVersions.auto,
-                size: 200,
-                gapless: true,
-                eyeStyle: const QrEyeStyle(
-                  eyeShape: QrEyeShape.square,
-                  color: Color(0xFF0A0912),
-                ),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: Color(0xFF0A0912),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Válido por ${qrState.secondsRemaining} segundos',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.success,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        );
+        return const _QrActiveCard();
     }
+  }
+}
+
+/// QR activo AISLADO: solo se redibuja cuando cambia el TOKEN (cada ~30s), no cada
+/// segundo. Así se elimina el parpadeo. La cuenta atrás va en su propio widget.
+class _QrActiveCard extends ConsumerWidget {
+  const _QrActiveCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final token = ref.watch(qrAccessProvider.select((s) => s.qrToken?.token));
+    if (token == null) return const _QrLoadingState();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        RepaintBoundary(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: QrImageView(
+              key: ValueKey(token),
+              data: token,
+              version: QrVersions.auto,
+              size: 200,
+              gapless: true,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Color(0xFF0A0912),
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: Color(0xFF0A0912),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const _QrCountdown(),
+      ],
+    );
+  }
+}
+
+/// Solo el texto de la cuenta atrás se reconstruye cada segundo (barato).
+class _QrCountdown extends ConsumerWidget {
+  const _QrCountdown();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final secs = ref.watch(qrAccessProvider.select((s) => s.secondsRemaining));
+    return Text(
+      'Válido por $secs segundos',
+      style: AppTypography.caption.copyWith(
+        color: AppColors.success,
+        fontWeight: FontWeight.w600,
+      ),
+    );
   }
 }
 

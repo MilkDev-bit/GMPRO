@@ -127,11 +127,16 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
+      // SafeArea(top) para que el título no quede bajo el notch/isla dinámica.
+      // El SliverAppBar va con primary:false para no duplicar el inset.
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           // ── STICKY APP BAR con nombre del plan ─────────────────────────
           SliverAppBar(
+            primary: false,
             backgroundColor: AppColors.background,
             surfaceTintColor: Colors.transparent,
             pinned: true,
@@ -308,6 +313,7 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
             ),
           ),
         ],
+      ),
       ),
       bottomNavigationBar: _MiniPlayer(
         exercise: _currentExercises.isNotEmpty ? _currentExercises[_currentExerciseIndex] : null,
