@@ -155,15 +155,20 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
                       fontSize: 10,
+                      height: 1.0,
                       fontWeight: FontWeight.w700,
                       color: AppColors.neonPurple,
                       letterSpacing: 1.5,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     'Plan semanal',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 22,
+                      fontSize: 21,
+                      height: 1.0,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                     ),
