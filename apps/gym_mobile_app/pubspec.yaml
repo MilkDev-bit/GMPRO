@@ -67,7 +67,7 @@ dependencies:
   uuid: ^4.5.1                    # Generación de identificadores de sesión
   qr_flutter: ^4.1.0              # Renderizado de códigos QR nítidos para torniquetes
   url_launcher: ^6.3.0            # Lanzamiento de portal de pagos Stripe y checkout en navegador
-  toastification: ^2.3.0          # Toasts dinámicos y fluidos estilo nativo iOS / Dynamic Island
+  toastification: ^3.2.0          # Toasts dinámicos y fluidos estilo nativo iOS / Dynamic Island
   flutter_local_notifications: ^18.0.1 # Programación y canales nativos de notificación Android/iOS
   path_provider: ^2.1.5           # Almacenamiento temporal de imágenes para attachments nativos
   path: ^1.9.0                    # Manipulación/canonicalización segura de rutas (anti path traversal)
