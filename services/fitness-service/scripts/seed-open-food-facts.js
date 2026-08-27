@@ -176,6 +176,9 @@ const COLS = [
   'codigo_barras', 'nombre', 'nombre_generico', 'marca', 'categoria',
   'calorias_100g', 'proteinas_100g', 'carbohidratos_100g', 'grasas_100g', 'fibra_100g',
   'porcion_gramos', 'idioma_nombre',
+  // IMPRESCINDIBLE: la policy RLS pública filtra por activo=true. Sin esto, el
+  // servicio (svc_fitness) NO ve las filas aunque existan.
+  'activo',
 ];
 
 function rowFor([nombre, categoria, kcal, prot, carbs, grasa, fibra]) {
@@ -192,6 +195,7 @@ function rowFor([nombre, categoria, kcal, prot, carbs, grasa, fibra]) {
     fibra_100g: fibra,
     porcion_gramos: 100,
     idioma_nombre: 'es',
+    activo: true,
   };
 }
 

@@ -57,13 +57,24 @@ class FoodItem {
       codigoBarras: json['codigo_barras'] as String? ?? '0000000000000',
       nombre: json['nombre'] as String? ?? 'Alimento',
       marca: json['marca'] as String? ?? 'Genérico',
-      porcionG: (json['porcion_g'] as num?)?.toDouble() ?? 100.0,
-      calorias100g: (json['calorias_100g'] as num?)?.toDouble() ?? 0.0,
-      proteinas100g: (json['proteinas_100g'] as num?)?.toDouble() ?? 0.0,
-      carbohidratos100g: (json['carbohidratos_100g'] as num?)?.toDouble() ?? 0.0,
-      grasas100g: (json['grasas_100g'] as num?)?.toDouble() ?? 0.0,
-      esOpenFoodFacts: json['es_open_food_facts'] as bool? ?? true,
+      // El pooler de Postgres devuelve NUMERIC como String ("165.00"); parseamos
+      // tolerando num O String para que el catálogo local (BD) no reviente el parseo.
+      porcionG: _asDouble(json['porcion_g'] ?? json['porcion_gramos'], 100.0),
+      calorias100g: _asDouble(json['calorias_100g']),
+      proteinas100g: _asDouble(json['proteinas_100g']),
+      carbohidratos100g: _asDouble(json['carbohidratos_100g']),
+      grasas100g: _asDouble(json['grasas_100g']),
+      esOpenFoodFacts: json['es_open_food_facts'] == null
+          ? true
+          : (json['es_open_food_facts'] == true || json['es_open_food_facts'] == 'true'),
     );
+  }
+
+  /// Convierte num, String ("165.00") o null a double sin lanzar excepción.
+  static double _asDouble(dynamic v, [double fallback = 0.0]) {
+    if (v == null) return fallback;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? fallback;
   }
 
   Map<String, dynamic> toJson() => {
