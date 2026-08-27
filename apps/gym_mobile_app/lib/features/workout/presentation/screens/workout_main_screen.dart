@@ -166,7 +166,7 @@ class WorkoutMainScreen extends ConsumerWidget {
               Text('Generador de Rutinas IA', style: AppTypography.displayMedium),
               const SizedBox(height: 12),
               Text(
-                'Armamos tu rutina con ejercicios reales del catálogo wger, en base a tu objetivo, nivel y tus datos.',
+                'Armamos tu rutina con ejercicios reales de nuestro catálogo, en base a tu objetivo, nivel y tus datos.',
                 style: AppTypography.bodyLarge.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),

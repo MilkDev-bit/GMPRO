@@ -16,6 +16,8 @@ import '../../domain/entities/workout_entities.dart';
 import '../../domain/muscle_catalog.dart';
 import '../widgets/interactive_anatomy_map.dart';
 import '../widgets/workout_profile_sheet.dart';
+import 'guided_workout_screen.dart';
+import 'stats_screen.dart';
 
 class WorkoutPlanScreen extends ConsumerStatefulWidget {
   const WorkoutPlanScreen({super.key, required this.plan});
@@ -75,6 +77,20 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
     } catch (e) {
       debugPrint('⚠️ [WorkoutPlanScreen] No se pudo sincronizar con reloj: $e');
     }
+  }
+
+  /// Lanza el runner de entrenamiento guiado para el día activo. Pasa el objetivo del
+  /// plan y el nombre del día como rótulo. El runner pre-carga pesos desde el historial.
+  void _startGuidedWorkout() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GuidedWorkoutScreen(
+          day: _currentDay,
+          objetivo: widget.plan.objetivo,
+          routineName: _currentDay.dia,
+        ),
+      ),
+    );
   }
 
   Future<void> _updateHeaderColor(WorkoutExercise exercise) async {
@@ -156,6 +172,13 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
               ),
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.insights_rounded, color: AppColors.neonCyan),
+                tooltip: 'Estadísticas y progreso',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const StatsScreen()),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: AppColors.neonPurple),
                 tooltip: 'Regenerar rutina con IA',
@@ -273,6 +296,7 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
       ),
       bottomNavigationBar: _MiniPlayer(
         exercise: _currentExercises.isNotEmpty ? _currentExercises[_currentExerciseIndex] : null,
+        onStart: _currentExercises.isEmpty ? null : _startGuidedWorkout,
         onNext: () {
           if (_currentExerciseIndex < _currentExercises.length - 1) {
             final nextIndex = _currentExerciseIndex + 1;
@@ -585,9 +609,12 @@ Widget _detailChip(IconData icon, String text) {
 // MINI-PLAYER FLOTANTE (Spotify Style)
 // ─────────────────────────────────────────────────────────────────────────────
 class _MiniPlayer extends StatefulWidget {
-  const _MiniPlayer({this.exercise, required this.onNext});
+  const _MiniPlayer({this.exercise, required this.onNext, this.onStart});
   final WorkoutExercise? exercise;
   final VoidCallback onNext;
+
+  /// Lanza el entrenamiento guiado del día. null = sin ejercicios (oculta el botón).
+  final VoidCallback? onStart;
 
   @override
   State<_MiniPlayer> createState() => _MiniPlayerState();
@@ -644,7 +671,14 @@ class _MiniPlayerState extends State<_MiniPlayer> {
                 ],
               ),
             ),
-            // Controls: ver detalle del ejercicio + siguiente
+            // Controls: empezar guiado (CTA) + ver detalle + siguiente
+            if (widget.onStart != null)
+              IconButton(
+                icon: const Icon(Icons.play_circle_fill_rounded,
+                    color: AppColors.neonEmerald, size: 32),
+                tooltip: 'Empezar entrenamiento guiado',
+                onPressed: widget.onStart,
+              ),
             IconButton(
               icon: const Icon(Icons.info_outline_rounded, color: Colors.white, size: 26),
               tooltip: 'Ver ejercicio',
