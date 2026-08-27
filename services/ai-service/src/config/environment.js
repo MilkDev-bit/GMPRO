@@ -98,7 +98,9 @@ module.exports = {
   AI_SYSTEM_PERSONA:          process.env.AI_SYSTEM_PERSONA || 'Eres GymBot, asistente personal de fitness y nutrición deportiva de GymPro. Responde en español. Sé motivador, científico y profesional. Nunca proporciones diagnósticos ni prescripciones médicas.',
   FITNESS_SERVICE_INTERNAL_URL: process.env.FITNESS_SERVICE_INTERNAL_URL,
   INTER_SERVICE_SECRET:       process.env.INTER_SERVICE_SECRET,
-  INTER_SERVICE_TIMEOUT_MS:   parseInt(process.env.INTER_SERVICE_TIMEOUT_MS || '4000', 10),
+  // 8s por defecto: el primer resolveExerciseImages carga y tokeniza ~873 filas del
+  // catálogo en frío; 4s se quedaba corto y abortaba (rutina sin imágenes).
+  INTER_SERVICE_TIMEOUT_MS:   parseInt(process.env.INTER_SERVICE_TIMEOUT_MS || '8000', 10),
   REDIS_URL:                  process.env.REDIS_URL || null,
   AI_RECOMMENDATION_CACHE_TTL: parseInt(process.env.AI_RECOMMENDATION_CACHE_TTL || '86400', 10),
 };

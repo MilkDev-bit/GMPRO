@@ -42,7 +42,11 @@ async function getUserFitnessContext(userId) {
     return {};
   } catch (err) {
     logger.warn('Fallo o timeout obteniendo contexto de fitness (continuando con prompt base)', {
-      userId, error: err.message,
+      userId,
+      url: `${env.FITNESS_SERVICE_INTERNAL_URL}/api/v1/internal/user-context`,
+      errorName: err.name,   // AbortError = timeout | TypeError/ENOTFOUND = URL mala/inalcanzable
+      errorCode: err.cause?.code,
+      error: err.message,
     });
     return {};
   }
@@ -82,7 +86,12 @@ async function resolveExerciseImages(names) {
     logger.warn('Respuesta no-200 al resolver imágenes de ejercicios', { status: response.status });
     return {};
   } catch (err) {
-    logger.warn('Fallo o timeout resolviendo imágenes de ejercicios (rutina sin imágenes)', { error: err.message });
+    logger.warn('Fallo o timeout resolviendo imágenes de ejercicios (rutina sin imágenes)', {
+      url: `${env.FITNESS_SERVICE_INTERNAL_URL}/api/v1/internal/exercises/images`,
+      errorName: err.name,   // AbortError = timeout | TypeError/ENOTFOUND = URL mala/inalcanzable
+      errorCode: err.cause?.code,
+      error: err.message,
+    });
     return {};
   }
 }
