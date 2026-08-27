@@ -118,7 +118,7 @@ node services/ai-service/scripts/seed-free-exercise-db.js \
   --source /tmp/free-exercise-db.json --replace
 ```
 
-`--replace` hace `UPDATE ... SET activo=false WHERE fuente <> 'free-exercise-db+gemini'`.
+`--replace` hace `UPDATE ... SET activo=false WHERE fuente <> 'free-exercise-db'`.
 **No borra nada** — wger queda inactivo y recuperable.
 
 ---
@@ -168,7 +168,7 @@ GROUP BY fuente ORDER BY total DESC;
 -- 6.2 ¿Alguno sin músculo principal? (debería ser 0 o casi)
 SELECT count(*) AS sin_musculo
 FROM fitness_service_db.catalogo_ejercicios
-WHERE fuente = 'free-exercise-db+gemini'
+WHERE fuente = 'free-exercise-db'
   AND (musculo_principal IS NULL OR cardinality(musculo_principal) = 0);
 
 -- 6.3 Cobertura de animación (gif_url)
@@ -177,12 +177,12 @@ SELECT
   count(gif_url) AS con_gif,
   round(100.0 * count(gif_url) / nullif(count(*),0), 1) AS pct_gif
 FROM fitness_service_db.catalogo_ejercicios
-WHERE fuente = 'free-exercise-db+gemini' AND activo;
+WHERE fuente = 'free-exercise-db' AND activo;
 
 -- 6.4 Muestra: nombre traducido + músculos + imagen
 SELECT nombre, nombre_en, nivel, musculo_principal, imagen_url IS NOT NULL AS tiene_img
 FROM fitness_service_db.catalogo_ejercicios
-WHERE fuente = 'free-exercise-db+gemini' ORDER BY random() LIMIT 10;
+WHERE fuente = 'free-exercise-db' ORDER BY random() LIMIT 10;
 ```
 
 ---
@@ -194,10 +194,10 @@ Todo es reversible sin pérdida de datos:
 ```sql
 -- Reactivar wger y desactivar free-exercise-db (volver al estado anterior)
 UPDATE fitness_service_db.catalogo_ejercicios SET activo = true  WHERE fuente = 'wger+gemini';
-UPDATE fitness_service_db.catalogo_ejercicios SET activo = false WHERE fuente = 'free-exercise-db+gemini';
+UPDATE fitness_service_db.catalogo_ejercicios SET activo = false WHERE fuente = 'free-exercise-db';
 
 -- O borrar por completo lo sembrado (si prefieres empezar de cero)
--- DELETE FROM fitness_service_db.catalogo_ejercicios WHERE fuente = 'free-exercise-db+gemini';
+-- DELETE FROM fitness_service_db.catalogo_ejercicios WHERE fuente = 'free-exercise-db';
 ```
 
 ---

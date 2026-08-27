@@ -352,7 +352,9 @@ function mergeRows(batch, enriched) {
       imagen_url: facts.imagen_url,
       thumbnail_url: facts.thumbnail_url,
       video_url: null,                // el GIF lo puebla rehost-free-exercise-db.js
-      fuente: 'free-exercise-db+gemini',
+      // OJO: la columna `fuente` es varchar(20). 'free-exercise-db' = 16 chars (cabe);
+      // no le añadas '+gemini' (23) o revienta con "value too long".
+      fuente: 'free-exercise-db',
       idioma_original: 'es',
       activo: true,
     });
@@ -393,7 +395,7 @@ async function deactivateOtherSources() {
   const sql = `
     UPDATE ${CONFIG.dbSchema}.${CONFIG.table}
     SET activo = false
-    WHERE fuente IS DISTINCT FROM 'free-exercise-db+gemini' AND activo = true`;
+    WHERE fuente IS DISTINCT FROM 'free-exercise-db' AND activo = true`;
   const res = await getPgPool().query(sql);
   return res.rowCount || 0;
 }
