@@ -39,6 +39,16 @@ class NeonBottomNav extends StatelessWidget {
   final VoidCallback onCenterTap;
   final IconData centerIcon;
 
+  /// Alto del contenido de la barra (iconos + rótulo + paddings), SIN el safe-area.
+  static const double contentHeight = 64;
+
+  /// Espacio total que ocupa la barra en pantalla (contenido + safe-area inferior).
+  /// Úsalo como `padding.bottom` del scroll cuando la barra flota sobre el contenido
+  /// (layout tipo Stack), para que la última fila no quede tapada. Suma un margen extra
+  /// si el FAB central sobresale.
+  static double reservedSpace(BuildContext context) =>
+      contentHeight + MediaQuery.paddingOf(context).bottom;
+
   @override
   Widget build(BuildContext context) {
     assert(destinations.length == 4, 'NeonBottomNav espera 4 destinos');
@@ -57,7 +67,10 @@ class NeonBottomNav extends StatelessWidget {
               right: AppSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: AppColors.surfaceOf(context).withValues(alpha: 0.72),
+              // Casi opaca a propósito: en la referencia openGym la barra es sólida y
+              // el contenido NO se transparenta a través de ella. A 0.72 se "colaban"
+              // las filas de series por detrás; 0.96 lo evita conservando un matiz glass.
+              color: AppColors.surfaceOf(context).withValues(alpha: 0.96),
               border: Border(
                 top: BorderSide(color: AppColors.glassBorderOf(context), width: 1),
               ),

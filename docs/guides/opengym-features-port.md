@@ -27,7 +27,7 @@ sesión ni el 1RM — este motor es justo esa pieza que faltaba.
 | ▶️ Entrenamiento guiado (pre-carga pesos, PR, timer) | ✅ **Entregado** (Fase 2) |
 | ⚖️ Peso corporal con línea de meta | ✅ **Entregado** (Fase 3) |
 | 🟩 Heatmap de actividad | ✅ **Entregado** (Fase 3) |
-| 🏋️ Librería 1.324 ejercicios + filtro equipo | ➖ GymPro ya tiene catálogo (wger); ampliable |
+| 🏋️ Librería de ejercicios + filtro equipo | ✅ Catálogo migrado a **free-exercise-db** (dominio público, el mismo dataset de openGym) vía `scripts/seed-free-exercise-db.js`; wger queda desactivado con `--replace` |
 | ☀️ Pantalla despierta al entrenar | ✅ **Entregado** (`wakelock_plus`, Fase 2) |
 
 ## Fase 1 — Motor (entregado)

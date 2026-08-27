@@ -92,6 +92,39 @@ ListView(
 `Scaffold(bottomNavigationBar: NeonBottomNav(...))` cierra el patrón con el FAB central
 que lanza `GuidedWorkoutScreen`.
 
+### ⚠️ Evitar que la barra tape el contenido (solape del FAB/nav)
+
+`NeonBottomNav` es una barra casi sólida que se apoya abajo. Hay dos formas correctas de
+montarla; ambas evitan que la última fila (p. ej. `LogSetRow`) quede tapada:
+
+1. **Recomendado — como `bottomNavigationBar`:** el `Scaffold` reserva el espacio solo,
+   el `body` nunca pasa por debajo.
+
+   ```dart
+   Scaffold(
+     body: SafeArea(bottom: false, child: contenidoScrollable),
+     bottomNavigationBar: NeonBottomNav(destinations: nav, currentIndex: i, ...),
+   );
+   ```
+
+2. **Barra flotante (Stack, estilo Instagram):** el contenido SÍ pasa por debajo, así que
+   el scroll debe reservar el alto de la barra en su `padding.bottom`:
+
+   ```dart
+   ListView(
+     padding: EdgeInsets.only(
+       left: AppSpacing.xl, right: AppSpacing.xl, top: AppSpacing.lg,
+       bottom: NeonBottomNav.reservedSpace(context) + AppSpacing.md, // ← clave
+     ),
+     children: [...],
+   );
+   ```
+
+   `NeonBottomNav.reservedSpace(context)` = alto del contenido (`contentHeight` 64) +
+   safe-area inferior. El `+ AppSpacing.md` deja aire extra por si el FAB central
+   sobresale. **Sin este padding, la fila de series se "cuela" detrás de la barra** (el
+   bug de la captura).
+
 ## Componentes por pantalla (spec de las 5 pantallas)
 
 Además de los primitivos anteriores, el spec de las 5 pantallas se cubre con estos
