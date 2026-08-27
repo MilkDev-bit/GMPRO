@@ -369,15 +369,6 @@ class _StartWorkoutButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: emerald.withValues(alpha: 0.20),
-                shape: BoxShape.circle,
-              ),
-            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
