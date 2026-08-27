@@ -16,7 +16,7 @@ dependencies:
   passkeys: ^2.22.0                # Autenticación FIDO2 / WebAuthn nativa con Secure Enclave / StrongBox
 
   # ── Almacenamiento Seguro (Keychain / Keystore) ─────────────────────────────
-  flutter_secure_storage: ^9.2.2  # Almacenamiento cifrado en hardware para JWT (AES / Keychain)
+  flutter_secure_storage: ^11.0.0  # Almacenamiento cifrado en hardware para JWT (AES / Keychain)
 
   # ── Animaciones (UI/UX) ─────────────────────────────────────────────────────
   rive: ^0.13.20                  # State Machines interactivos (avatar, botones líquidos)
