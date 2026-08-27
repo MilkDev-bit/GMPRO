@@ -111,7 +111,24 @@ async function ensureBucket() {
   });
   if (res.ok) { log.ok(`Bucket "${CFG.bucket}" creado (público).`); return; }
   const txt = await res.text().catch(() => '');
-  if (res.status === 409 || /already exists/i.test(txt)) { log.info(`Bucket "${CFG.bucket}" ya existe.`); return; }
+  if (res.status === 409 || /already exists/i.test(txt)) {
+    // El bucket ya existía: puede haber sido creado como PRIVADO en su día, y entonces
+    // las URLs /object/public/... devuelven 400/403 → la app no ve los GIF. Lo forzamos
+    // a público de forma idempotente (PUT), sin depender de cómo se creó.
+    const upd = await fetch(`${CFG.supabaseUrl}/storage/v1/bucket/${CFG.bucket}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${CFG.serviceKey}`,
+        apikey: CFG.serviceKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ public: true }),
+    });
+    if (upd.ok) { log.ok(`Bucket "${CFG.bucket}" ya existía → asegurado como público.`); return; }
+    const utxt = await upd.text().catch(() => '');
+    log.warn(`Bucket "${CFG.bucket}" existe pero no se pudo forzar público (${upd.status}): ${utxt}. Hazlo manual en Supabase → Storage.`);
+    return;
+  }
   throw new Error(`No se pudo crear el bucket (${res.status}): ${txt}`);
 }
 

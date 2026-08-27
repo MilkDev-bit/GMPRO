@@ -5,6 +5,7 @@
 
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -125,6 +126,12 @@ class _ExercisingView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Demostración del ejercicio (GIF animado / imagen), si el catálogo la tiene.
+          if (ex.coverUrl != null && ex.coverUrl!.isNotEmpty) ...[
+            _ExerciseMedia(url: ex.coverUrl!),
+            const SizedBox(height: 16),
+          ],
+
           // Progreso del día.
           Text(
             'EJERCICIO ${state.exerciseIndex + 1}/${state.plans.length}',
@@ -358,6 +365,44 @@ class _FinishedView extends StatelessWidget {
 }
 
 // ── Componentes ───────────────────────────────────────────────────────────────
+/// Demostración del ejercicio: GIF animado (o imagen). Los frames de free-exercise-db
+/// tienen fondo claro, así que el contenedor va en blanco para que se vean bien.
+class _ExerciseMedia extends StatelessWidget {
+  const _ExerciseMedia({required this.url});
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: AspectRatio(
+        aspectRatio: 16 / 10,
+        child: Container(
+          color: Colors.white,
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.contain,
+            placeholder: (_, __) => Container(
+              color: AppColors.darkSurfaceElevated,
+              alignment: Alignment.center,
+              child: const SizedBox(
+                width: 28, height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.neonCyan),
+              ),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              color: AppColors.darkSurfaceElevated,
+              alignment: Alignment.center,
+              child: const Icon(Icons.fitness_center_rounded,
+                  color: AppColors.textMuted, size: 40),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Stepper extends StatelessWidget {
   const _Stepper({
     required this.label,
