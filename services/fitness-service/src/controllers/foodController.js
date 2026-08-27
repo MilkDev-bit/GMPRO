@@ -110,6 +110,58 @@ const FALLBACK_OPEN_FOOD_FACTS = [
  * GET /api/v1/foods/search?q=avena
  * Busca alimentos por nombre o marca en la base de datos o en memoria.
  */
+/**
+ * Búsqueda EN VIVO contra la API pública de Open Food Facts (es.openfoodfacts.org).
+ * Se usa cuando `catalogo_alimentos` no está poblada (o no matchea): así el socio
+ * puede buscar en el catálogo completo de OFF y no solo en el fallback fijo.
+ * Best-effort: ante cualquier fallo/timeout devuelve [].
+ */
+async function searchOpenFoodFactsLive(term) {
+  const url = 'https://es.openfoodfacts.org/cgi/search.pl'
+    + `?search_terms=${encodeURIComponent(term)}`
+    + '&search_simple=1&action=process&json=1&page_size=30'
+    + '&fields=code,product_name,product_name_es,brands,nutriments';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'GymPro/1.0 (fitness-service)' },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const products = Array.isArray(data.products) ? data.products : [];
+    const seen = new Set();
+    const out = [];
+    for (const p of products) {
+      const nombre = (p.product_name_es || p.product_name || '').trim();
+      if (!nombre) continue;
+      const key = nombre.toLowerCase();
+      if (seen.has(key)) continue;
+      const n = p.nutriments || {};
+      const kcal = Number(n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0);
+      if (!(kcal > 0)) continue; // descarta productos sin datos nutricionales útiles
+      seen.add(key);
+      out.push({
+        codigo_barras: String(p.code || '').trim() || '0000000000000',
+        nombre: nombre.slice(0, 120),
+        marca: String(p.brands || '').split(',')[0].trim() || 'Genérico',
+        calorias_100g: kcal,
+        proteinas_100g: Number(n.proteins_100g ?? 0),
+        carbohidratos_100g: Number(n.carbohydrates_100g ?? 0),
+        grasas_100g: Number(n.fat_100g ?? 0),
+        es_open_food_facts: true,
+      });
+    }
+    return out;
+  } catch (err) {
+    logger.warn('Open Food Facts live search falló', { error: err.message });
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function searchFoods(req, res, next) {
   try {
     // ── Saneamiento anti-inyección PostgREST ────────────────────────────────
@@ -130,6 +182,12 @@ async function searchFoods(req, res, next) {
       if (rows.length > 0) results = rows;
     } catch (dbErr) {
       logger.warn('Error al consultar catalogo_alimentos en Supabase, usando fallback', { error: dbErr.message });
+    }
+
+    // Si la tabla local no tiene resultados, buscamos EN VIVO en Open Food Facts
+    // (catálogo completo) antes de caer al fallback fijo de emergencia.
+    if (results.length === 0) {
+      results = await searchOpenFoodFactsLive(safeQuery);
     }
 
     if (results.length === 0) {
