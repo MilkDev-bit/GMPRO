@@ -212,10 +212,7 @@ class _ExercisingView extends ConsumerWidget {
               height: 58,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  Color.lerp(AppColors.neonPurple, AppColors.darkBackground, 0.18)!,
-                  Color.lerp(AppColors.neonPink, AppColors.darkBackground, 0.18)!,
-                ]),
+                gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(28),
               ),
               child: Text(
@@ -339,7 +336,7 @@ class _FinishedView extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               '${state.plans.length} ejercicios · $totalSets series'
-              '${state.prs.isNotEmpty ? ' · ${state.prs.length} PR 🏆' : ''}',
+              '${state.prs.isNotEmpty ? ' · ${state.prs.length} PR' : ''}',
               style: AppTypography.bodyLarge.copyWith(color: Colors.white70),
               textAlign: TextAlign.center,
             ),

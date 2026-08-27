@@ -165,7 +165,7 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
                 duration: const Duration(milliseconds: 500),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [_headerColor.withValues(alpha: 0.6), AppColors.background],
+                    colors: [_headerColor.withValues(alpha: 0.32), AppColors.background],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),

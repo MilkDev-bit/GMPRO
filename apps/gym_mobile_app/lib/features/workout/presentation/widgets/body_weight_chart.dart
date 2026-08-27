@@ -173,7 +173,7 @@ class BodyWeightChart extends StatelessWidget {
   }
 
   String _goalHint(double remaining) {
-    if (remaining.abs() < 0.05) return 'En tu meta 🎯';
+    if (remaining.abs() < 0.05) return 'En tu meta';
     return remaining < 0
         ? 'Faltan ${(-remaining).toStringAsFixed(1)} kg por bajar'
         : 'Faltan ${remaining.toStringAsFixed(1)} kg por subir';
