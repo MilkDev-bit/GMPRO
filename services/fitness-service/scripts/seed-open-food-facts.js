@@ -33,7 +33,12 @@ const flag = (n) => args.includes(`--${n}`);
 const flagVal = (n, d) => { const i = args.indexOf(`--${n}`); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
 
 const CONFIG = {
-  dbUrl: process.env.SEED_DATABASE_URL || process.env.SUPABASE_DB_URL || process.env.DATABASE_URL || '',
+  // Reutiliza la MISMA conexión del fitness-service (FITNESS_DATABASE_URL, ya en el .env).
+  dbUrl: process.env.SEED_DATABASE_URL
+      || process.env.FITNESS_DATABASE_URL
+      || process.env.SUPABASE_DB_URL
+      || process.env.DATABASE_URL
+      || '',
   dbSchema: process.env.SEED_DB_SCHEMA || 'fitness_service_db',
   table: 'catalogo_alimentos',
   dryRun: flag('dry-run'),
