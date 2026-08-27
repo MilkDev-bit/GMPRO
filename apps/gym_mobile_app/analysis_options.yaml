@@ -14,6 +14,13 @@ analyzer:
     # Código GENERADO por Isar (build_runner). No es editable a mano y su API
     # marca métodos de índice como experimentales → ruido en el análisis.
     - "**/*.g.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # The lint rules applied to this project can be customized in the

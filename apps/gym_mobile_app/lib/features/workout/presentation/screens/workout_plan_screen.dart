@@ -173,13 +173,6 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.insights_rounded, color: AppColors.neonCyan),
-                tooltip: 'Estadísticas y progreso',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const StatsScreen()),
-                ),
-              ),
-              IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: AppColors.neonPurple),
                 tooltip: 'Regenerar rutina con IA',
                 onPressed: () => WorkoutProfileSheet.show(context),
@@ -206,6 +199,26 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
             padding: const EdgeInsets.fromLTRB(0, 16, 0, 120),
             sliver: SliverList.list(
               children: [
+                // ── CTA PRIMARIO: EMPEZAR ENTRENAMIENTO GUIADO ────────────
+                if (_currentExercises.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: _StartWorkoutButton(
+                      dayLabel: _currentDay.dia.split('—').first.trim(),
+                      onTap: _startGuidedWorkout,
+                    ),
+                  ),
+
+                // ── ACCESO A ESTADÍSTICAS (botón claro, sobre el mapa) ─────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: _StatsAccessButton(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const StatsScreen()),
+                    ),
+                  ),
+                ),
+
                 // ── MAPA ANATÓMICO ────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -308,6 +321,120 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
             );
           }
         },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CTA PRIMARIO: EMPEZAR ENTRENAMIENTO GUIADO
+// ─────────────────────────────────────────────────────────────────────────────
+class _StartWorkoutButton extends StatelessWidget {
+  const _StartWorkoutButton({required this.dayLabel, required this.onTap});
+  final String dayLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final emerald = AppColors.neonEmerald;
+    return Pressable(
+      haptic: PressHaptic.medium,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [emerald.withValues(alpha: 0.22), emerald.withValues(alpha: 0.12)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: emerald.withValues(alpha: 0.55), width: 1.2),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: emerald.withValues(alpha: 0.20),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.play_arrow_rounded, color: emerald, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Empezar entrenamiento',
+                    style: AppTypography.buttonLabel.copyWith(
+                        color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    'Guiado · $dayLabel',
+                    style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: emerald, size: 24),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTÓN DE ACCESO A ESTADÍSTICAS (peso corporal + heatmap)
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatsAccessButton extends StatelessWidget {
+  const _StatsAccessButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cyan = AppColors.accentCyanOf(context);
+    return Pressable(
+      haptic: PressHaptic.selection,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: cyan.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cyan.withValues(alpha: 0.40), width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.insights_rounded, color: cyan, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Mi progreso',
+                    style: AppTypography.buttonLabel.copyWith(
+                        color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    'Peso corporal y actividad',
+                    style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: cyan, size: 22),
+          ],
+        ),
       ),
     );
   }

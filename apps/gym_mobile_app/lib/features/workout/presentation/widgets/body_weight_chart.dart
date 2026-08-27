@@ -20,7 +20,9 @@ class BodyWeightChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = AppColors.accentCyanOf(context);
 
-    if (series.entries.length < 2) {
+    // Solo mostramos el placeholder si NO hay NADA que dibujar (ni pesos ni meta).
+    // Con 1 solo peso ya pintamos el punto, y la meta se dibuja aunque no haya pesos.
+    if (series.entries.isEmpty && series.goalKg == null) {
       return GlassSurface(
         borderRadius: 24,
         padding: const EdgeInsets.all(24),
@@ -28,7 +30,7 @@ class BodyWeightChart extends StatelessWidget {
           height: height - 48,
           child: Center(
             child: Text(
-              'Registra tu peso al menos dos días\npara ver la tendencia.',
+              'Registra tu peso y fija una meta\npara empezar a ver tu progreso.',
               textAlign: TextAlign.center,
               style: AppTypography.bodyMedium.copyWith(color: AppColors.textMuted),
             ),
@@ -37,8 +39,10 @@ class BodyWeightChart extends StatelessWidget {
       );
     }
 
-    // Rango vertical con margen, incluyendo la meta si está fijada.
-    double lo = series.minKg, hi = series.maxKg;
+    // Rango vertical con margen, robusto para 0/1 puntos e incluyendo la meta.
+    final hasEntries = series.entries.isNotEmpty;
+    double lo = hasEntries ? series.minKg : series.goalKg!;
+    double hi = hasEntries ? series.maxKg : series.goalKg!;
     if (series.goalKg != null) {
       lo = lo < series.goalKg! ? lo : series.goalKg!;
       hi = hi > series.goalKg! ? hi : series.goalKg!;
@@ -50,6 +54,12 @@ class BodyWeightChart extends StatelessWidget {
       for (int i = 0; i < series.entries.length; i++)
         FlSpot(i.toDouble(), series.entries[i].kg),
     ];
+
+    // Con 0/1 puntos damos un rango X mínimo para que el punto/meta se vean
+    // centrados y el grid se dibuje (fl_chart no infiere rango sin ≥2 spots).
+    final n = series.entries.length;
+    final minX = n <= 1 ? -0.5 : 0.0;
+    final maxX = n <= 1 ? 0.5 : (n - 1).toDouble();
 
     return GlassSurface(
       borderRadius: 24,
@@ -78,6 +88,8 @@ class BodyWeightChart extends StatelessWidget {
             height: height,
             child: LineChart(
               LineChartData(
+                minX: minX,
+                maxX: maxX,
                 minY: minY,
                 maxY: maxY,
                 gridData: FlGridData(
