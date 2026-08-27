@@ -45,18 +45,20 @@ class NutritionPlanScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'PLAN NUTRICIONAL',
+                        'NUTRICIÓN · ${plan.objetivo}'.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: AppColors.neonCyan,
-                          letterSpacing: 2,
+                          letterSpacing: 1.5,
                         ),
                       ),
                       Text(
-                        plan.nombre,
+                        'Plan semanal',
                         style: GoogleFonts.outfit(
-                          fontSize: 17,
+                          fontSize: 22,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                         ),

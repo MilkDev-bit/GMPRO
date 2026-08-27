@@ -122,7 +122,7 @@ class _ExercisingView extends ConsumerWidget {
     final isBodyweight = state.currentPlan!.config.kind == ExerciseKind.bodyweight;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).padding.bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -373,8 +373,11 @@ class _ExerciseMedia extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
-      child: AspectRatio(
-        aspectRatio: 4 / 3,
+      child: SizedBox(
+        // Altura compacta (antes 4:3 ≈ 540px ocupaba media pantalla y empujaba el
+        // botón "Registrar serie" fuera de la vista).
+        height: 200,
+        width: double.infinity,
         child: CachedNetworkImage(
           imageUrl: url,
           fit: BoxFit.cover,

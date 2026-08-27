@@ -142,25 +142,28 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
             pinned: true,
             expandedHeight: 120,
             flexibleSpace: FlexibleSpaceBar(
-              // Espacio a la derecha para que el título no quede bajo el botón ↻.
               titlePadding: const EdgeInsets.fromLTRB(20, 0, 64, 16),
+              // Título corto fijo + subtítulo con el tipo/nivel: nunca desborda,
+              // por largo que sea el nombre generado por la IA.
               title: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.plan.nivel.toUpperCase(),
+                    '${widget.plan.objetivo} · ${widget.plan.nivel}'.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 9,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: AppColors.neonPurple,
-                      letterSpacing: 2,
+                      letterSpacing: 1.5,
                     ),
                   ),
                   Text(
-                    widget.plan.nombre,
+                    'Plan semanal',
                     style: GoogleFonts.outfit(
-                      fontSize: 17,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                     ),
