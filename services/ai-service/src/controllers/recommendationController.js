@@ -315,11 +315,17 @@ async function generateDietPlan(req, res, next) {
       edad          = 25,
       actividad     = 'moderada',
       restricciones = 'ninguna',
+      ingredientes  = '',
     } = req.body;
 
     const checkRestricciones = sanitizerService.sanitizeUserPrompt(restricciones);
     if (!checkRestricciones.isValid) {
       return res.status(400).json({ success: false, data: null, error: checkRestricciones.rejectionReason });
+    }
+    // Ingredientes que el socio dice tener en casa (texto libre → saneado).
+    const checkIngredientes = sanitizerService.sanitizeUserPrompt(ingredientes || 'ninguno');
+    if (!checkIngredientes.isValid) {
+      return res.status(400).json({ success: false, data: null, error: checkIngredientes.rejectionReason });
     }
     // `objetivo` y `actividad` son texto libre del cliente: sanear también.
     const checkObjetivoD  = sanitizerService.sanitizeUserPrompt(objetivo);
@@ -334,7 +340,9 @@ async function generateDietPlan(req, res, next) {
     // ── Caché por VARIANTE nutricional: rota entre PLAN_VARIANTS planes distintos
     // por perfil, para que el socio no reciba siempre la misma dieta.
     const hash = profileHash({
-      objetivo, pesoKg, estaturaCm, edad, actividad, restricciones: checkRestricciones.sanitized,
+      objetivo, pesoKg, estaturaCm, edad, actividad,
+      restricciones: checkRestricciones.sanitized,
+      ingredientes: checkIngredientes.sanitized,
     });
     const variant = await nextVariant(req.redisClient, 'diet', usuarioId, hash);
     const cacheKey = buildCacheKey('diet', usuarioId, hash, variant);
@@ -358,6 +366,14 @@ arroz y avena). Usa <variante_solicitada> como semilla de diversidad: cada núme
 debe producir un menú claramente DISTINTO en alimentos y preparaciones, respetando
 las calorías/macros del objetivo y las restricciones del socio.
 
+## INGREDIENTES DISPONIBLES (PRIORIDAD)
+Si <datos_socio> trae "ingredientes_disponibles" con contenido real (distinto de
+"ninguno"/"ninguna"/vacío), CONSTRUYE el menú priorizando esos ingredientes: úsalos en
+la mayor cantidad de comidas posible y minimiza los alimentos que el socio NO mencionó.
+Puedes añadir básicos de despensa (sal, aceite, especias, agua) y 1-2 complementos si
+son imprescindibles para cuadrar los macros, pero el plan debe sentirse "hecho con lo
+que tengo". Si la lista está vacía o es "ninguno", diseña el plan con libertad.
+
 ## RECETA (OBLIGATORIO)
 Cada comida DEBE incluir "preparacion": un arreglo de 3 a 6 pasos BREVES y en ORDEN
 para cocinarla (imperativo, sin numerar, sin markdown). No repitas los ingredientes
@@ -379,6 +395,7 @@ estatura_cm: ${Number(estaturaCm)}
 edad: ${Number(edad)}
 actividad: ${checkActividad.sanitized}
 restricciones_alimentarias: ${checkRestricciones.sanitized}
+ingredientes_disponibles: ${checkIngredientes.sanitized}
 </datos_socio>
 <variante_solicitada>${variant + 1} de ${PLAN_VARIANTS} — entrega un menú distinto a las demás variantes (semilla ${crypto.randomBytes(4).toString('hex')})</variante_solicitada>`;
 

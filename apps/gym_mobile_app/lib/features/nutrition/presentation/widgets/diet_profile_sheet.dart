@@ -12,6 +12,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/presentation/widgets/premium_loading_overlay.dart';
 import '../providers/nutrition_provider.dart';
+import 'ingredient_picker_sheet.dart';
 
 class DietProfileSheet extends ConsumerStatefulWidget {
   const DietProfileSheet({super.key});
@@ -37,6 +38,8 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
   late final TextEditingController _peso;
   late final TextEditingController _estatura;
   late final TextEditingController _edad;
+  // Ingredientes que el socio quiere incluir (elegidos del catálogo, por nombre).
+  List<String> _ingredientes = [];
   String _objetivo = 'hipertrofia';
   String _actividad = 'moderado';
   bool _submitting = false;
@@ -62,6 +65,11 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
     _peso = TextEditingController(text: p.pesoKg.toStringAsFixed(0));
     _estatura = TextEditingController(text: p.estaturaCm.toStringAsFixed(0));
     _edad = TextEditingController(text: p.edad.toString());
+    _ingredientes = p.ingredientes
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     _objetivo = _objetivos.containsKey(p.objetivo) ? p.objetivo : 'hipertrofia';
     _actividad = _actividades.containsKey(p.actividad) ? p.actividad : 'moderado';
   }
@@ -72,6 +80,14 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
     _estatura.dispose();
     _edad.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickIngredients() async {
+    FocusScope.of(context).unfocus();
+    final result = await showIngredientPicker(context, initial: _ingredientes);
+    if (result != null && mounted) {
+      setState(() => _ingredientes = result);
+    }
   }
 
   Future<void> _submit() async {
@@ -94,6 +110,7 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
           estaturaCm: double.tryParse(_estatura.text.trim()),
           edad: int.tryParse(_edad.text.trim()),
           actividad: _actividad,
+          ingredientes: _ingredientes.join(', '),
         );
     overlay.hide();
     if (!mounted) return;
@@ -158,6 +175,21 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
               _label('Nivel de actividad'),
               const SizedBox(height: 8),
               _dropdown(_actividad, _actividades, (v) => setState(() => _actividad = v ?? _actividad)),
+
+              const SizedBox(height: 18),
+              _label('Ingredientes a incluir (opcional)'),
+              const SizedBox(height: 8),
+              _IngredientSelector(
+                seleccionados: _ingredientes,
+                onEdit: _pickIngredients,
+                onRemove: (n) => setState(() => _ingredientes.remove(n)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Elige alimentos del catálogo y el plan se armará priorizándolos.',
+                style: AppTypography.caption.copyWith(color: AppColors.textMuted, fontSize: 12),
+              ),
+
               if (_error != null) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -290,6 +322,89 @@ class _DietProfileSheetState extends ConsumerState<DietProfileSheet> {
         borderSide: const BorderSide(color: Colors.redAccent, width: 1.4),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+    );
+  }
+}
+
+/// Selector de ingredientes: chips de lo elegido + botón para abrir el buscador.
+class _IngredientSelector extends StatelessWidget {
+  const _IngredientSelector({
+    required this.seleccionados,
+    required this.onEdit,
+    required this.onRemove,
+  });
+
+  final List<String> seleccionados;
+  final VoidCallback onEdit;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final emerald = AppColors.accentEmeraldOf(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (seleccionados.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final n in seleccionados)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+                  decoration: BoxDecoration(
+                    color: emerald.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: emerald.withValues(alpha: 0.40), width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          n,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                              fontSize: 13, fontWeight: FontWeight.w700, color: emerald),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => onRemove(n),
+                        child: Icon(Icons.close_rounded, size: 16, color: emerald),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onEdit,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevatedOf(context),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: emerald.withValues(alpha: 0.35), width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.add_circle_outline_rounded, size: 20, color: emerald),
+                const SizedBox(width: 10),
+                Text(
+                  seleccionados.isEmpty ? 'Seleccionar ingredientes' : 'Editar ingredientes',
+                  style: AppTypography.buttonLabel.copyWith(fontSize: 14, color: emerald),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

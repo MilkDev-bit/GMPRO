@@ -45,6 +45,7 @@ router.post(
     body('objetivo').optional().isString(),
     body('pesoKg').optional().isNumeric(),
     body('estaturaCm').optional().isNumeric(),
+    body('ingredientes').optional().isString().isLength({ max: 600 }),
   ],
   validate,
   recommendationController.generateDietPlan

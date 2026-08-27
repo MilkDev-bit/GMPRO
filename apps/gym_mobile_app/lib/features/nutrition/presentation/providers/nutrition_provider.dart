@@ -23,6 +23,7 @@ class DietProfile {
     this.estaturaCm = 175.0,
     this.edad = 25,
     this.actividad = 'moderado',
+    this.ingredientes = '',
     this.isComplete = false,
   });
 
@@ -31,6 +32,9 @@ class DietProfile {
   final double estaturaCm;
   final int edad;
   final String actividad;
+
+  /// Ingredientes que el socio dice tener en casa. Vacío = plan con libertad.
+  final String ingredientes;
 
   /// true una vez que el socio guardó/generó con sus propios datos.
   final bool isComplete;
@@ -57,6 +61,7 @@ class DietProfile {
     double? estaturaCm,
     int? edad,
     String? actividad,
+    String? ingredientes,
     bool? isComplete,
   }) {
     return DietProfile(
@@ -65,6 +70,7 @@ class DietProfile {
       estaturaCm: estaturaCm ?? this.estaturaCm,
       edad: edad ?? this.edad,
       actividad: actividad ?? this.actividad,
+      ingredientes: ingredientes ?? this.ingredientes,
       isComplete: isComplete ?? this.isComplete,
     );
   }
@@ -75,6 +81,7 @@ class DietProfile {
         'estaturaCm': estaturaCm,
         'edad': edad,
         'actividad': actividad,
+        'ingredientes': ingredientes,
         'isComplete': isComplete,
       };
 
@@ -84,6 +91,7 @@ class DietProfile {
         estaturaCm: (j['estaturaCm'] as num?)?.toDouble() ?? 175.0,
         edad: (j['edad'] as num?)?.toInt() ?? 25,
         actividad: (j['actividad'] as String?) ?? 'moderado',
+        ingredientes: (j['ingredientes'] as String?) ?? '',
         isComplete: (j['isComplete'] as bool?) ?? true,
       );
 }
@@ -187,6 +195,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
   double lastEstaturaCm = 175.0;
   int    lastEdad       = 25;
   String lastActividad  = 'moderado';
+  String lastIngredientes = '';
 
   /// Carga el perfil persistido al arrancar (para prellenar el formulario y que
   /// Ajustes muestre los datos reales del socio) y la última dieta generada, para
@@ -200,6 +209,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
       lastEstaturaCm = p.estaturaCm;
       lastEdad       = p.edad;
       lastActividad  = p.actividad;
+      lastIngredientes = p.ingredientes;
       if (mounted) state = state.copyWith(profile: p);
     }
     // Rehidratar la dieta persistida (JSON crudo de la última generación).
@@ -222,6 +232,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         estaturaCm: lastEstaturaCm,
         edad: lastEdad,
         actividad: lastActividad,
+        ingredientes: lastIngredientes,
         isComplete: true,
       );
 
@@ -256,12 +267,14 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     double? estaturaCm,
     int? edad,
     String? actividad,
+    String? ingredientes,
   }) async {
     lastObjetivo   = objetivo   ?? lastObjetivo;
     lastPesoKg     = pesoKg     ?? lastPesoKg;
     lastEstaturaCm = estaturaCm ?? lastEstaturaCm;
     lastEdad       = edad       ?? lastEdad;
     lastActividad  = actividad  ?? lastActividad;
+    lastIngredientes = ingredientes ?? lastIngredientes;
 
     // Persistimos el perfil: queda como fuente de verdad para prellenar el
     // formulario y editarlo desde Ajustes aunque se cierre la app.
@@ -276,11 +289,12 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         // (por eso salían datos mockeados en vez de la dieta calculada real).
         '${AppConfig.aiServiceBaseUrl}/recommendations/diet',
         data: {
-          'objetivo':   lastObjetivo,
-          'pesoKg':     lastPesoKg,
-          'estaturaCm': lastEstaturaCm,
-          'edad':       lastEdad,
-          'actividad':  lastActividad,
+          'objetivo':    lastObjetivo,
+          'pesoKg':      lastPesoKg,
+          'estaturaCm':  lastEstaturaCm,
+          'edad':        lastEdad,
+          'actividad':   lastActividad,
+          'ingredientes': lastIngredientes,
         },
       );
 
