@@ -17,6 +17,7 @@ import '../../domain/entities/workout_entities.dart';
 import '../../domain/muscle_catalog.dart';
 import '../widgets/interactive_anatomy_map.dart';
 import '../widgets/workout_profile_sheet.dart';
+import '../../../nutrition/presentation/widgets/weight_check_banner.dart';
 import 'guided_workout_screen.dart';
 import 'stats_screen.dart';
 
@@ -214,6 +215,12 @@ class _WorkoutPlanScreenState extends ConsumerState<WorkoutPlanScreen>
             padding: const EdgeInsets.fromLTRB(0, 16, 0, 120),
             sliver: SliverList.list(
               children: [
+                // ── SEGUIMIENTO DE PESO (recordatorio / reajuste de AMBOS planes) ──
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: WeightCheckBanner(),
+                ),
+
                 // ── CTA PRIMARIO: EMPEZAR ENTRENAMIENTO GUIADO ────────────
                 if (_currentExercises.isNotEmpty)
                   Padding(

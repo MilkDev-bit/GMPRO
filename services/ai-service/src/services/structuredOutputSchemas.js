@@ -66,19 +66,17 @@ function geminiRoutineSchema() {
 
 // ── GEMINI: dieta con macros numéricos estrictos ─────────────────────────────
 function geminiDietSchema() {
+  // AHORRO DE TOKENS: el modelo SOLO emite nombre + gramos por alimento. Los macros
+  // (calorias/proteínas/carbos/grasas por 100 g) y el código de barras los rellena el
+  // backend desde catalogo_alimentos (reconcilePlanFoods → applyVerifiedSource). Esto
+  // recorta ~70% del tamaño de cada comida (antes 8 campos por alimento, ahora 2).
   const foodSchema = {
     type: 'OBJECT',
     properties: {
-      codigo_barras:      { type: 'STRING' },
-      nombre:             { type: 'STRING' },
-      marca:              { type: 'STRING' },
-      porcion_g:          { type: 'NUMBER' },
-      calorias_100g:      { type: 'NUMBER' },
-      proteinas_100g:     { type: 'NUMBER' },
-      carbohidratos_100g: { type: 'NUMBER' },
-      grasas_100g:        { type: 'NUMBER' },
+      nombre:    { type: 'STRING' },
+      porcion_g: { type: 'NUMBER' },
     },
-    required: ['nombre', 'porcion_g', 'calorias_100g', 'proteinas_100g', 'carbohidratos_100g', 'grasas_100g'],
+    required: ['nombre', 'porcion_g'],
   };
   return {
     type: 'OBJECT',

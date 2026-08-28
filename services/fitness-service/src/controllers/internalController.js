@@ -45,6 +45,49 @@ async function getUserContext(req, res, next) {
  * Body: { barcodes?: string[], name?: string }
  * Respuesta: { by_barcode: { <code>: food }, by_name: food|null }
  */
+/**
+ * Búsqueda EN VIVO por nombre en Open Food Facts (es). Devuelve el primer producto
+ * con datos nutricionales útiles, mapeado a la forma de catalogo_alimentos. Best-effort:
+ * ante fallo/timeout devuelve null. Refuerza la cobertura del catálogo local.
+ */
+async function offByName(name) {
+  const url = 'https://es.openfoodfacts.org/cgi/search.pl'
+    + `?search_terms=${encodeURIComponent(name)}`
+    + '&search_simple=1&action=process&json=1&page_size=5'
+    + '&fields=code,product_name,product_name_es,brands,nutriments';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'GymPro/1.0 (fitness-service)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    for (const p of (Array.isArray(data.products) ? data.products : [])) {
+      const nombre = (p.product_name_es || p.product_name || '').trim();
+      const n = p.nutriments || {};
+      const kcal = Number(n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0);
+      if (!nombre || !(kcal > 0)) continue;
+      return {
+        codigo_barras: String(p.code || '').trim() || null,
+        nombre: nombre.slice(0, 120),
+        marca: String(p.brands || '').split(',')[0].trim() || 'Genérico',
+        calorias_100g: kcal,
+        proteinas_100g: Number(n.proteins_100g ?? 0),
+        carbohidratos_100g: Number(n.carbohydrates_100g ?? 0),
+        grasas_100g: Number(n.fat_100g ?? 0),
+      };
+    }
+    return null;
+  } catch (err) {
+    logger.warn('verifyFoods: OFF-live por nombre falló', { name, error: err.message });
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function verifyFoods(req, res, next) {
   try {
     const { barcodes = [], name = null } = req.body || {};
@@ -83,6 +126,12 @@ async function verifyFoods(req, res, next) {
         if (r.rows[0]) found = r.rows[0];
       } catch (dbErr) {
         logger.warn('verifyFoods: fallo búsqueda por nombre, usando fallback', { error: dbErr.message });
+      }
+      // Refuerzo de cobertura: si el catálogo local no matchea, buscamos EN VIVO en
+      // Open Food Facts antes de caer al fallback fijo. Así casi cualquier alimento
+      // que nombre la IA se resuelve con macros reales (no queda "estimado" en 0).
+      if (!found) {
+        found = await offByName(safeName);
       }
       if (!found) {
         const qLower = safeName.toLowerCase();

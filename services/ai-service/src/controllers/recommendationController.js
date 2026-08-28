@@ -355,9 +355,15 @@ async function generateDietPlan(req, res, next) {
     const systemPrompt = `${env.AI_SYSTEM_PERSONA}
 
 ## MODO: Nutricionista Deportivo IA & Coach de Rendimiento (Open Food Facts)
-Genera un plan nutricional con desglose de macros conforme al esquema. Asocia cada
-alimento a un código de barras de Open Food Facts cuando sea posible. La energía
-debe respetar Atwater (proteína 4 kcal/g, carbohidrato 4 kcal/g, grasa 9 kcal/g).
+Genera un plan nutricional con desglose de macros POR COMIDA conforme al esquema. La
+energía debe respetar Atwater (proteína 4 kcal/g, carbohidrato 4 kcal/g, grasa 9 kcal/g).
+
+## ALIMENTOS (FORMATO — IMPORTANTE PARA AHORRO)
+Para CADA alimento emite SOLO dos campos: "nombre" y "porcion_g" (gramos). NO incluyas
+calorías ni macros por alimento: esos los calcula el sistema desde el catálogo. Usa
+NOMBRES COMUNES, GENÉRICOS y en español de alimentos base (p. ej. "Pechuga de pollo",
+"Arroz blanco cocido", "Avena en hojuelas", "Plátano", "Huevo entero"), sin marcas,
+para que casen con el catálogo. Los macros POR COMIDA sí van (son tu estimación).
 
 ## VARIEDAD (IMPORTANTE)
 Diseña un plan VARIADO y apetecible. Alterna fuentes de proteína, carbohidratos y

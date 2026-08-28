@@ -62,6 +62,7 @@ class QrAccessNotifier extends StateNotifier<QrAccessState> {
   final GenerateDynamicQrUseCase _generateDynamicQr;
   final Ref _ref;
   Timer? _countdownTimer;
+  bool _fetching = false; // evita peticiones concurrentes que hacen "flapear" el QR
 
   QrAccessNotifier(this._generateDynamicQr, this._ref) : super(const QrAccessState());
 
@@ -96,38 +97,44 @@ class QrAccessNotifier extends StateNotifier<QrAccessState> {
 
   /// Consulta el nuevo token encriptado AES-256 al servidor de accesos.
   Future<void> _fetchNewQrToken() async {
+    if (_fetching) return; // ya hay una petición en curso → no la dupliques
+    _fetching = true;
     if (state.status != QrStatus.active) {
       state = state.copyWith(status: QrStatus.loading);
     }
 
-    final result = await _generateDynamicQr();
-    result.fold(
-      (failure) {
-        if (failure is AuthFailure && failure.statusCode == 402) {
-          stopRefresh();
-          state = state.copyWith(status: QrStatus.paymentRequired);
-        } else {
+    try {
+      final result = await _generateDynamicQr();
+      result.fold(
+        (failure) {
+          if (failure is AuthFailure && failure.statusCode == 402) {
+            stopRefresh();
+            state = state.copyWith(status: QrStatus.paymentRequired);
+          } else {
+            state = state.copyWith(
+              status: QrStatus.error,
+              errorMessage: failure.message,
+            );
+          }
+        },
+        (token) {
           state = state.copyWith(
-            status: QrStatus.error,
-            errorMessage: failure.message,
+            status: QrStatus.active,
+            qrToken: token,
+            secondsRemaining: token.refreshInterval,
           );
-        }
-      },
-      (token) {
-        state = state.copyWith(
-          status: QrStatus.active,
-          qrToken: token,
-          secondsRemaining: token.refreshInterval,
-        );
-        // Sincronizar automáticamente con Apple Watch / Wear OS
-        try {
-          _ref.read(wearableControllerProvider.notifier).syncQrToken(
-                token: token.token,
-                expiresAt: token.expiresAt,
-              );
-        } catch (_) {}
-      },
-    );
+          // Sincronizar automáticamente con Apple Watch / Wear OS
+          try {
+            _ref.read(wearableControllerProvider.notifier).syncQrToken(
+                  token: token.token,
+                  expiresAt: token.expiresAt,
+                );
+          } catch (_) {}
+        },
+      );
+    } finally {
+      _fetching = false;
+    }
   }
 
   /// Ticker interno de 1 segundo que decrementa la cuenta regresiva.

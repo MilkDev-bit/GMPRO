@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../workout/presentation/providers/body_stats_provider.dart';
+import '../../../workout/presentation/providers/workout_provider.dart';
 import '../providers/nutrition_provider.dart';
 
 const double _kDriftKg = 2.0;      // desviación de peso que dispara el reajuste
@@ -28,12 +29,15 @@ class WeightCheckBanner extends ConsumerWidget {
     ref.watch(nutritionProvider.select((s) => s.plan));
     final weightAsync = ref.watch(bodyWeightProvider);
     final planPeso = ref.read(nutritionProvider.notifier).planPesoKg;
+    final planFecha = ref.read(nutritionProvider.notifier).planFecha;
 
     final series = weightAsync.value;
     final latest = series?.latest;
 
-    // ── Caso REAJUSTE: hay plan y el peso se desvió del peso base ───────────────
-    if (planPeso > 0 && latest != null) {
+    // ── Caso REAJUSTE: te pesaste DESPUÉS de crear el plan y el peso se desvió ───
+    // (si el pesaje es anterior al plan, no hubo cambio real → no molestamos).
+    final pesajeTrasPlan = latest != null && planFecha != null && latest.date.isAfter(planFecha);
+    if (planPeso > 0 && latest != null && pesajeTrasPlan) {
       final drift = latest.kg - planPeso;
       if (drift.abs() >= _kDriftKg) {
         final bajo = drift < 0;
@@ -42,12 +46,17 @@ class WeightCheckBanner extends ConsumerWidget {
           icon: Icons.tune_rounded,
           title: 'Tu peso cambió ${drift.abs().toStringAsFixed(1)} kg',
           subtitle: bajo
-              ? 'Bajaste desde que se creó tu plan. Reajústalo para no estancarte.'
-              : 'Subiste desde que se creó tu plan. Reajústalo para seguir en objetivo.',
+              ? 'Bajaste desde que se crearon tus planes. Reajusta dieta y rutina para no estancarte.'
+              : 'Subiste desde que se crearon tus planes. Reajusta dieta y rutina para seguir en objetivo.',
           actionLabel: 'Reajustar',
           onAction: () {
             HapticFeedback.mediumImpact();
+            // El peso alimenta AMBOS planes (la rutina toma pesoKg del perfil de
+            // dieta), así que regeneramos los dos con el peso actual.
             ref.read(nutritionProvider.notifier).generateDietPlan();
+            if (ref.read(workoutProvider).plan != null) {
+              ref.read(workoutProvider.notifier).generateRoutinePlan();
+            }
           },
         );
       }

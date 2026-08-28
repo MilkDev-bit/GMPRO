@@ -126,35 +126,36 @@ async function reconcilePlanFoods(plan, deps = {}) {
   }
 
   // ── 2-4. Resolver alimento por alimento ─────────────────────────────────────
-  for (const food of allFoods) {
+  // Resuelve UN alimento (barcode local → OFF por barcode → nombre). Devuelve
+  // 'verified' | 'degraded'. Es async y sin efectos compartidos peligrosos: los
+  // push a `corrections` sobre un array son seguros en el bucle de eventos de Node.
+  const resolveFood = async (food) => {
     const code = normalizeBarcode(food.codigo_barras);
 
-    // (1) Catálogo local
+    // (1) Catálogo local por barcode
     if (code && catalogMap.has(code)) {
       applyVerifiedSource(food, { ...catalogMap.get(code), codigo_barras: code }, 'catalogo_local');
-      verified++;
-      continue;
+      return 'verified';
     }
 
-    // (2) Open Food Facts
+    // (2) Open Food Facts por barcode
     if (useOpenFoodFacts && code) {
       const off = await fetchOpenFoodFactsProduct(code, offTimeoutMs);
       if (off) {
         applyVerifiedSource(food, off, 'open_food_facts');
-        verified++;
-        continue;
+        return 'verified';
       }
     }
 
-    // (3) Búsqueda por nombre en catálogo local
+    // (3) Búsqueda por nombre (catálogo local → OFF en vivo, dentro del fitness-service)
     if (typeof lookupByName === 'function' && food.nombre) {
       try {
         const byName = await lookupByName(food.nombre);
-        if (byName && byName.codigo_barras) {
+        // Aceptamos el match aunque no traiga barcode (OFF a veces no lo da): lo que
+        // importa son los macros. Con calorías válidas, lo damos por verificado.
+        if (byName && Number(byName.calorias_100g) > 0) {
           applyVerifiedSource(food, byName, 'coincidencia_por_nombre');
-          corrections.push(`"${food.nombre}": barcode alucinado ${code || 's/n'} → ${byName.codigo_barras} (match por nombre).`);
-          verified++;
-          continue;
+          return 'verified';
         }
       } catch (err) {
         logger.debug('Búsqueda por nombre falló', { nombre: food.nombre, error: err.message });
@@ -162,11 +163,19 @@ async function reconcilePlanFoods(plan, deps = {}) {
     }
 
     // (4) Degradación controlada: no persistir un producto inexistente
-    corrections.push(`"${food.nombre || 's/n'}": barcode ${code || 's/n'} no verificable → degradado a estimación.`);
+    corrections.push(`"${food.nombre || 's/n'}": no verificable → macros estimados.`);
     food.codigo_barras      = null;
     food.es_open_food_facts = false;
     food.verificado         = 'estimado_ia';
-    degraded++;
+    return 'degraded';
+  };
+
+  // PARALELO con límite de concurrencia: antes se resolvía en serie y cada OFF (≤5s)
+  // se sumaba, haciendo lenta la generación. En tandas de 6 baja drásticamente.
+  const CONCURRENCY = 6;
+  for (let i = 0; i < allFoods.length; i += CONCURRENCY) {
+    const results = await Promise.all(allFoods.slice(i, i + CONCURRENCY).map(resolveFood));
+    for (const r of results) (r === 'verified') ? verified++ : degraded++;
   }
 
   plan._food_check = { verificados: verified, degradados: degraded, total: allFoods.length };

@@ -198,9 +198,13 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
   String lastIngredientes = '';
   /// Peso con el que se generó el plan ACTUAL (base para detectar descompensación).
   double lastPlanPesoKg = 0;
+  /// Fecha en que se generó el plan actual: el "drift" solo cuenta si te pesaste
+  /// DESPUÉS de esta fecha (si no, no hubo cambio real desde que se creó el plan).
+  DateTime? lastPlanFecha;
 
   /// Peso base del plan vigente (0 si aún no hay plan generado).
   double get planPesoKg => lastPlanPesoKg;
+  DateTime? get planFecha => lastPlanFecha;
 
   /// Carga el perfil persistido al arrancar (para prellenar el formulario y que
   /// Ajustes muestre los datos reales del socio) y la última dieta generada, para
@@ -222,6 +226,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     if (planJson != null) {
       try {
         lastPlanPesoKg = (planJson['peso_base_kg'] as num?)?.toDouble() ?? lastPesoKg;
+        lastPlanFecha = DateTime.tryParse(planJson['peso_base_fecha'] as String? ?? '');
         final plan = await NutritionPlan.parseInBackground(planJson);
         if (mounted) state = state.copyWith(plan: plan);
         // Con plan restaurado, cargamos el consumo REAL de hoy (calorías/agua).
@@ -317,9 +322,11 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
 
       if (response.data['success'] == true && response.data['data'] != null) {
         final raw = response.data['data'] as Map<String, dynamic>;
-        // Peso con el que se calculó ESTE plan (base para detectar descompensación).
+        // Peso y fecha con los que se calculó ESTE plan (base del drift).
         lastPlanPesoKg = lastPesoKg;
+        lastPlanFecha = DateTime.now();
         raw['peso_base_kg'] = lastPesoKg;
+        raw['peso_base_fecha'] = lastPlanFecha!.toIso8601String();
         final plan = await NutritionPlan.parseInBackground(raw);
         // Persistimos el JSON crudo: al reabrir/recompilar la app se rehidrata
         // en _loadProfile en vez de perderse (antes solo vivía en memoria).
