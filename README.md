@@ -4,6 +4,8 @@
 
 **Ecosistema de gimnasio inteligente** — acceso biométrico por QR, rutinas y nutrición generadas por IA sobre bases científicas, y seguimiento de progreso en tiempo real.
 
+[![Descargar APK](https://img.shields.io/badge/Descargar_APK-GymPro_v1.0-4CAF50?style=for-the-badge&logo=android&logoColor=white)](https://pub-25f932f10fac490a92fe7756b6653087.r2.dev/GymPro_v1.0.apk)
+
 [![Flutter](https://img.shields.io/badge/Flutter-3.13-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.3+-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
