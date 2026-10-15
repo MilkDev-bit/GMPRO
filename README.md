@@ -82,9 +82,9 @@ Monorepo con una app Flutter multiplataforma y microservicios Node.js desacoplad
 
 ```
                         ┌─────────────────────────────┐
-                        │      App Flutter (móvil)     │
-                        │  Clean Arch · Riverpod · UI   │
-                        └───────────────┬───────────────┘
+                        │      App Flutter (móvil)    │
+                        │  Clean Arch · Riverpod · UI │
+                        └───────────────┬─────────────┘
                                         │ HTTPS (JWT)
         ┌───────────────┬───────────────┼───────────────┬────────────────┐
         ▼               ▼               ▼               ▼                ▼
@@ -96,14 +96,14 @@ Monorepo con una app Flutter multiplataforma y microservicios Node.js desacoplad
   └─────┬─────┘  └─────┬─────┘  └─────┬──────┘  └─────┬──────┘  └──────┬──────┘
         │              │              │               │  ▲             │
         └──────────────┴──────────────┴───────────────┘  │  M2M (x-inter-service-secret)
-                                        │                 └──────────────┘
+                                        │                 └──────────────────────────────┘
                              ┌──────────▼───────────┐
                              │  Supabase (Postgres) │  esquemas por servicio + RLS
-                             │  + Storage + Realtime │
+                             │ + Storage + Realtime │
                              └──────────────────────┘
 
         ┌──────────────────────────────────────────────┐
-        │  reception-hardware-controller (Node/Python)  │  torniquetes · lectores QR · impresoras
+        │  reception-hardware-controller (Node/Python) │  torniquetes · lectores QR · impresoras
         └──────────────────────────────────────────────┘
 ```
 
