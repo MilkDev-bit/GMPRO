@@ -269,5 +269,5 @@ Consulta `docs/guides/` para los runbooks detallados.
 Software propietario. Todos los derechos reservados © GymPro. Para uso, licenciamiento o colaboración, contacta al equipo del proyecto.
 
 <div align="center">
-<sub>Hecho con obsesión.</sub>
+<sub>Hecho con sueño y hambre</sub>
 </div>
